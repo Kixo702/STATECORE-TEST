@@ -207,10 +207,61 @@ export default function Organizations() {
         .org-panel-scroll::-webkit-scrollbar { width: 4px; }
         .org-panel-scroll::-webkit-scrollbar-track { background: transparent; }
         .org-panel-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+
+        .org-page-body {
+          max-width: 1180px;
+          margin: 0 auto;
+          padding: 32px 40px;
+        }
+        .org-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 32px;
+          flex-wrap: wrap;
+        }
+        .org-layout {
+          display: grid;
+          grid-template-columns: 1fr 320px;
+          gap: 20px;
+          align-items: start;
+        }
+        .org-card-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .org-panel {
+          background: linear-gradient(160deg, rgba(17,24,39,.95) 0%, rgba(11,15,25,.98) 100%);
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 24px;
+          padding: 22px;
+          position: sticky;
+          top: 24px;
+          backdrop-filter: blur(16px);
+          box-shadow: 0 12px 50px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);
+          max-height: calc(100vh - 80px);
+          overflow-y: auto;
+        }
+        .org-banner { width: 100%; }
+
+        @media (max-width: 900px) {
+          .org-page-body { padding: 24px 20px 32px; }
+          .org-header { align-items: flex-start; }
+          .org-layout { grid-template-columns: 1fr; }
+          .org-panel { position: static; top: auto; max-height: none; }
+        }
+        @media (max-width: 640px) {
+          .org-page-body { padding: 20px 14px 28px; }
+          .org-card-grid { grid-template-columns: 1fr; }
+          .org-panel { border-radius: 20px; padding: 18px; }
+          .org-btn { width: 100%; }
+        }
       `}</style>
 
       {/* ── BANNER ── */}
-      <div style={{ width:'100%', background:'#0b0f19', paddingTop:'16px', paddingBottom:'8px', borderBottom:'1px solid rgba(255,255,255,.05)' }}>
+      <div className="org-banner" style={{ width:'100%', background:'#0b0f19', paddingTop:'16px', paddingBottom:'8px', borderBottom:'1px solid rgba(255,255,255,.05)' }}>
         <div style={{ padding:'0 32px' }}>
           <div style={{ position:'relative', width:'100%', maxHeight:'140px', overflow:'hidden', borderRadius:'16px' }}>
             <img
@@ -227,10 +278,10 @@ export default function Organizations() {
         </div>
       </div>
 
-      <div style={{ padding:'32px 40px' }}>
+      <div className="org-page-body">
 
       {/* ── HEADER ── */}
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:'32px' }}>
+      <div className="org-header">
         <div>
           <div style={{
             fontSize:'10px', color:'#5a6370',
@@ -274,7 +325,7 @@ export default function Organizations() {
       </div>
 
       {/* ── GRID + PANEL ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:'20px', alignItems:'start' }}>
+      <div className="org-layout">
 
         {/* ── ORG CARDS ── */}
         <div>
@@ -286,7 +337,7 @@ export default function Organizations() {
               Загрузка данных…
             </div>
           ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px' }}>
+            <div className="org-card-grid">
               {orgs.map((org, idx) => {
                 const isSel = sel?.name === org.name
                 const isVacant = org.leader === 'Вакантно'
@@ -406,17 +457,8 @@ export default function Organizations() {
 
         {/* ── RIGHT PANEL ── */}
         <div
-          className="org-panel-scroll"
-          style={{
-            background:'linear-gradient(160deg, rgba(17,24,39,.95) 0%, rgba(11,15,25,.98) 100%)',
-            border:'1px solid rgba(255,255,255,.07)',
-            borderRadius:'24px', padding:'22px',
-            position:'sticky', top:'24px',
-            backdropFilter:'blur(16px)',
-            boxShadow:'0 12px 50px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05)',
-            maxHeight:'calc(100vh - 80px)',
-            overflowY:'auto',
-          }}
+          className="org-panel org-panel-scroll"
+          style={{ overflowY:'auto' }}
         >
           {sel ? (
             <div key={sel.name} style={{ animation:'org-fadeUp .28s ease both' }}>
