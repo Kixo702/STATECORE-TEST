@@ -31,7 +31,9 @@ export default function App() {
         setMobileOpen={setMobileOpen}
       />
 
-      <main className="flex-1 overflow-y-auto md:ml-72">
+      <main className="flex-1 overflow-y-auto">
+
+        <div className="max-w-9xl w-full mx-auto px-0">
 
         <MobileHeader
           onMenu={() => setMobileOpen((v) => !v)}
@@ -62,6 +64,8 @@ export default function App() {
         {activePage === 'logs' && (
           <Logs />
         )}
+
+        </div>
 
       </main>
 
