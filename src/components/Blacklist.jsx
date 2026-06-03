@@ -140,10 +140,10 @@ export default function Blacklist() {
         </div>
 
         {/* CONTENT */}
-        <div className="p-10 relative z-10">
+        <div className="p-4 sm:p-6 md:p-10 relative z-10">
           {/* HEADER */}
           <div className="mb-8">
-            <h1 className="text-3xl font-black">
+            <h1 className="text-2xl sm:text-3xl font-black">
               Запреты на вступление в гос.организации
             </h1>
             <p className="text-gray-400 mt-1">
@@ -152,7 +152,7 @@ export default function Blacklist() {
           </div>
 
           {/* SEARCH + FILTER */}
-          <div className="flex gap-3 mb-6">
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-xl w-full">
               <IconSearch />
               <input
@@ -200,7 +200,7 @@ export default function Blacklist() {
           </div>
 
           {/* GRID */}
-          <div className="grid md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {loading ? (
               <div className="text-gray-400">Загрузка...</div>
             ) : filtered.length === 0 ? (

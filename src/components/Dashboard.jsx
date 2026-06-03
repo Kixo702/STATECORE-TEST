@@ -80,11 +80,11 @@ export default function Dashboard() {
       </div>
 
       {/* PAGE CONTENT */}
-      <div className="px-10 py-10 mt-2">
+      <div className="px-4 sm:px-6 md:px-10 py-10 mt-2">
 
         {/* HEADER */}
         <div className="mb-10">
-          <h1 className="text-4xl font-black mb-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2">
             Мониторинг системы
           </h1>
           <p className="text-slate-400">
@@ -93,7 +93,7 @@ export default function Dashboard() {
         </div>
 
         {/* STATS */}
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10">
 
           {statCards.map((card) => (
             <div
@@ -132,7 +132,7 @@ export default function Dashboard() {
         </div>
 
         {/* QUICK ACTIONS */}
-        <div className="grid lg:grid-cols-2 gap-6 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
 
           {/* HERO ACTION */}
           <button className="

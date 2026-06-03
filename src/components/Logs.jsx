@@ -87,13 +87,13 @@ export default function Logs() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8">
 
       {/* Header */}
 
       <div className="mb-10">
 
-        <h1 className="text-4xl font-black mb-2">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2">
           Логи системы
         </h1>
 
@@ -132,7 +132,7 @@ export default function Logs() {
 
       {/* Stats */}
 
-      <div className="grid md:grid-cols-4 gap-5 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-10">
 
         <div className="bg-[#111827] border border-white/5 rounded-3xl p-6">
           <p className="text-slate-400 text-sm">

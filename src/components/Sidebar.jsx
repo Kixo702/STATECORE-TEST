@@ -4,7 +4,9 @@ export default function Sidebar({
   activePage,
   setActivePage,
   user,
-  setUser
+  setUser,
+  mobileOpen,
+  setMobileOpen,
 }) {
 
   const menuItems = [
@@ -52,7 +54,22 @@ export default function Sidebar({
   ]
 
   return (
-    <aside className="w-72 bg-[#0B1220] border-r border-white/5 flex flex-col justify-between">
+    <>
+      {/* Overlay for mobile when sidebar open */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <aside className={`
+        bg-[#0B1220] border-r border-white/5 flex flex-col justify-between
+        md:relative md:translate-x-0 md:flex
+        fixed z-40 inset-y-0 left-0 w-72 transform transition-transform duration-300
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0 md:w-72
+      `}>
 
       {/* TOP */}
       <div>
@@ -112,7 +129,10 @@ export default function Sidebar({
             return (
               <button
                 key={item.id}
-                onClick={() => setActivePage(item.id)}
+                onClick={() => {
+                  setActivePage(item.id)
+                  if (typeof setMobileOpen === 'function') setMobileOpen(false)
+                }}
                 className={`
                   relative w-full flex items-center gap-3
                   px-4 py-3 rounded-xl
