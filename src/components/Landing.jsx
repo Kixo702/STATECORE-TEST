@@ -290,8 +290,14 @@ export default function Landing({ onLogin }) {
 
       setTimeout(() => {
         onLogin({
+          // login is stored in column E (index 4)
           login: found[4],
-          role: found[3] || 'Следящий'
+          // nickname is in column C (index 2)
+          nickname: found[2] || found[4],
+          // human-friendly role name
+          roleName: found[3] || 'Следящий',
+          // keep legacy role key too
+          role: found[3] || 'Следящий',
         })
       }, 900)
 
@@ -339,14 +345,13 @@ export default function Landing({ onLogin }) {
   ]
 
   const orgs = [
-    { name:'LSPD', label:'Полиция', color:'#3b82f6', active:true },
-    { name:'LSFD', label:'Пожарные', color:'#ef4444', active:true },
-    { name:'LSMC', label:'Медицина', color:'#10b981', active:true },
+    { name:'LSPD', label:'Полиция Лос-Сантоса', color:'#3b82f6', active:true },
+    { name:'MCLS', label:'Больница Лос-Сантоса', color:'#10b981', active:true },
     { name:'FBI', label:'Федеральное бюро', color:'#8b5cf6', active:true },
     { name:'GOV', label:'Правительство', color:'#f59e0b', active:true },
-    { name:'FIB', label:'Разведка', color:'#06b6d4', active:false },
-    { name:'ARMY', label:'Армия', color:'#64748b', active:false },
-    { name:'COURT', label:'Суд', color:'#ec4899', active:false },
+    { name:'LVmPD', label:'Полиция Лас-Вентурас', color:'#06b6d4', active:false },
+    { name:'SFPD', label:'Полиция Сан-Фиерро', color:'#64748b', active:false },
+    { name:'MCLV', label:'Больница Лас-Вентурас', color:'#ec4899', active:false },
   ]
 
   const stats = [

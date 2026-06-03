@@ -17,7 +17,7 @@ export default function MobileHeader({ onMenu, title, user }) {
 
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-md bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 font-bold">
-          {user?.username?.[0]?.toUpperCase()}
+          {(user?.nickname || user?.username || user?.login)?.[0]?.toUpperCase()}
         </div>
       </div>
     </header>

@@ -103,12 +103,12 @@ export default function Sidebar({
             <div className="flex items-center gap-3">
 
               <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 font-bold">
-                {user.username?.[0]?.toUpperCase()}
+                {(user.nickname || user.username || user.login)?.[0]?.toUpperCase()}
               </div>
 
               <div className="leading-tight">
                 <div className="font-medium text-white">
-                  @{user.username}
+                  {user.nickname || user.username || user.login}
                 </div>
                 <div className="text-xs text-orange-400">
                   {user.roleName}
