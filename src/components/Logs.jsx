@@ -1,48 +1,73 @@
- import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 export default function Logs() {
 
   const [search, setSearch] = useState('')
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const logs = [
-    {
-      type: 'warn',
-      admin: 'Robert_Kamiya',
-      action: 'Выдал строгий выговор',
-      target: 'LSPD',
-      date: '03.06.2026 14:22'
-    },
+  // Подставь сюда свою таблицу/лист логов при необходимости
+  const LOGS_URL =
+    'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/gviz/tq?tqx=out:csv&sheet=Logs'
 
-    {
-      type: 'leader',
-      admin: 'Robert_Kamiya',
-      action: 'Назначил лидера',
-      target: 'FBI',
-      date: '03.06.2026 13:01'
-    },
+  useEffect(() => {
+    fetchData()
+  }, [])
 
-    {
-      type: 'blacklist',
-      admin: 'Robert_Kamiya',
-      action: 'Добавил игрока в blacklist',
-      target: 'Nick_Ross',
-      date: '03.06.2026 12:44'
-    },
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${LOGS_URL}&cacheBust=${Date.now()}`)
+      const csv = await res.text()
 
-    {
-      type: 'remove',
-      admin: 'Robert_Kamiya',
-      action: 'Снял лидера',
-      target: 'LSMC',
-      date: '03.06.2026 11:16'
+      const rows = csv.split('\n').map((r) => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
+      if (rows.length === 0) {
+        setLogs([])
+        return
+      }
+
+      const headers = rows[0].map((h) => (h || '').replace(/"/g, '').trim().toLowerCase())
+
+      const parsed = rows.slice(1).map((r) => {
+        const obj = {}
+        r.forEach((c, i) => {
+          obj[headers[i] || `col${i}`] = (c || '').replace(/"/g, '').trim()
+        })
+        return obj
+      }).filter((x) => Object.keys(x).length > 0)
+
+      // Нормализуем поля к ожидаемым
+      const normalized = parsed.map((p) => ({
+        type: (p.type || p.action_type || p['action type'] || '').toLowerCase(),
+        admin: p.admin || p.administrator || p['performed by'] || p.user || '',
+        action: p.action || p.event || p.description || '',
+        target: p.target || p.entity || p.subject || '',
+        date: p.date || p.datetime || p.time || p.timestamp || '',
+      }))
+
+      setLogs(normalized)
+    } catch (e) {
+      console.error(e)
+      setLogs([])
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
-  const filteredLogs = logs.filter((log) =>
-    log.target
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  )
+  const filteredLogs = useMemo(() => {
+    const s = search.toLowerCase()
+    return logs.filter((log) => (log.target || '').toLowerCase().includes(s) || (log.action || '').toLowerCase().includes(s) || (log.admin || '').toLowerCase().includes(s))
+  }, [logs, search])
+
+  const stats = useMemo(() => {
+    const total = logs.length
+    const byType = logs.reduce((acc, l) => {
+      const t = l.type || 'other'
+      acc[t] = (acc[t] || 0) + 1
+      return acc
+    }, {})
+    return { total, byType }
+  }, [logs])
 
   const getTypeColor = (type) => {
 
@@ -87,153 +112,88 @@ export default function Logs() {
   }
 
   return (
-    <div className="p-4 sm:p-6 md:p-8">
+    <div className="text-white bg-[#0b0f19] min-h-screen">
 
-      {/* Header */}
+      <div className="px-4 sm:px-6 md:px-10 py-10 mt-2">
 
-      <div className="mb-10">
-
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2">
-          Логи системы
-        </h1>
-
-        <p className="text-slate-400">
-          История действий следящей администрации
-        </p>
-
-      </div>
-
-      {/* Search */}
-
-      <div className="mb-8">
-
-        <input
-          type="text"
-          placeholder="Поиск по логам..."
-          value={search}
-          onChange={(e) =>
-            setSearch(e.target.value)
-          }
-          className="
-            w-full
-            bg-[#111827]
-            border
-            border-white/10
-            rounded-2xl
-            px-5
-            py-4
-            text-white
-            focus:outline-none
-            focus:border-orange-500
-          "
-        />
-
-      </div>
-
-      {/* Stats */}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-10">
-
-        <div className="bg-[#111827] border border-white/5 rounded-3xl p-6">
-          <p className="text-slate-400 text-sm">
-            Всего действий
-          </p>
-
-          <h2 className="text-4xl font-black mt-2">
-            142
-          </h2>
+        {/* Header */}
+        <div className="mb-10">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2">
+            Логи системы
+          </h1>
+          <p className="text-slate-400">История действий следящей администрации</p>
         </div>
 
-        <div className="bg-[#111827] border border-white/5 rounded-3xl p-6">
-          <p className="text-slate-400 text-sm">
-            Назначений
-          </p>
-
-          <h2 className="text-4xl font-black mt-2 text-emerald-400">
-            24
-          </h2>
+        {/* Search */}
+        <div className="mb-8">
+          <input
+            type="text"
+            placeholder="Поиск по логам..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-[#111827] border border-white/10 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-orange-500"
+          />
         </div>
 
-        <div className="bg-[#111827] border border-white/5 rounded-3xl p-6">
-          <p className="text-slate-400 text-sm">
-            Выговоров
-          </p>
-
-          <h2 className="text-4xl font-black mt-2 text-red-400">
-            81
-          </h2>
-        </div>
-
-        <div className="bg-[#111827] border border-white/5 rounded-3xl p-6">
-          <p className="text-slate-400 text-sm">
-            Blacklist
-          </p>
-
-          <h2 className="text-4xl font-black mt-2 text-orange-400">
-            37
-          </h2>
-        </div>
-
-      </div>
-
-      {/* Logs */}
-
-      <div className="space-y-4">
-
-        {filteredLogs.map((log, index) => (
-
-          <div
-            key={index}
-            className={`
-              border
-              rounded-3xl
-              p-6
-              ${getTypeColor(log.type)}
-            `}
-          >
-
-            <div className="flex items-center justify-between">
-
-              <div className="flex items-center gap-5">
-
-                <div className="text-3xl">
-                  {getTypeIcon(log.type)}
-                </div>
-
-                <div>
-
-                  <h3 className="text-xl font-black">
-                    {log.action}
-                  </h3>
-
-                  <p className="text-slate-300 mt-1">
-                    {log.admin}
-                  </p>
-
-                </div>
-
-              </div>
-
-              <div className="text-right">
-
-                <h4 className="font-bold text-lg">
-                  {log.target}
-                </h4>
-
-                <p className="text-slate-400 text-sm">
-                  {log.date}
-                </p>
-
-              </div>
-
-            </div>
-
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-10">
+          <div className="bg-[#111827] border border-white/5 rounded-3xl p-6 hover:border-orange-500/20 hover:shadow-xl transition-all duration-300">
+            <p className="text-slate-400 text-sm">Всего действий</p>
+            <h2 className="text-4xl font-black mt-2">{loading ? '...' : stats.total}</h2>
           </div>
 
-        ))}
+          <div className="bg-[#111827] border border-white/5 rounded-3xl p-6 hover:border-orange-500/20 hover:shadow-xl transition-all duration-300">
+            <p className="text-slate-400 text-sm">Назначений</p>
+            <h2 className="text-4xl font-black mt-2 text-emerald-400">{stats.byType.leader || 0}</h2>
+          </div>
+
+          <div className="bg-[#111827] border border-white/5 rounded-3xl p-6 hover:border-orange-500/20 hover:shadow-xl transition-all duration-300">
+            <p className="text-slate-400 text-sm">Выговоров</p>
+            <h2 className="text-4xl font-black mt-2 text-red-400">{stats.byType.warn || 0}</h2>
+          </div>
+
+          <div className="bg-[#111827] border border-white/5 rounded-3xl p-6 hover:border-orange-500/20 hover:shadow-xl transition-all duration-300">
+            <p className="text-slate-400 text-sm">Blacklist</p>
+            <h2 className="text-4xl font-black mt-2 text-orange-400">{stats.byType.blacklist || 0}</h2>
+          </div>
+        </div>
+
+        {/* Logs list */}
+        <div className="bg-[#111827] border border-white/5 rounded-3xl p-6">
+
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-black">Последние логи</h2>
+            <button className="text-blue-400 hover:text-blue-300 transition">Все логи →</button>
+          </div>
+
+          <div className="space-y-4">
+            {filteredLogs.map((log, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between bg-black/20 rounded-2xl p-4 hover:bg-black/30 hover:translate-x-1 transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-xl ${getTypeColor(log.type)}`}>
+                    <div className="text-2xl">{getTypeIcon(log.type)}</div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold">{log.admin}</h4>
+                    <p className="text-slate-400 text-sm">{log.action}</p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="font-semibold">{log.target}</p>
+                  <p className="text-xs text-slate-500">{log.date}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </div>
 
       </div>
-
     </div>
   )
 }
