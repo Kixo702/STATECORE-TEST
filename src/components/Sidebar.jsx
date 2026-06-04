@@ -90,7 +90,7 @@ export default function Sidebar({
                 State<span className="text-orange-400">Core</span>
               </div>
               <div className="text-[11px] text-slate-500">
-                ONLINE RP [01] TEXAS
+                Панель управления государственным структурами
               </div>
             </div>
 
