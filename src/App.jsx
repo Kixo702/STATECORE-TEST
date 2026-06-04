@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 import Landing from './components/Landing'
 import Dashboard from './components/Dashboard'
@@ -12,10 +12,32 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [activePage, setActivePage] = useState('dashboard')
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
+
+  // При старте — восстанавливаем сессию из localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sc_user')
+      if (saved) {
+        setUser(JSON.parse(saved))
+      }
+    } catch {
+      localStorage.removeItem('sc_user')
+    }
+    setHydrated(true)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('sc_user')
+    setUser(null)
+  }
+
+  // Пока не прочитали localStorage — ничего не рендерим (нет мигания лендинга)
+  if (!hydrated) return null
 
   // Не авторизован — показываем лендинг
   if (!user) {
-    return <Landing onLogin={setUser} />
+    return <Landing onLogin={setUser} currentUser={null} onLogout={null} />
   }
 
   // Авторизован — обычный лейаут
@@ -29,41 +51,42 @@ export default function App() {
         setUser={setUser}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
+        onLogout={handleLogout}
       />
 
       <main className="flex-1 overflow-y-auto">
 
         <div className="max-w-9xl w-full mx-auto px-0">
 
-        <MobileHeader
-          onMenu={() => setMobileOpen((v) => !v)}
-          title={
-            activePage === 'dashboard'
-              ? 'Мониторинг системы'
-              : activePage === 'organizations'
-              ? 'Организации'
-              : activePage === 'blacklist'
-              ? 'Запреты'
-              : 'Логи'
-          }
-          user={user}
-        />
+          <MobileHeader
+            onMenu={() => setMobileOpen((v) => !v)}
+            title={
+              activePage === 'dashboard'
+                ? 'Мониторинг системы'
+                : activePage === 'organizations'
+                ? 'Организации'
+                : activePage === 'blacklist'
+                ? 'Запреты'
+                : 'Логи'
+            }
+            user={user}
+          />
 
-        {activePage === 'dashboard' && (
-          <Dashboard />
-        )}
+          {activePage === 'dashboard' && (
+            <Dashboard user={user} onLogout={handleLogout} />
+          )}
 
-        {activePage === 'organizations' && (
-          <Organizations />
-        )}
+          {activePage === 'organizations' && (
+            <Organizations />
+          )}
 
-        {activePage === 'blacklist' && (
-          <Blacklist />
-        )}
+          {activePage === 'blacklist' && (
+            <Blacklist />
+          )}
 
-        {activePage === 'logs' && (
-          <Logs />
-        )}
+          {activePage === 'logs' && (
+            <Logs />
+          )}
 
         </div>
 

@@ -7,6 +7,7 @@ export default function Sidebar({
   setUser,
   mobileOpen,
   setMobileOpen,
+  onLogout,
 }) {
 
   const menuItems = [
@@ -89,7 +90,7 @@ export default function Sidebar({
                 State<span className="text-orange-400">Core</span>
               </div>
               <div className="text-[11px] text-slate-500">
-                Government Control Panel
+                ONLINE RP [01] TEXAS
               </div>
             </div>
 
@@ -182,8 +183,8 @@ export default function Sidebar({
 
         <button
           onClick={() => {
-            setUser(null)
-            window.location.reload()
+            if (onLogout) onLogout()
+            else { setUser(null); window.location.reload() }
           }}
           className="
             w-full py-3 rounded-xl
