@@ -1,0 +1,42 @@
+[
+  {
+    "id": "user-1",
+    "login": "kixo",
+    "nickname": "Kixo",
+    "vk": "https://vk.com/kixo",
+    "forum": "",
+    "password": "pass",
+    "registeredAt": "2024-01-10T12:34:00.000Z",
+    "roleName": "Игрок"
+  },
+  {
+    "id": "user-2",
+    "login": "Kamiya",
+    "nickname": "Kamiya",
+    "vk": "https://vk.com/kamiya",
+    "forum": "",
+    "password": "pass",
+    "registeredAt": "2024-02-02T09:12:00.000Z",
+    "roleName": "Следящий"
+  },
+  {
+    "id": "user-3",
+    "login": "alex",
+    "nickname": "Alex",
+    "vk": "",
+    "forum": "",
+    "password": "123",
+    "registeredAt": "2024-03-15T18:00:00.000Z",
+    "roleName": "Лидер"
+  },
+  {
+    "id": "user-4",
+    "login": "ivan",
+    "nickname": "Ivan",
+    "vk": "",
+    "forum": "",
+    "password": "123",
+    "registeredAt": "2024-04-01T08:00:00.000Z",
+    "roleName": "Администратор"
+  }
+]

@@ -50,10 +50,31 @@ export default function Users({ currentUser }) {
   const [saved, setSaved] = useState(null)   // userId just saved
   const [confirmModal, setConfirmModal] = useState(null) // { user, role }
 
-  const allUsers = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('sc_users') || '[]')
-    } catch { return [] }
+  // Load users: prefer `localStorage.sc_users`, otherwise fetch shared `public/sc_users.json`
+  const [allUsers, setAllUsers] = useState([])
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const raw = localStorage.getItem('sc_users')
+        if (raw) {
+          const users = JSON.parse(raw)
+          if (mounted) setAllUsers(users)
+          return
+        }
+        // fallback to bundled public file (served at /sc_users.json)
+        const resp = await fetch('/sc_users.json')
+        if (!resp.ok) {
+          if (mounted) setAllUsers([])
+          return
+        }
+        const users = await resp.json()
+        if (mounted) setAllUsers(users || [])
+      } catch (e) {
+        if (mounted) setAllUsers([])
+      }
+    })()
+    return () => { mounted = false }
   }, [saved]) // re-read after save
 
   const filtered = useMemo(() => {
