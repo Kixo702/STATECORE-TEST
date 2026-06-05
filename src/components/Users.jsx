@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 const ROLES = [
   { value: 'Игрок',             color: '#6b7280' },
@@ -57,18 +57,44 @@ export default function Users({ currentUser }) {
     ;(async () => {
       try {
         const raw = localStorage.getItem('sc_users')
+        let users = []
         if (raw) {
-          const users = JSON.parse(raw)
-          if (mounted) setAllUsers(users)
-          return
+          users = JSON.parse(raw)
+        } else {
+          // fallback to bundled public file (served at /sc_users.json)
+          const resp = await fetch('/sc_users.json')
+          if (resp && resp.ok) {
+            users = await resp.json()
+            // persist bundled list to localStorage so it's shared locally
+            try { localStorage.setItem('sc_users', JSON.stringify(users || [])) } catch(e) {}
+          }
         }
-        // fallback to bundled public file (served at /sc_users.json)
-        const resp = await fetch('/sc_users.json')
-        if (!resp.ok) {
-          if (mounted) setAllUsers([])
-          return
-        }
-        const users = await resp.json()
+
+        // Merge current session user (sc_user) into users if present
+        try {
+          const sessionRaw = localStorage.getItem('sc_user')
+          if (sessionRaw) {
+            const session = JSON.parse(sessionRaw)
+            if (session && session.id) {
+              const exists = users.find(x => x.id === session.id || (x.login && x.login.toLowerCase() === (session.login || '').toLowerCase()))
+              if (!exists) {
+                const toAdd = {
+                  id: session.id,
+                  login: session.login || session.vk || session.forum || session.id,
+                  nickname: session.nickname || session.login || session.vk || session.forum || '—',
+                  vk: session.vk || '',
+                  forum: session.forum || '',
+                  password: '',
+                  registeredAt: session.registeredAt || new Date().toISOString(),
+                  roleName: session.roleName || 'Игрок',
+                }
+                users.push(toAdd)
+                try { localStorage.setItem('sc_users', JSON.stringify(users)) } catch(e) {}
+              }
+            }
+          }
+        } catch(e) { /* ignore */ }
+
         if (mounted) setAllUsers(users || [])
       } catch (e) {
         if (mounted) setAllUsers([])
