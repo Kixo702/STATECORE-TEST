@@ -46,6 +46,26 @@ export default function Profile({ user, onUpdate }) {
     try { return JSON.parse(localStorage.getItem(logsKey)) || [] } catch { return [] }
   })
 
+  // Offer to add current session user to shared `sc_users` when missing
+  const [showAddSharedModal, setShowAddSharedModal] = useState(false)
+  const [addingShared, setAddingShared] = useState(false)
+
+  useEffect(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('sc_user') || 'null')
+      if (!session || !session.id) return
+      const raw = localStorage.getItem('sc_users')
+      let users = null
+      if (raw) {
+        users = JSON.parse(raw)
+      }
+      const exists = Array.isArray(users) && users.find(x => x.id === session.id || (x.login && session.login && x.login.toLowerCase() === (session.login || '').toLowerCase()))
+      if (!exists) {
+        setShowAddSharedModal(true)
+      }
+    } catch (e) { /* ignore */ }
+  }, [])
+
   // Nickname editing
   const [editingNick, setEditingNick] = useState(false)
   const [nickValue, setNickValue] = useState(data.nickname)
@@ -84,6 +104,42 @@ export default function Profile({ user, onUpdate }) {
       setNickSaving(false)
       setNickError('')
     }, 400)
+  }
+
+  const addSessionToShared = async () => {
+    try {
+      setAddingShared(true)
+      const session = JSON.parse(localStorage.getItem('sc_user') || 'null')
+      if (!session || !session.id) return
+      // load existing sc_users or fallback to /sc_users.json
+      let users = []
+      try {
+        const raw = localStorage.getItem('sc_users')
+        if (raw) users = JSON.parse(raw)
+        else {
+          const resp = await fetch('/sc_users.json')
+          if (resp && resp.ok) users = await resp.json()
+        }
+      } catch(e) { users = [] }
+
+      const exists = users.find(x => x.id === session.id || (x.login && session.login && x.login.toLowerCase() === (session.login || '').toLowerCase()))
+      if (!exists) {
+        const toAdd = {
+          id: session.id,
+          login: session.login || session.vk || session.forum || session.id,
+          nickname: session.nickname || session.login || session.vk || session.forum || '—',
+          vk: session.vk || '',
+          forum: session.forum || '',
+          password: '',
+          registeredAt: session.registeredAt || new Date().toISOString(),
+          roleName: session.roleName || 'Игрок'
+        }
+        users.push(toAdd)
+        try { localStorage.setItem('sc_users', JSON.stringify(users)) } catch(e) { console.error(e) }
+        pushLog('Добавлен в общую базу пользователей')
+      }
+      setShowAddSharedModal(false)
+    } finally { setAddingShared(false) }
   }
 
   // Copy UID
@@ -411,6 +467,24 @@ export default function Profile({ user, onUpdate }) {
           </div>
 
         </div>
+
+        {/* Add to shared users modal */}
+        {showAddSharedModal && (
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.6)' }} onClick={() => setShowAddSharedModal(false)} />
+            <div style={{ background: '#0e1829', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, padding: 24, width: 420, zIndex: 1210 }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#ff8c00', marginBottom: 8 }}>Добавление в общую базу</div>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Добавить вас в общую базу пользователей?</div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', marginBottom: 18 }}>Если согласны — нажмите «Да». Ваши данные из сессии будут добавлены в sc_users.</div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={addSessionToShared} disabled={addingShared} style={{ flex: 1, padding: '10px 12px', borderRadius: 10, background: '#ff8c00', color: '#08101a', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                  {addingShared ? 'Добавление...' : 'Да, добавить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
