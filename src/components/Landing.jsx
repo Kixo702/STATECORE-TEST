@@ -2,9 +2,6 @@
 import banner from '../assets/banner.png'
 import viteLogo from '../assets/vite.svg';
 
-const SHEETS_URL =
-  'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/gviz/tq?tqx=out:csv&sheet=Logins%20and%20passwords'
-
 // ── Icons ─────────────────────────────────────────────────────
 const IC = {
   shield: (s=22) => (
@@ -238,6 +235,15 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
   const [modalVisible, setModalVisible] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [remember, setRemember] = useState(true)
+  // registration fields
+  const [regLogin, setRegLogin] = useState('')
+  const [regNickname, setRegNickname] = useState('')
+  const [regVk, setRegVk] = useState('')
+  const [regForum, setRegForum] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regPassword2, setRegPassword2] = useState('')
+  const [regError, setRegError] = useState('')
+  const [regLoading, setRegLoading] = useState(false)
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
@@ -245,10 +251,65 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
-  const openModal = () => { setShowModal(true); setTimeout(() => setModalVisible(true), 10) }
+  const openModal = (initial = 'hero') => { setStep(initial); setShowModal(true); setTimeout(() => setModalVisible(true), 10) }
   const closeModal = () => {
     setModalVisible(false)
     setTimeout(() => { setShowModal(false); setStep('hero'); setError(''); setLogin(''); setPassword('') }, 320)
+  }
+
+  const handleRegister = () => {
+    setRegError('')
+    if (!regLogin.trim()) {
+      setRegError('Укажите логин для входа')
+      return
+    }
+    if (regLogin.trim().length > 10) {
+      setRegError('Логин не может быть длиннее 10 символов')
+      return
+    }
+    if (!regNickname.trim() || !regPassword.trim() || !regPassword2.trim()) {
+      setRegError('Заполните все обязательные поля')
+      return
+    }
+    if (regPassword !== regPassword2) {
+      setRegError('Пароли не совпадают')
+      return
+    }
+    setRegLoading(true)
+    try {
+      const raw = localStorage.getItem('sc_users')
+      const users = raw ? JSON.parse(raw) : []
+      const loginId = regLogin.trim()
+      if (users.find(u => u.login === loginId)) {
+        setRegError('Аккаунт с таким логином уже существует')
+        setRegLoading(false)
+        return
+      }
+      const normalize = s => (s || '').trim().replace(/\/+$/, '')
+      const genUid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2,8))
+      const newUser = {
+        id: genUid(),
+        login: loginId,
+        vk: normalize(regVk),
+        forum: normalize(regForum),
+        password: regPassword,
+        nickname: regNickname.trim(),
+        registeredAt: new Date().toISOString(),
+        roleName: 'Игрок',
+      }
+      users.push(newUser)
+      localStorage.setItem('sc_users', JSON.stringify(users))
+      // auto-login
+      const userData = { id: newUser.id, login: newUser.login, nickname: newUser.nickname, roleName: 'Игрок', vk: newUser.vk, forum: newUser.forum, registeredAt: newUser.registeredAt }
+      localStorage.setItem('sc_user', JSON.stringify(userData))
+      setSuccess(true)
+      setTimeout(() => { onLogin && onLogin(userData) }, 700)
+    } catch (err) {
+      console.error(err)
+      setRegError('Ошибка при регистрации')
+    } finally {
+      setRegLoading(false)
+    }
   }
 
   const handleLogin = async () => {
@@ -259,81 +320,40 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
 
     setLoading(true)
     setError('')
-
     try {
-      const res = await fetch(`${SHEETS_URL}&cacheBust=${Date.now()}`)
-      const csv = await res.text()
-
-      const rows = csv
-        .trim()
-        .split('\n')
-        .map(r => r.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
-          .map(c => c.replace(/"/g, '').trim())
-        )
-
-      const validRows = rows.filter(r => r[4] && r[5])
-
-      console.log(rows)
-
-      const found = rows.find(r =>
-        r[4]?.trim() &&
-        r[5]?.trim() &&
-        r[4].trim() === login.trim() &&
-        r[5].trim() === password.trim()
-      )
-
+      // Проверка в локальном хранилище: база пользователей `sc_users`
+      const raw = localStorage.getItem('sc_users')
+      const users = raw ? JSON.parse(raw) : []
+      const normalize = s => (s || '').trim().replace(/\/+$/, '').toLowerCase()
+      const l = normalize(login)
+      const found = users.find(u => (u.login && normalize(u.login) === l) && u.password === password)
       if (!found) {
         setError('Неверный логин или пароль')
         return
       }
-
       const userData = {
-        login: found[4],
-        nickname: found[2] || found[4],
-        roleName: found[3] || 'Следящий',
-        role: found[3] || 'Следящий',
+        id: found.id,
+        login: found.login || found.vk || found.forum,
+        nickname: found.nickname || found.login || found.vk || found.forum,
+        roleName: found.roleName || 'Игрок',
+        role: found.role || 'player',
+        vk: found.vk || '',
+        forum: found.forum || '',
+        registeredAt: found.registeredAt || null,
       }
-      if (remember) {
-        localStorage.setItem('sc_user', JSON.stringify(userData))
-      } else {
-        localStorage.removeItem('sc_user')
-      }
+      if (remember) localStorage.setItem('sc_user', JSON.stringify(userData))
+      else localStorage.removeItem('sc_user')
       setSuccess(true)
-      setTimeout(() => { onLogin(userData) }, 900)
-
-    } catch (e) {
-      setError('Ошибка подключения к базе')
+      setTimeout(() => { onLogin && onLogin(userData) }, 700)
+    } catch (err) {
+      console.error(err)
+      setError('Ошибка при проверке учётных данных')
     } finally {
       setLoading(false)
     }
   }
 
-  const roles = [
-    {
-      id:'admin', label:'Следящая Администрация',
-      desc:'Управление организациями, лидерами и выговорами',
-      icon: IC.shield(20), color:'#ff8c00', glow:'rgba(255,140,0,.35)',
-      border:'rgba(255,140,0,.3)',
-      gradient:'linear-gradient(135deg, rgba(255,140,0,.15) 0%, rgba(255,100,0,.06) 100%)',
-      available:true,
-    },
-    {
-      id:'leader', label:'Лидер организации',
-      desc:'Управление составом и внутренними делами',
-      icon: IC.crown(20), color:'#9aa3b0', glow:'rgba(154,163,176,.2)',
-      border:'rgba(255,255,255,.1)',
-      gradient:'linear-gradient(135deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.02) 100%)',
-      available:false,
-    },
-    {
-      id:'deputy', label:'Заместитель организации',
-      desc:'Помощник лидера, ограниченный доступ',
-      icon: IC.users(20), color:'#9aa3b0', glow:'rgba(154,163,176,.2)',
-      border:'rgba(255,255,255,.1)',
-      gradient:'linear-gradient(135deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.02) 100%)',
-      available:false,
-    },
-  ]
+  
 
   const features = [
     { icon: IC.eye(22), color:'#ff8c00', title:'Мониторинг структур', desc:'Отслеживание всех государственных организаций в режиме реального времени. Полная история изменений и событий.' },
@@ -530,19 +550,32 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             )}
           </div>
         ) : (
-          <button
-            className="land-btn"
-            onClick={openModal}
-            style={{
-              display:'flex', alignItems:'center', gap:8,
-              background:'linear-gradient(135deg, #ff8c00 0%, #e06000 100%)',
-              border:'none', color:'#fff', padding:'9px 20px',
-              borderRadius:12, fontSize:13, fontWeight:800, letterSpacing:'0.3px',
-              boxShadow:'0 4px 16px rgba(255,140,0,.3)', cursor:'pointer',
-            }}
-          >
-            Войти {IC.arrow(13)}
-          </button>
+          <div style={{ display:'flex', gap:10 }}>
+            <button
+              className="land-btn"
+              onClick={() => openModal('login')}
+              style={{
+                display:'flex', alignItems:'center', gap:8,
+                background:'linear-gradient(135deg, #ff8c00 0%, #e06000 100%)',
+                border:'none', color:'#fff', padding:'9px 20px',
+                borderRadius:12, fontSize:13, fontWeight:800, letterSpacing:'0.3px',
+                boxShadow:'0 4px 16px rgba(255,140,0,.3)', cursor:'pointer',
+              }}
+            >
+              Войти {IC.arrow(13)}
+            </button>
+            <button
+              className="land-btn"
+              onClick={() => openModal('register')}
+              style={{
+                display:'flex', alignItems:'center', gap:8,
+                background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.1)', color:'#9aa3b0', padding:'9px 20px',
+                borderRadius:12, fontSize:13, fontWeight:700, letterSpacing:'0.3px', cursor:'pointer'
+              }}
+            >
+              Зарегистрироваться
+            </button>
+          </div>
         )}
       </nav>
 
@@ -586,7 +619,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             <div style={{ display:'flex', gap:14, animation:'land-fadeUp .7s ease .4s both' }}>
               <button
                 className="land-btn"
-                onClick={openModal}
+                onClick={() => openModal('login')}
                 style={{
                   display:'flex', alignItems:'center', gap:10,
                   background:'linear-gradient(135deg, #ff8c00 0%, #d95f00 100%)',
@@ -857,7 +890,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
           <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
             <button
               className="land-btn"
-              onClick={openModal}
+              onClick={() => openModal('login')}
               style={{
                 display:'flex', alignItems:'center', gap:10,
                 background:'linear-gradient(135deg, #ff8c00 0%, #d95f00 100%)',
@@ -984,7 +1017,6 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             transition:'all .32s ease',
             display:'flex', alignItems:'center', justifyContent:'center', padding:24,
           }}
-          onClick={e => e.target === e.currentTarget && closeModal()}
         >
           <div style={{
             width:'100%', maxWidth:460,
@@ -1006,55 +1038,17 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
               {IC.x(18)}
             </button>
 
-            {/* STEP: ROLES */}
+            {/* STEP: HERO — выбор входа или регистрации */}
             {step === 'hero' && (
               <div style={{ animation:'land-scaleIn .28s ease both' }}>
-                <div style={{ marginBottom:28 }}>
+                <div style={{ marginBottom:20 }}>
                   <div style={{ fontSize:10, color:'#5a6370', letterSpacing:3, textTransform:'uppercase', marginBottom:8 }}>Авторизация</div>
-                  <h2 style={{ margin:0, fontSize:24, fontWeight:900, letterSpacing:'-0.4px' }}>Выберите роль</h2>
-                  <p style={{ margin:'6px 0 0', fontSize:13, color:'#9aa3b0' }}>Для входа в систему</p>
+                  <h2 style={{ margin:0, fontSize:24, fontWeight:900, letterSpacing:'-0.4px' }}>Войти или зарегистрироваться</h2>
+                  <p style={{ margin:'6px 0 0', fontSize:13, color:'#9aa3b0' }}>Выберите действие</p>
                 </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                  {roles.map((role, i) => (
-                    <div
-                      key={role.id}
-                      className={role.available ? 'land-role-card' : ''}
-                      onClick={() => role.available && setStep('login')}
-                      style={{
-                        background:role.gradient, border:`1px solid ${role.border}`,
-                        borderRadius:16, padding:'16px 18px',
-                        display:'flex', alignItems:'center', gap:14,
-                        cursor: role.available ? 'pointer' : 'default',
-                        opacity: role.available ? 1 : .5,
-                        animation:`land-fadeUp .3s ease ${i * .07}s both`,
-                        position:'relative', overflow:'hidden',
-                      }}
-                      onMouseEnter={e => {
-                        if (!role.available) return
-                        e.currentTarget.style.borderColor = role.color + '80'
-                        e.currentTarget.style.boxShadow = `0 4px 24px ${role.glow}`
-                      }}
-                      onMouseLeave={e => {
-                        if (!role.available) return
-                        e.currentTarget.style.borderColor = role.border
-                        e.currentTarget.style.boxShadow = 'none'
-                      }}
-                    >
-                      <div style={{ width:42, height:42, borderRadius:12, flexShrink:0, background:'rgba(255,255,255,.07)', border:`1px solid ${role.border}`, display:'flex', alignItems:'center', justifyContent:'center', color:role.color }}>
-                        {role.icon}
-                      </div>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontSize:14, fontWeight:800, color: role.available ? '#e8edf3' : '#9aa3b0', marginBottom:3, display:'flex', alignItems:'center', gap:8 }}>
-                          {role.label}
-                          {!role.available && (
-                            <span style={{ fontSize:9, letterSpacing:'1.5px', fontWeight:700, padding:'2px 7px', borderRadius:6, background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)', color:'#5a6370', textTransform:'uppercase' }}>В разработке</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize:11, color:'#5a6370' }}>{role.desc}</div>
-                      </div>
-                      {role.available && <div style={{ color:'rgba(255,140,0,.5)', flexShrink:0 }}>{IC.arrow(16)}</div>}
-                    </div>
-                  ))}
+                <div style={{ display:'flex', gap:12 }}>
+                  <button onClick={() => setStep('login')} className="land-btn" style={{ flex:1, padding:'12px 14px', borderRadius:12, background:'linear-gradient(135deg,#ff8c00 0%,#d95f00 100%)', color:'#fff', border:'none', fontWeight:800 }}>Войти</button>
+                  <button onClick={() => setStep('register')} className="land-btn" style={{ flex:1, padding:'12px 14px', borderRadius:12, background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.1)', color:'#9aa3b0', fontWeight:700 }}>Зарегистрироваться</button>
                 </div>
               </div>
             )}
@@ -1080,7 +1074,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                 <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
                   <div style={{ position:'relative' }}>
                     <span style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,.3)', pointerEvents:'none', display:'flex' }}>{IC.at(13)}</span>
-                    <input type="text" className="land-input" placeholder="Логин" value={login} onChange={e => { setLogin(e.target.value); setError('') }} onKeyDown={e => e.key === 'Enter' && handleLogin()} autoFocus style={{ width:'100%', background:'rgba(255,255,255,.05)', border:`1px solid ${error ? 'rgba(232,80,80,.5)' : 'rgba(255,255,255,.1)'}`, color:'#e8edf3', padding:'12px 14px 12px 36px', borderRadius:12, fontSize:14, fontFamily:'inherit', boxShadow:'inset 0 1px 3px rgba(0,0,0,.2)' }}/>
+                    <input type="text" className="land-input" placeholder="Логин (до 10 символов)" value={login} maxLength={10} onChange={e => { setLogin(e.target.value); setError('') }} onKeyDown={e => e.key === 'Enter' && handleLogin()} autoFocus style={{ width:'100%', background:'rgba(255,255,255,.05)', border:`1px solid ${error ? 'rgba(232,80,80,.5)' : 'rgba(255,255,255,.1)'}`, color:'#e8edf3', padding:'12px 14px 12px 36px', borderRadius:12, fontSize:14, fontFamily:'inherit', boxShadow:'inset 0 1px 3px rgba(0,0,0,.2)' }}/>
                   </div>
                   <div style={{ position:'relative' }}>
                     <span style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,.3)', pointerEvents:'none', display:'flex' }}>{IC.lock(13)}</span>
@@ -1140,6 +1134,77 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                 </p>
               </div>
             )}
+
+              {/* STEP: REGISTER */}
+              {step === 'register' && !success && (
+                <div style={{ animation:'land-scaleIn .28s ease both' }}>
+                  <button
+                    onClick={() => { setStep('hero'); setRegError('') }}
+                    style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', color:'#9aa3b0', fontSize:12, cursor:'pointer', marginBottom:18, padding:0, letterSpacing:'0.5px', transition:'color .15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color='#e8edf3'}
+                    onMouseLeave={e => e.currentTarget.style.color='#9aa3b0'}
+                  >
+                    {IC.chevLeft(15)} Назад
+                  </button>
+                  <div style={{ marginBottom:18 }}>
+                    <div style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:10, color:'#ff8c00', letterSpacing:'2.5px', textTransform:'uppercase', marginBottom:8, fontWeight:700 }}>
+                      Регистрация
+                    </div>
+                    <h2 style={{ margin:0, fontSize:20, fontWeight:900 }}>Создать аккаунт</h2>
+                    <p style={{ margin:'6px 0 0', fontSize:13, color:'#9aa3b0' }}>Логин, никнейм, VK/Forum и пароль</p>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:8 }}>
+                    <div>
+                      <div style={{ fontSize:12, color:'#9aa3b0', marginBottom:6 }}>Логин <span style={{color:'rgba(255,140,0,.7)', fontSize:10}}>макс. 10 символов</span></div>
+                      <input
+                        placeholder="login"
+                        value={regLogin}
+                        maxLength={10}
+                        onChange={e => setRegLogin(e.target.value.replace(/\s/g,''))}
+                        className="land-input"
+                        style={{ width:'100%', padding:'12px', borderRadius:10, background:'rgba(255,255,255,.04)', border:`1px solid ${regLogin.length===10?'rgba(255,140,0,.5)':'rgba(255,255,255,.1)'}`, color:'#e8edf3', fontFamily:'monospace', letterSpacing:'0.5px' }}
+                      />
+                      <div style={{ fontSize:10, color: regLogin.length===10?'#ff8c00':'rgba(255,255,255,.2)', textAlign:'right', marginTop:4 }}>{regLogin.length}/10</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:12, color:'#9aa3b0', marginBottom:6 }}>Никнейм</div>
+                      <input placeholder="Например: Kaitoramirez" value={regNickname} onChange={e => setRegNickname(e.target.value)} className="land-input" style={{ width:'100%', padding:'12px', borderRadius:10, background:'rgba(255,255,255,.04)', border:'1px solid rgba(255,255,255,.1)', color:'#e8edf3' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize:12, color:'#9aa3b0', marginBottom:6 }}>VK (ссылка)</div>
+                      <input type="url" placeholder="https://vk.com/kaitoramirez" value={regVk} onChange={e => setRegVk(e.target.value)} className="land-input" style={{ width:'100%', padding:'12px', borderRadius:10, background:'rgba(255,255,255,.04)', border:'1px solid rgba(255,255,255,.1)', color:'#e8edf3' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize:12, color:'#9aa3b0', marginBottom:6 }}>Форум (ссылка)</div>
+                      <input type="url" placeholder="https://forum.gta-mobile.ru/bestofthebest/" value={regForum} onChange={e => setRegForum(e.target.value)} className="land-input" style={{ width:'100%', padding:'12px', borderRadius:10, background:'rgba(255,255,255,.04)', border:'1px solid rgba(255,255,255,.1)', color:'#e8edf3' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize:12, color:'#9aa3b0', marginBottom:6 }}>Пароль</div>
+                      <input type="password" placeholder="Пароль" value={regPassword} onChange={e => setRegPassword(e.target.value)} className="land-input" style={{ width:'100%', padding:'12px', borderRadius:10, background:'rgba(255,255,255,.04)', border:'1px solid rgba(255,255,255,.1)', color:'#e8edf3' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize:12, color:'#9aa3b0', marginBottom:6 }}>Повтор пароля</div>
+                      <input type="password" placeholder="Повторите пароль" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} className="land-input" style={{ width:'100%', padding:'12px', borderRadius:10, background:'rgba(255,255,255,.04)', border:'1px solid rgba(255,255,255,.1)', color:'#e8edf3' }} />
+                    </div>
+                  </div>
+                  {regError && (
+                    <div style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(232,80,80,.1)', border:'1px solid rgba(232,80,80,.3)', borderRadius:10, padding:'10px 13px', marginBottom:14, fontSize:12, color:'#e85050' }}>
+                      {IC.x(14)} {regError}
+                    </div>
+                  )}
+                  <button
+                    className="land-btn"
+                    onClick={handleRegister}
+                    disabled={regLoading}
+                    style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:10, background: regLoading ? 'rgba(255,140,0,.3)' : 'linear-gradient(135deg, #ff8c00 0%, #e06000 100%)', border:'none', color:'#fff', padding:14, borderRadius:14, fontSize:14, fontWeight:900, letterSpacing:'0.5px' }}
+                  >
+                    {regLoading ? (<><div style={{ width:16, height:16, border:'2px solid rgba(255,255,255,.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'land-spin .7s linear infinite' }}/> Регистрация…</>) : (<> Зарегистрироваться {IC.arrow(16)} </>)}
+                  </button>
+                  <p style={{ textAlign:'center', marginTop:12, fontSize:11, color:'#5a6370' }}>
+                    После регистрации вы автоматически войдёте в систему
+                  </p>
+                </div>
+              )}
 
             {/* STEP: SUCCESS */}
             {success && (

@@ -124,7 +124,9 @@ const ORG_ACCENTS = [
 ]
 
 // ── Main ─────────────────────────────────────────────────────
-export default function Organizations() {
+import { canRemoveLeader } from '../lib/roles'
+
+export default function Organizations({ user }) {
   const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKkpW841ffumVxopzGxtECxH9-4yp-mbQa_8L4_uMrAKVsl3-yrso54sjYQrbo2Ym1/exec'
 
@@ -196,6 +198,10 @@ export default function Organizations() {
   }
 
   const handleSetLeader = () => {
+    if (!canRemoveLeader(user)) {
+      alert('Недостаточно прав для назначения лидера')
+      return
+    }
     send({
       type: 'SET_LEADER',
       rowId: sel.id,
@@ -1025,7 +1031,10 @@ export default function Organizations() {
 
                     <button
                       className="org-btn"
-                      onClick={() => send({ type: 'KICK_LEADER', rowId: sel.id })}
+                      onClick={() => {
+                        if (!canRemoveLeader(user)) { alert('Недостаточно прав для снятия лидера'); return }
+                        send({ type: 'KICK_LEADER', rowId: sel.id })
+                      }}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                         background: 'rgba(239,68,68,.08)',

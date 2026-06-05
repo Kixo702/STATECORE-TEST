@@ -1,4 +1,5 @@
 import logo from '../assets/vite.svg'
+import { canViewMenu } from '../lib/roles'
 
 export default function Sidebar({
   activePage,
@@ -99,7 +100,13 @@ export default function Sidebar({
 
         {/* USER */}
         <div className="px-6 py-5">
-          <div className="bg-white/5 border border-white/5 rounded-2xl p-4">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => { setActivePage('profile'); if (typeof setMobileOpen === 'function') setMobileOpen(false) }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setActivePage('profile'); if (typeof setMobileOpen === 'function') setMobileOpen(false) } }}
+            className="bg-white/5 border border-white/5 rounded-2xl p-4 cursor-pointer"
+          >
 
             <div className="flex items-center gap-3">
 
@@ -109,11 +116,21 @@ export default function Sidebar({
 
               <div className="leading-tight">
                 <div className="font-medium text-white">
-                  {user.nickname || user.username || user.login}
+                  {user?.nickname || user?.username || user?.login || 'Гость'}
                 </div>
                 <div className="text-xs text-orange-400">
-                  {user.roleName}
+                  {user?.roleName || 'Игрок'}
                 </div>
+                {(user?.vk || user?.forum) && (
+                  <div className="text-[12px] mt-1 text-slate-400 flex items-center gap-3">
+                    {user?.vk && (
+                      <a href={user.vk.startsWith('http') ? user.vk : `https://${user.vk}`} target="_blank" rel="noreferrer" className="hover:underline text-slate-300">VK</a>
+                    )}
+                    {user?.forum && (
+                      <a href={user.forum.startsWith('http') ? user.forum : `https://${user.forum}`} target="_blank" rel="noreferrer" className="hover:underline text-slate-300">Форум</a>
+                    )}
+                  </div>
+                )}
               </div>
 
             </div>
@@ -124,7 +141,9 @@ export default function Sidebar({
         {/* MENU */}
         <div className="px-3 space-y-1">
 
-          {menuItems.map((item) => {
+          {menuItems
+            .filter((item) => canViewMenu(user, item.id))
+            .map((item) => {
             const active = activePage === item.id
 
             return (

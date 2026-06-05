@@ -7,12 +7,34 @@ import Blacklist from './components/Blacklist'
 import Logs from './components/Logs'
 import Sidebar from './components/Sidebar'
 import MobileHeader from './components/MobileHeader'
+import Profile from './components/Profile'
 
 export default function App() {
   const [user, setUser] = useState(null)
   const [activePage, setActivePage] = useState('dashboard')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
+
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+
+    const code = params.get('code')
+
+    if (code) {
+      const genUid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2,8))
+      const user = {
+        id: genUid(),
+        name: 'VK User',
+        vkCode: code,
+        registeredAt: new Date().toISOString(),
+      }
+
+      localStorage.setItem('sc_user', JSON.stringify(user))
+      setUser(user)
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
 
   // При старте — восстанавливаем сессию из localStorage
   useEffect(() => {
@@ -77,7 +99,7 @@ export default function App() {
           )}
 
           {activePage === 'organizations' && (
-            <Organizations />
+            <Organizations user={user} />
           )}
 
           {activePage === 'blacklist' && (
@@ -86,6 +108,10 @@ export default function App() {
 
           {activePage === 'logs' && (
             <Logs />
+          )}
+
+          {activePage === 'profile' && (
+            <Profile user={user} />
           )}
 
         </div>

@@ -1,0 +1,76 @@
+// Roles and permission helpers
+const ROLE_FULL = 'Главный Разработчик'
+const ROLE_CHIEF = 'Главный Следящий'
+const ROLE_DEPUTY = 'Заместитель Главного Следящего'
+const ROLE_WATCHER = 'Следящий'
+const ROLE_PLAYER = 'Игрок'
+const LEADER_PREFIX = 'Лидер'
+
+// helper: безопасно получить и нормализовать roleName
+function _roleName(user) {
+  if (!user) return ROLE_PLAYER
+  const rn = user.roleName
+  if (typeof rn !== 'string') return ROLE_PLAYER
+  return rn.trim()
+}
+
+// Permissions matrix (derivable from role)
+export function isFullAccess(user) {
+  return _roleName(user) === ROLE_FULL
+}
+
+export function isChief(user) {
+  return _roleName(user) === ROLE_CHIEF
+}
+
+export function isDeputy(user) {
+  return _roleName(user) === ROLE_DEPUTY
+}
+
+export function isWatcher(user) {
+  return _roleName(user) === ROLE_WATCHER
+}
+
+export function isLeader(user) {
+  const rn = _roleName(user)
+  return rn.startsWith(LEADER_PREFIX)
+}
+
+export function isPlayer(user) {
+  return _roleName(user) === ROLE_PLAYER
+}
+
+// action checks
+export function canViewAll(user) {
+  return isFullAccess(user) || isChief(user) || isDeputy(user) || isLeader(user) || isWatcher(user)
+}
+
+export function canIssueReprimand(user) {
+  // Следящие и выше могут выдавать выговор
+  return isFullAccess(user) || isChief(user) || isDeputy(user) || isWatcher(user)
+}
+
+export function canRemoveLeader(user) {
+  // Только Зам и Главный Следящий и полный доступ
+  return isFullAccess(user) || isChief(user) || isDeputy(user)
+}
+
+// menu visibility helper
+export function canViewMenu(user, menuId) {
+  if (!menuId || typeof menuId !== 'string') return false
+  // treat missing user as player
+  if (!user) user = { roleName: ROLE_PLAYER }
+  const id = menuId.toLowerCase()
+  // Players see only logs and blacklist
+  if (isPlayer(user)) return ['logs', 'blacklist'].includes(id)
+  // Leaders and watchers and chiefs see everything in sidebar (except admin-only controls elsewhere)
+  if (canViewAll(user)) return true
+  // fallback: deny
+  return false
+}
+
+export default {
+  ROLE_FULL, ROLE_CHIEF, ROLE_DEPUTY, ROLE_WATCHER, ROLE_PLAYER, LEADER_PREFIX,
+  isFullAccess, isChief, isDeputy, isWatcher, isLeader, isPlayer,
+  canViewAll, canIssueReprimand, canRemoveLeader, canViewMenu,
+}
