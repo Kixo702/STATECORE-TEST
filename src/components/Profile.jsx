@@ -87,9 +87,13 @@ export default function Profile({ user, onUpdate }) {
     setTimeout(() => {
       try {
         // Update sc_user
-        const stored = JSON.parse(localStorage.getItem('sc_user') || '{}')
-        stored.nickname = trimmed
-        localStorage.setItem('sc_user', JSON.stringify(stored))
+          let stored = {}
+          try {
+            const sraw = localStorage.getItem('sc_user')
+            stored = (sraw && sraw !== 'undefined' && sraw !== 'null') ? JSON.parse(sraw) : {}
+          } catch(e) { stored = {} }
+          stored.nickname = trimmed
+          localStorage.setItem('sc_user', JSON.stringify(stored))
         // Update sc_users list
         const raw = localStorage.getItem('sc_users')
         if (raw) {

@@ -31,7 +31,7 @@ export default function App() {
         registeredAt: new Date().toISOString(),
       }
 
-      localStorage.setItem('sc_user', JSON.stringify(user))
+      try { localStorage.setItem('sc_user', JSON.stringify(user)) } catch(e) { console.error('set sc_user failed', e) }
       setUser(user)
       window.history.replaceState({}, document.title, window.location.pathname)
     }

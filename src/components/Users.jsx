@@ -52,7 +52,9 @@ export default function Users({ currentUser }) {
 
   const allUsers = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('sc_users') || '[]')
+      const raw = localStorage.getItem('sc_users')
+      if (!raw || raw === 'undefined' || raw === 'null') return []
+      return JSON.parse(raw)
     } catch { return [] }
   }, [saved]) // re-read after save
 
@@ -83,20 +85,32 @@ export default function Users({ currentUser }) {
     setSaving(u.id)
     setTimeout(() => {
       try {
-        const users = JSON.parse(localStorage.getItem('sc_users') || '[]')
+        let users = []
+        try {
+          const raw = localStorage.getItem('sc_users')
+          users = (raw && raw !== 'undefined' && raw !== 'null') ? JSON.parse(raw) : []
+        } catch(e) { users = [] }
         const idx = users.findIndex(x => x.id === u.id)
         if (idx !== -1) {
           users[idx].roleName = newRole
           localStorage.setItem('sc_users', JSON.stringify(users))
           // Update sc_user session if it's the current user (edge case)
-          const session = JSON.parse(localStorage.getItem('sc_user') || '{}')
+          let session = {}
+          try {
+            const sraw = localStorage.getItem('sc_user')
+            session = (sraw && sraw !== 'undefined' && sraw !== 'null') ? JSON.parse(sraw) : {}
+          } catch(e) { session = {} }
           if (session.id === u.id) {
             session.roleName = newRole
             localStorage.setItem('sc_user', JSON.stringify(session))
           }
           // Write change log for target user
           const logsKey = `sc_logs_${u.id}`
-          const logs = JSON.parse(localStorage.getItem(logsKey) || '[]')
+          let logs = []
+          try {
+            const lraw = localStorage.getItem(logsKey)
+            logs = (lraw && lraw !== 'undefined' && lraw !== 'null') ? JSON.parse(lraw) : []
+          } catch(e) { logs = [] }
           logs.unshift({ text: `Роль изменена: «${u.roleName || 'Игрок'}» → «${newRole}» (Главным Следящим)`, at: new Date().toISOString() })
           localStorage.setItem(logsKey, JSON.stringify(logs.slice(0, 30)))
         }

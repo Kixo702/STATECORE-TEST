@@ -278,7 +278,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
     setRegLoading(true)
     try {
       const raw = localStorage.getItem('sc_users')
-      const users = raw ? JSON.parse(raw) : []
+      const users = (raw && raw !== 'undefined' && raw !== 'null') ? JSON.parse(raw) : []
       const loginId = regLogin.trim()
       if (users.find(u => u.login === loginId)) {
         setRegError('Аккаунт с таким логином уже существует')
@@ -323,7 +323,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
     try {
       // Проверка в локальном хранилище: база пользователей `sc_users`
       const raw = localStorage.getItem('sc_users')
-      const users = raw ? JSON.parse(raw) : []
+      const users = (raw && raw !== 'undefined' && raw !== 'null') ? JSON.parse(raw) : []
       const normalize = s => (s || '').trim().replace(/\/+$/, '').toLowerCase()
       const l = normalize(login)
       const found = users.find(u => (u.login && normalize(u.login) === l) && u.password === password)
