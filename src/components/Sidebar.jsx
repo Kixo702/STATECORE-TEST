@@ -35,6 +35,17 @@ export default function Sidebar({
       )
     },
     {
+      id: 'users',
+      title: 'Пользователи',
+      alwaysVisible: true,
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+          <path d="M16 11c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM8 11c1.657 0 3-1.343 3-3S9.657 5 8 5 5 6.343 5 8s1.343 3 3 3z" stroke="currentColor" strokeWidth="1.6"/>
+          <path d="M2 20c0-3.314 2.686-6 6-6h8c3.314 0 6 2.686 6 6" stroke="currentColor" strokeWidth="1.6"/>
+        </svg>
+      )
+    },
+    {
       id: 'blacklist',
       title: 'Запреты гос.',
       icon: (
@@ -142,7 +153,7 @@ export default function Sidebar({
         <div className="px-3 space-y-1">
 
           {menuItems
-            .filter((item) => canViewMenu(user, item.id))
+            .filter((item) => item.alwaysVisible || canViewMenu(user, item.id))
             .map((item) => {
             const active = activePage === item.id
 

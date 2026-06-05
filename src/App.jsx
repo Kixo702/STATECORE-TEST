@@ -8,6 +8,7 @@ import Logs from './components/Logs'
 import Sidebar from './components/Sidebar'
 import MobileHeader from './components/MobileHeader'
 import Profile from './components/Profile'
+import Users from './components/Users'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -108,6 +109,10 @@ export default function App() {
 
           {activePage === 'logs' && (
             <Logs />
+          )}
+
+          {activePage === 'users' && (
+            <Users currentUser={user} />
           )}
 
           {activePage === 'profile' && (

@@ -58,14 +58,34 @@ export function canRemoveLeader(user) {
 // menu visibility helper
 export function canViewMenu(user, menuId) {
   if (!menuId || typeof menuId !== 'string') return false
-  // treat missing user as player
-  if (!user) user = { roleName: ROLE_PLAYER }
+
+  if (!user) {
+    user = { roleName: ROLE_PLAYER }
+  }
+
   const id = menuId.toLowerCase()
-  // Players see only logs and blacklist
-  if (isPlayer(user)) return ['logs', 'blacklist'].includes(id)
-  // Leaders and watchers and chiefs see everything in sidebar (except admin-only controls elsewhere)
-  if (canViewAll(user)) return true
-  // fallback: deny
+
+  // Только Главный Следящий и Главный Разработчик
+  if (id === 'users') {
+    return isChief(user) || isFullAccess(user)
+  }
+
+  // Игрок
+  if (isPlayer(user)) {
+    return ['logs', 'blacklist'].includes(id)
+  }
+
+  // Остальной стафф
+  if (
+    isLeader(user) ||
+    isWatcher(user) ||
+    isDeputy(user) ||
+    isChief(user) ||
+    isFullAccess(user)
+  ) {
+    return true
+  }
+
   return false
 }
 
