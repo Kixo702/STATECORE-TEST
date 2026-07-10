@@ -4,24 +4,31 @@ function fmtDate(iso) {
   if (!iso) return '—'
   try {
     const d = new Date(iso)
-    return d.toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
   } catch { return iso }
 }
 
-function fmtDateShort(iso) {
-  if (!iso) return '—'
-  try {
-    const d = new Date(iso)
-    return d.toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
-  } catch { return iso }
-}
-
-// Generates a short player UID from UUID or creates one
 function getPlayerUid(id) {
   if (!id) return 'SC-000000'
-  const clean = id.replace(/-/g, '').toUpperCase().slice(0, 6)
-  return `SC-${clean}`
+  return `SC-${id.replace(/-/g, '').toUpperCase().slice(0, 6)}`
 }
+
+// ── SVG ИКОНКИ ДЛЯ ЛАКОНИЧНОСТИ ─────────────────────────────────
+const IconChevron = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6"/>
+  </svg>
+)
+const IconEdit = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>
+)
+const IconClock = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </svg>
+)
 
 export default function Profile({ user, onUpdate }) {
   const u = user || (() => {
@@ -39,38 +46,29 @@ export default function Profile({ user, onUpdate }) {
   }), [u])
 
   const playerUid = getPlayerUid(data.id)
-
-  // Change logs – stored in localStorage per user
   const logsKey = `sc_logs_${data.id || 'guest'}`
   const [logs, setLogs] = useState(() => {
     try { return JSON.parse(localStorage.getItem(logsKey)) || [] } catch { return [] }
   })
 
-  // Offer to add current session user to shared `sc_users` when missing
   const [showAddSharedModal, setShowAddSharedModal] = useState(false)
   const [addingShared, setAddingShared] = useState(false)
+  const [editingNick, setEditingNick] = useState(false)
+  const [nickValue, setNickValue] = useState(data.nickname)
+  const [nickError, setNickError] = useState('')
+  const [nickSaving, setNickSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     try {
       const session = JSON.parse(localStorage.getItem('sc_user') || 'null')
       if (!session || !session.id) return
       const raw = localStorage.getItem('sc_users')
-      let users = null
-      if (raw) {
-        users = JSON.parse(raw)
-      }
+      const users = raw ? JSON.parse(raw) : null
       const exists = Array.isArray(users) && users.find(x => x.id === session.id || (x.login && session.login && x.login.toLowerCase() === (session.login || '').toLowerCase()))
-      if (!exists) {
-        setShowAddSharedModal(true)
-      }
-    } catch (e) { /* ignore */ }
+      if (!exists) setShowAddSharedModal(true)
+    } catch (e) {}
   }, [])
-
-  // Nickname editing
-  const [editingNick, setEditingNick] = useState(false)
-  const [nickValue, setNickValue] = useState(data.nickname)
-  const [nickError, setNickError] = useState('')
-  const [nickSaving, setNickSaving] = useState(false)
 
   const pushLog = (text) => {
     const entry = { text, at: new Date().toISOString() }
@@ -86,15 +84,11 @@ export default function Profile({ user, onUpdate }) {
     setNickSaving(true)
     setTimeout(() => {
       try {
-        // Update sc_user
-          let stored = {}
-          try {
-            const sraw = localStorage.getItem('sc_user')
-            stored = (sraw && sraw !== 'undefined' && sraw !== 'null') ? JSON.parse(sraw) : {}
-          } catch(e) { stored = {} }
-          stored.nickname = trimmed
-          localStorage.setItem('sc_user', JSON.stringify(stored))
-        // Update sc_users list
+        let stored = {}
+        try { stored = JSON.parse(localStorage.getItem('sc_user') || '{}') } catch { stored = {} }
+        stored.nickname = trimmed
+        localStorage.setItem('sc_user', JSON.stringify(stored))
+
         const raw = localStorage.getItem('sc_users')
         if (raw) {
           const users = JSON.parse(raw)
@@ -115,374 +109,244 @@ export default function Profile({ user, onUpdate }) {
       setAddingShared(true)
       const session = JSON.parse(localStorage.getItem('sc_user') || 'null')
       if (!session || !session.id) return
-      // load existing sc_users or fallback to /sc_users.json
       let users = []
       try {
         const raw = localStorage.getItem('sc_users')
         if (raw) users = JSON.parse(raw)
-        else {
-          const resp = await fetch('/sc_users.json')
-          if (resp && resp.ok) users = await resp.json()
-        }
       } catch(e) { users = [] }
 
-      const exists = users.find(x => x.id === session.id || (x.login && session.login && x.login.toLowerCase() === (session.login || '').toLowerCase()))
+      const exists = users.find(x => x.id === session.id)
       if (!exists) {
-        const toAdd = {
+        users.push({
           id: session.id,
-          login: session.login || session.vk || session.forum || session.id,
-          nickname: session.nickname || session.login || session.vk || session.forum || '—',
+          login: session.login || session.id,
+          nickname: session.nickname || '—',
           vk: session.vk || '',
           forum: session.forum || '',
           password: '',
           registeredAt: session.registeredAt || new Date().toISOString(),
           roleName: session.roleName || 'Игрок'
-        }
-        users.push(toAdd)
-        try { localStorage.setItem('sc_users', JSON.stringify(users)) } catch(e) { console.error(e) }
-        pushLog('Добавлен в общую базу пользователей')
+        })
+        localStorage.setItem('sc_users', JSON.stringify(users))
+        pushLog('Добавлен в базу пользователей')
       }
       setShowAddSharedModal(false)
     } finally { setAddingShared(false) }
   }
 
-  // Copy UID
-  const [copied, setCopied] = useState(false)
   const handleCopy = () => {
     navigator.clipboard?.writeText(playerUid).catch(() => {})
     setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
+    setTimeout(() => setCopied(false), 1500)
   }
 
+  // Цвета ролей под тон проекта
   const roleColor = {
-    'Администратор': '#ff8c00',
-    'Главный Следящий': '#f59e0b',
+    'Администратор': '#ef4444',
+    'Главный Следящий': '#fb923c',
     'Следящий': '#8b5cf6',
-    'Лидер': '#06b6d4',
-    'Игрок': '#9aa3b0',
-  }[data.role] || '#9aa3b0'
+    'Лидер': '#34d399',
+    'Игрок': '#60a5fa',
+  }[data.role] || '#60a5fa'
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#090d16',
-      color: '#e8edf3',
-      fontFamily: "'Segoe UI', system-ui, sans-serif",
-      padding: '32px 24px',
+      background: '#060810',
+      color: '#e8edf5',
+      fontFamily: "'Syne', 'Onest', 'Segoe UI', sans-serif",
+      padding: '40px 48px',
     }}>
       <style>{`
-        @keyframes prof-fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes prof-spin { to{transform:rotate(360deg)} }
-        @keyframes prof-pop { 0%{transform:scale(.8);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
-        @keyframes prof-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Onest:wght@400;500;600;700;800&display=swap');
 
-        .prof-input {
-          background: rgba(255,255,255,.05);
-          border: 1.5px solid rgba(255,140,0,.5);
-          color: #e8edf3;
-          padding: 9px 13px;
-          border-radius: 10px;
-          font-size: 15px;
-          font-family: inherit;
-          font-weight: 700;
-          width: 100%;
-          outline: none;
-          transition: border-color .2s, box-shadow .2s;
-          box-sizing: border-box;
+        @keyframes prof-fade { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes prof-spin { to{transform:rotate(360deg)} }
+
+        .prof-panel {
+          background: linear-gradient(160deg, rgba(13,17,30,.6) 0%, rgba(7,9,16,.8) 100%);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 24px; padding: 32px; backdrop-filter: blur(20px);
+          box-shadow: 0 30px 90px rgba(0,0,0,.3);
+          animation: prof-fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
-        .prof-input:focus {
-          border-color: #ff8c00;
-          box-shadow: 0 0 0 3px rgba(255,140,0,.15);
+        .prof-mini-card {
+          background: rgba(255, 255, 255, 0.01);
+          border: 1px solid rgba(255, 255, 255, 0.03);
+          border-radius: 14px; padding: 14px 16px;
         }
-        .prof-card {
-          background: rgba(255,255,255,.03);
-          border: 1px solid rgba(255,255,255,.06);
-          border-radius: 14px;
-          padding: 16px 18px;
-          transition: border-color .2s;
+        .prof-input-edit {
+          background: rgba(255,255,255,.03); border: 1px solid rgba(96,165,250,0.3);
+          color: #fff; padding: 10px; border-radius: 12px; font-size: 15px;
+          width: 100%; outline: none; text-align: center; font-family: inherit; font-weight: 600;
         }
-        .prof-card:hover { border-color: rgba(255,255,255,.1); }
-        .prof-log-item {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          padding: 10px 0;
-          border-bottom: 1px solid rgba(255,255,255,.05);
-          animation: prof-fadeUp .25s ease both;
+        .prof-input-edit:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.1); }
+        .prof-link {
+          color: #60a5fa; text-decoration: none; font-size: 13px; font-weight: 600;
+          transition: opacity 0.2s; display: inline-block; margin-top: 4px;
         }
-        .prof-log-item:last-child { border-bottom: none; }
-        .copy-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: rgba(255,255,255,.3);
-          padding: 2px 6px;
-          border-radius: 6px;
-          transition: color .15s, background .15s;
-          display: inline-flex;
-          align-items: center;
-        }
-        .copy-btn:hover { color: #ff8c00; background: rgba(255,140,0,.1); }
+        .prof-link:hover { opacity: 0.8; }
+        .log-scroller::-webkit-scrollbar { width: 4px; }
+        .log-scroller::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 2px; }
       `}</style>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: 28, animation: 'prof-fadeUp .3s ease both' }}>
-          <div style={{ fontSize: 11, color: '#ff8c00', letterSpacing: '2.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-            Следящая Администрация
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        
+        {/* Хлебные крошки и заголовок */}
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'rgba(255,255,255,.25)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>
+            <span>Личный кабинет</span>
+            <span style={{ opacity: .35 }}><IconChevron /></span>
+            <span style={{ color: 'rgba(255,255,255,.4)' }}>Управление аккаунтом</span>
           </div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, letterSpacing: '-0.5px' }}>Профиль</h1>
+          <h1 style={{ margin: 0, fontSize: '42px', fontWeight: 800, letterSpacing: '-1.5px', background: 'linear-gradient(125deg, #ffffff 30%, rgba(255,255,255,.5) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', fontFamily: 'Syne, sans-serif' }}>
+            Профиль игрока
+          </h1>
         </div>
 
-        {/* Three-column layout */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '240px 1fr 300px',
-          gap: 20,
-          alignItems: 'start',
-        }}>
-
-          {/* ── LEFT: Info panel ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'prof-fadeUp .35s .05s ease both', animationFillMode:'both' }}>
-
-            <div className="prof-card">
-              <div style={{ fontSize: 10, color: '#5a6370', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 8, fontWeight: 600 }}>Идентификатор</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#ff8c00', letterSpacing: '1px' }}>{playerUid}</span>
-                <button className="copy-btn" onClick={handleCopy} title="Скопировать">
-                  {copied ? (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ecf6e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{animation:'prof-pop .3s ease both'}}>
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="prof-card">
-              <div style={{ fontSize: 10, color: '#5a6370', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 8, fontWeight: 600 }}>Логин</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d0db' }}>{data.login}</div>
-            </div>
-
-            <div className="prof-card">
-              <div style={{ fontSize: 10, color: '#5a6370', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 8, fontWeight: 600 }}>Регистрация</div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: '#c8d0db', lineHeight: 1.5 }}>{fmtDate(data.registeredAt)}</div>
-            </div>
-
-            <div className="prof-card">
-              <div style={{ fontSize: 10, color: '#5a6370', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 8, fontWeight: 600 }}>ВКонтакте</div>
-              {data.vk && data.vk !== '—' ? (
-                <a href={data.vk} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#4a9eff', textDecoration: 'none', wordBreak: 'break-all', fontWeight: 500 }}>
-                  {data.vk.replace('https://vk.com/', '@')}
-                </a>
-              ) : (
-                <div style={{ fontSize: 12, color: '#5a6370' }}>Не указан</div>
-              )}
-            </div>
-
-            <div className="prof-card">
-              <div style={{ fontSize: 10, color: '#5a6370', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 8, fontWeight: 600 }}>Форум</div>
-              {data.forum && data.forum !== '—' ? (
-                <a href={data.forum} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#4a9eff', textDecoration: 'none', wordBreak: 'break-all', fontWeight: 500 }}>
-                  {data.forum.replace(/^https?:\/\//, '').slice(0, 30)}…
-                </a>
-              ) : (
-                <div style={{ fontSize: 12, color: '#5a6370' }}>Не указан</div>
-              )}
-            </div>
-
-          </div>
-
-          {/* ── CENTER: Profile card ── */}
-          <div style={{ animation: 'prof-fadeUp .35s .1s ease both', animationFillMode:'both' }}>
-            <div style={{
-              background: 'linear-gradient(160deg, rgba(255,140,0,.06) 0%, rgba(255,255,255,.02) 60%)',
-              border: '1px solid rgba(255,140,0,.15)',
-              borderRadius: 20,
-              padding: '36px 32px',
-              textAlign: 'center',
-            }}>
-
-              {/* Avatar */}
+        {/* Сетка разметки */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', alignItems: 'start' }}>
+          
+          {/* ЛЕВАЯ СТОРОНА: Главный блок аккаунта */}
+          <div className="prof-panel" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            
+            {/* Карточка юзера (Аватар + Ник + Роль) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '28px' }}>
               <div style={{
-                width: 88,
-                height: 88,
-                borderRadius: 22,
-                background: 'linear-gradient(135deg, rgba(255,140,0,.2) 0%, rgba(255,140,0,.05) 100%)',
-                border: '2px solid rgba(255,140,0,.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 32,
-                fontWeight: 900,
-                color: '#ff8c00',
-                margin: '0 auto 20px',
-                boxShadow: '0 8px 32px rgba(255,140,0,.15)',
-                letterSpacing: '-1px',
+                width: '74px', height: '74px', borderRadius: '18px',
+                background: `linear-gradient(135deg, ${roleColor}15 0%, rgba(255,255,255,0.01) 100%)`,
+                border: `1px solid ${roleColor}30`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '28px', fontWeight: 800, color: roleColor, fontFamily: 'Syne', boxShadow: `0 8px 24px ${roleColor}08`
               }}>
                 {data.nickname[0]?.toUpperCase()}
               </div>
 
-              {/* Nickname + edit */}
-              {editingNick ? (
-                <div style={{ marginBottom: 16 }}>
-                  <input
-                    className="prof-input"
-                    value={nickValue}
-                    onChange={e => { setNickValue(e.target.value); setNickError('') }}
-                    onKeyDown={e => { if (e.key === 'Enter') handleSaveNick(); if (e.key === 'Escape') { setEditingNick(false); setNickValue(data.nickname); setNickError('') } }}
-                    autoFocus
-                    maxLength={32}
-                    style={{ textAlign: 'center', fontSize: 17, fontWeight: 800, letterSpacing: '-0.3px' }}
-                  />
-                  {nickError && <div style={{ color: '#e85050', fontSize: 12, marginTop: 6 }}>{nickError}</div>}
-                  <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}>
-                    <button
-                      onClick={handleSaveNick}
-                      disabled={nickSaving}
-                      style={{
-                        padding: '7px 18px', borderRadius: 10, border: 'none',
-                        background: 'linear-gradient(135deg, #ff8c00, #e06000)',
-                        color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                      }}
-                    >
-                      {nickSaving ? (
-                        <div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'prof-spin .7s linear infinite' }}/>
-                      ) : (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      )}
-                      Сохранить
-                    </button>
-                    <button
-                      onClick={() => { setEditingNick(false); setNickValue(data.nickname); setNickError('') }}
-                      style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.04)', color: '#9aa3b0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Отмена
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
-                    <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>{data.nickname}</h2>
-                    <button
-                      onClick={() => setEditingNick(true)}
-                      title="Изменить никнейм"
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.25)',
-                        padding: '4px', borderRadius: 6, display: 'flex', alignItems: 'center',
-                        transition: 'color .15s, background .15s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.color = '#ff8c00'; e.currentTarget.style.background = 'rgba(255,140,0,.1)' }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,.25)'; e.currentTarget.style.background = 'none' }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Role badge */}
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 7,
-                background: `${roleColor}18`,
-                border: `1px solid ${roleColor}40`,
-                borderRadius: 20, padding: '5px 14px',
-                fontSize: 12, fontWeight: 700, color: roleColor,
-                marginBottom: 28,
-              }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: roleColor, animation: 'prof-pulse 2s ease infinite' }}/>
-                {data.role}
-              </div>
-
-              {/* Stats row */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                gap: 12,
-                borderTop: '1px solid rgba(255,255,255,.06)',
-                paddingTop: 24,
-              }}>
-                {[
-                  { label: 'ID игрока', value: playerUid, mono: true },
-                  { label: 'Статус', value: 'Активен', color: '#3ecf6e' },
-                  { label: 'Изменений', value: logs.length.toString() },
-                ].map((s, i) => (
-                  <div key={i} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 10, color: '#5a6370', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: 5 }}>{s.label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: s.color || (s.mono ? '#ff8c00' : '#e8edf3'), fontFamily: s.mono ? 'monospace' : 'inherit', letterSpacing: s.mono ? '0.5px' : 'normal' }}>{s.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── RIGHT: Change logs ── */}
-          <div style={{ animation: 'prof-fadeUp .35s .15s ease both', animationFillMode:'both' }}>
-            <div style={{
-              background: 'rgba(255,255,255,.02)',
-              border: '1px solid rgba(255,255,255,.06)',
-              borderRadius: 16,
-              overflow: 'hidden',
-            }}>
-              <div style={{
-                padding: '14px 18px',
-                borderBottom: '1px solid rgba(255,255,255,.06)',
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9aa3b0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#9aa3b0' }}>Лог изменений</span>
-                {logs.length > 0 && (
-                  <span style={{ marginLeft: 'auto', fontSize: 10, background: 'rgba(255,140,0,.15)', color: '#ff8c00', border: '1px solid rgba(255,140,0,.3)', borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>
-                    {logs.length}
-                  </span>
-                )}
-              </div>
-
-              <div style={{ padding: '0 18px', maxHeight: 440, overflowY: 'auto' }}>
-                {logs.length === 0 ? (
-                  <div style={{ padding: '32px 0', textAlign: 'center' }}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 10 }}>
-                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    <div style={{ fontSize: 12, color: '#3a4250' }}>Изменений пока нет</div>
+              <div style={{ flexGrow: 1 }}>
+                {editingNick ? (
+                  <div style={{ maxWidth: '300px' }}>
+                    <input
+                      className="prof-input-edit"
+                      value={nickValue}
+                      onChange={e => { setNickValue(e.target.value); setNickError('') }}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSaveNick(); if (e.key === 'Escape') { setEditingNick(false); setNickValue(data.nickname); setNickError('') } }}
+                      autoFocus
+                      maxLength={24}
+                    />
+                    {nickError && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '6px' }}>{nickError}</div>}
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button onClick={handleSaveNick} disabled={nickSaving} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: '#60a5fa', color: '#060810', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                        Сохранить
+                      </button>
+                      <button onClick={() => { setEditingNick(false); setNickValue(data.nickname); setNickError('') }} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
+                        Отмена
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  logs.map((log, i) => (
-                    <div key={i} className="prof-log-item" style={{ animationDelay: `${i * 0.04}s` }}>
-                      <div style={{ fontSize: 12, color: '#c8d0db', fontWeight: 500, lineHeight: 1.4 }}>{log.text}</div>
-                      <div style={{ fontSize: 10, color: '#3a4250', fontWeight: 500 }}>{fmtDateShort(log.at)}</div>
-                    </div>
-                  ))
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, letterSpacing: '-0.5px', fontFamily: 'Onest' }}>{data.nickname}</h2>
+                    <button onClick={() => setEditingNick(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}>
+                      <IconEdit />
+                    </button>
+                  </div>
+                )}
+
+                {/* Роль в системе */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '12px', fontWeight: 700, color: roleColor }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: roleColor }} />
+                  {data.role}
+                </div>
+              </div>
+            </div>
+
+            {/* Сетка системных параметров аккаунта */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div className="prof-mini-card">
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '6px' }}>Идентификатор (UID)</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#60a5fa', letterSpacing: '0.5px' }}>{playerUid}</span>
+                  <button onClick={handleCopy} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: '11px', fontWeight: 600, padding: 0 }}>
+                    {copied ? '✅' : '[Копировать]'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="prof-mini-card">
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '6px' }}>Логин авторизации</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#f0f4fa' }}>{data.login}</div>
+              </div>
+
+              <div className="prof-mini-card">
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '6px' }}>Дата регистрации</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>{fmtDate(data.registeredAt)}</div>
+              </div>
+            </div>
+
+            {/* Блок привязанных социальных сетей (Компактный) */}
+            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)', padding: '16px 20px', borderRadius: '16px', display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>Профиль ВКонтакте</div>
+                {data.vk && data.vk !== '—' ? (
+                  <a href={data.vk} target="_blank" rel="noopener noreferrer" className="prof-link">{data.vk.replace('https://vk.com/', '@')}</a>
+                ) : (
+                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.15)', display: 'block', marginTop: '4px' }}>Не указан</span>
                 )}
               </div>
+              <div>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>Аккаунт форума</div>
+                {data.forum && data.forum !== '—' ? (
+                  <a href={data.forum} target="_blank" rel="noopener noreferrer" className="prof-link">Перейти в профиль</a>
+                ) : (
+                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.15)', display: 'block', marginTop: '4px' }}>Не указан</span>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* ПРАВАЯ СТОРОНА: Лаконичный лог изменений */}
+          <div className="prof-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '14px' }}>
+              <span style={{ color: 'rgba(255,255,255,0.4)', display: 'flex' }}><IconClock /></span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>Лог сессии</span>
+              {logs.length > 0 && (
+                <span style={{ marginLeft: 'auto', fontSize: '10px', background: 'rgba(96,165,250,0.08)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.15)', borderRadius: '6px', padding: '1px 6px', fontWeight: 700 }}>
+                  {logs.length}
+                </span>
+              )}
+            </div>
+
+            <div className="log-scroller" style={{ maxHeight: '320px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {logs.length === 0 ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: 'rgba(255,255,255,0.15)', fontSize: '12px' }}>
+                  Действия не зафиксированы
+                </div>
+              ) : (
+                logs.map((log, i) => (
+                  <div key={i} style={{ paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontWeight: 500, lineHeight: 1.4 }}>{log.text}</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', marginTop: '2px', fontWeight: 600 }}>
+                      {new Date(log.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
         </div>
 
-        {/* Add to shared users modal */}
+        {/* МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ В БАЗУ */}
         {showAddSharedModal && (
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.6)' }} onClick={() => setShowAddSharedModal(false)} />
-            <div style={{ background: '#0e1829', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, padding: 24, width: 420, zIndex: 1210 }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#ff8c00', marginBottom: 8 }}>Добавление в общую базу</div>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Добавить вас в общую базу пользователей?</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', marginBottom: 18 }}>Если согласны — нажмите «Да». Ваши данные из сессии будут добавлены в sc_users.</div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={addSessionToShared} disabled={addingShared} style={{ flex: 1, padding: '10px 12px', borderRadius: 10, background: '#ff8c00', color: '#08101a', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
-                  {addingShared ? 'Добавление...' : 'Да, добавить'}
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.8)', backdropFilter: 'blur(8px)' }} onClick={() => setShowAddSharedModal(false)} />
+            <div style={{ background: '#0d111a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px', padding: '24px', width: '400px', zIndex: 1210 }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Синхронизация</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '10px', fontFamily: 'Onest' }}>Внести вас в реестр пользователей?</div>
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '20px', lineHeight: 1.5 }}>Ваш профиль будет сохранен в общей локальной таблице `sc_users` для быстрого доступа.</div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={addSessionToShared} disabled={addingShared} style={{ flex: 1, padding: '10px', borderRadius: '10px', background: '#60a5fa', color: '#060810', fontWeight: 700, border: 'none', cursor: 'pointer', fontSize: '13px' }}>
+                  {addingShared ? 'Сохранение...' : 'Да, синхронизировать'}
                 </button>
               </div>
             </div>

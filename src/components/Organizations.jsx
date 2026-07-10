@@ -1,20 +1,13 @@
 import { useEffect, useState } from 'react'
 import banner from '../assets/banner.png'
 
-// ── Org icons (импортируй только те, что реально есть) ─────────
-// Файлы: src/assets/org-icons/*.png, размер 48×48 px, PNG с прозрачным фоном
+// ── Org icons ────────────────────────────────────────────────
 import icPolice  from '../assets/org-icons/police.png'
 import icGov     from '../assets/org-icons/gov.png'
 import icArmy    from '../assets/org-icons/army.png'
 import icFbi     from '../assets/org-icons/fbi.png'
 import icMedical from '../assets/org-icons/medical.png'
-// Добавь при необходимости:
-// import icFire    from '../assets/org-icons/fire.png'
-// import icCustoms from '../assets/org-icons/customs.png'
-// import icNews    from '../assets/org-icons/news.png'
-// import icEnergy  from '../assets/org-icons/energy.png'
 
-// Ключи — точные названия орг из твоей таблицы (org.name)
 const ORG_ICONS = {
   'LSPD':  icPolice,
   'SFPD':  icPolice,
@@ -25,10 +18,6 @@ const ORG_ICONS = {
   'MCLS': icMedical,
   'MCSF': icMedical,
   'MCLV': icMedical,
-  // 'FIRE':    icFire,
-  // 'CUSTOMS': icCustoms,
-  // 'NEWS':    icNews,
-  // 'ENERGY':  icEnergy,
 }
 
 // ── SVG Icons ────────────────────────────────────────────────
@@ -112,18 +101,17 @@ const fmtDate = iso => {
 
 // ── Accent colors per org index ──────────────────────────────
 const ORG_ACCENTS = [
-  { main: '#60a5fa', glow: 'rgba(96,165,250,.4)',   light: 'rgba(96,165,250,.1)',   dark: 'rgba(96,165,250,.06)'  },
-  { main: '#c084fc', glow: 'rgba(192,132,252,.4)',  light: 'rgba(192,132,252,.1)',  dark: 'rgba(192,132,252,.06)' },
-  { main: '#22d3ee', glow: 'rgba(34,211,238,.4)',   light: 'rgba(34,211,238,.1)',   dark: 'rgba(34,211,238,.06)'  },
-  { main: '#fbbf24', glow: 'rgba(251,191,36,.4)',   light: 'rgba(251,191,36,.1)',   dark: 'rgba(251,191,36,.06)'  },
-  { main: '#34d399', glow: 'rgba(52,211,153,.4)',   light: 'rgba(52,211,153,.1)',   dark: 'rgba(52,211,153,.06)'  },
-  { main: '#f87171', glow: 'rgba(248,113,113,.4)',  light: 'rgba(248,113,113,.1)',  dark: 'rgba(248,113,113,.06)' },
-  { main: '#fb923c', glow: 'rgba(251,146,60,.4)',   light: 'rgba(251,146,60,.1)',   dark: 'rgba(251,146,60,.06)'  },
-  { main: '#a78bfa', glow: 'rgba(167,139,250,.4)',  light: 'rgba(167,139,250,.1)',  dark: 'rgba(167,139,250,.06)' },
-  { main: '#f472b6', glow: 'rgba(244,114,182,.4)',  light: 'rgba(244,114,182,.1)',  dark: 'rgba(244,114,182,.06)' },
+  { main: '#60a5fa', glow: 'rgba(96,165,250,.25)',   light: 'rgba(96,165,250,.08)',   dark: 'rgba(96,165,250,.04)'  },
+  { main: '#c084fc', glow: 'rgba(192,132,252,.25)',  light: 'rgba(192,132,252,.08)',  dark: 'rgba(192,132,252,.04)' },
+  { main: '#22d3ee', glow: 'rgba(34,211,238,.25)',   light: 'rgba(34,211,238,.08)',   dark: 'rgba(34,211,238,.04)'  },
+  { main: '#fbbf24', glow: 'rgba(251,191,36,.25)',   light: 'rgba(251,191,36,.08)',   dark: 'rgba(251,191,36,.04)'  },
+  { main: '#34d399', glow: 'rgba(52,211,153,.25)',   light: 'rgba(52,211,153,.08)',   dark: 'rgba(52,211,153,.04)'  },
+  { main: '#f87171', glow: 'rgba(248,113,113,.25)',  light: 'rgba(248,113,113,.08)',  dark: 'rgba(248,113,113,.04)' },
+  { main: '#fb923c', glow: 'rgba(251,146,60,.25)',   light: 'rgba(251,146,60,.08)',   dark: 'rgba(251,146,60,.04)'  },
+  { main: '#a78bfa', glow: 'rgba(167,139,250,.25)',  light: 'rgba(167,139,250,.08)',  dark: 'rgba(167,139,250,.04)' },
+  { main: '#f472b6', glow: 'rgba(244,114,182,.25)',  light: 'rgba(244,114,182,.08)',  dark: 'rgba(244,114,182,.04)' },
 ]
 
-// ── Main ─────────────────────────────────────────────────────
 import { canRemoveLeader } from '../lib/roles'
 
 export default function Organizations({ user }) {
@@ -142,8 +130,7 @@ export default function Organizations({ user }) {
   const [fAppoint, setFAppoint] = useState(todayISO())
   const [fExpiry, setFExpiry]   = useState(addDays(todayISO(), 28))
 
-  // ── Warn modal ─────────────────────────────────────────────
-  const [warnModal, setWarnModal] = useState(null) // { type, label, color, glow } | null
+  const [warnModal, setWarnModal] = useState(null) 
   const [warnNote, setWarnNote]   = useState('')
 
   const openWarnModal  = (btn) => { setWarnModal(btn); setWarnNote('') }
@@ -229,63 +216,63 @@ export default function Organizations({ user }) {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700;800;900&display=swap');
 
         @keyframes org-spin    { to { transform: rotate(360deg); } }
-        @keyframes org-fadeUp  { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes org-fadeUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
         @keyframes org-fadeIn  { from { opacity:0; } to { opacity:1; } }
-        @keyframes org-pulse   { 0%,100%{opacity:.25} 50%{opacity:.7} }
-        @keyframes float-orb   { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-14px) scale(1.05)} }
-        @keyframes org-shimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
-        @keyframes scanline    { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
-        @keyframes glow-pulse  { 0%,100%{opacity:.4} 50%{opacity:.9} }
+        @keyframes float-orb   { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-8px) scale(1.03)} }
+        @keyframes glow-pulse  { 0%,100%{opacity:.5} 50%{opacity:.85} }
+        @keyframes shimmer     { 100% { transform: translateX(100%); } }
 
         * { box-sizing: border-box; }
 
+        /* ── Скелетон загрузки с эффектом волны ── */
+        .skeleton-loader {
+          position: relative;
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 16px;
+          height: 140px;
+        }
+        .skeleton-loader::after {
+          position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+          animation: shimmer 1.6s infinite;
+          content: '';
+        }
+
         /* ── Card ── */
         .org-card {
-          transition:
-            border-color .28s ease,
-            background .28s ease,
-            transform .3s cubic-bezier(.34,1.56,.64,1),
-            box-shadow .28s ease;
+          transition: border-color .25s ease, background .25s ease, transform .25s cubic-bezier(.25, 1, .5, 1), box-shadow .25s ease;
           cursor: pointer;
           font-family: inherit;
         }
-        .org-card:hover { transform: translateY(-6px) scale(1.018) !important; }
-        .org-card:active { transform: translateY(-2px) scale(1.006) !important; }
+        .org-card:hover { 
+          transform: translateY(-4px) scale(1.01); 
+        }
 
         /* ── Button ── */
         .org-btn {
-          transition:
-            background .18s ease,
-            border-color .18s ease,
-            box-shadow .2s ease,
-            transform .16s cubic-bezier(.34,1.56,.64,1),
-            filter .18s ease,
-            color .18s ease;
+          transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s cubic-bezier(.25, 1, .5, 1), color .2s ease, filter .2s ease;
           cursor: pointer;
           position: relative;
           overflow: hidden;
           font-family: inherit;
         }
-        .org-btn:hover { transform: translateY(-2px); }
-        .org-btn:active { transform: translateY(0) scale(.97); }
+        .org-btn:hover { transform: translateY(-1.5px); }
+        .org-btn:active { transform: translateY(0) scale(.98); }
 
         /* ── Input ── */
         .org-input {
-          transition: border-color .18s, background .18s, box-shadow .2s;
+          transition: border-color .2s, background .2s, box-shadow .2s;
           box-sizing: border-box;
           font-family: inherit;
         }
-        .org-input:focus { outline: none; background: rgba(255,255,255,.09) !important; }
+        .org-input:focus { outline: none; background: rgba(255,255,255,.07) !important; }
         .org-input::placeholder { color: rgba(255,255,255,.2); }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.45); cursor: pointer; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.45); cursor: pointer; transition: filter .2s; }
         input[type="date"]::-webkit-calendar-picker-indicator:hover { filter: invert(.85); }
 
-        /* ── Scrollbar ── */
-        .org-panel-scroll::-webkit-scrollbar { width: 3px; }
-        .org-panel-scroll::-webkit-scrollbar-track { background: transparent; }
-        .org-panel-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
-
-        /* ── Layout ── */
+        /* ── Layout & Responsive ── */
         .org-page-body { max-width: 1600px; margin: 0 auto; padding: 36px 48px; }
         .org-header {
           display: flex; align-items: flex-end; justify-content: space-between;
@@ -293,92 +280,63 @@ export default function Organizations({ user }) {
         }
         .org-layout {
           display: grid;
-          grid-template-columns: 1fr 380px;
-          gap: 24px;
+          grid-template-columns: 1fr 390px;
+          gap: 28px;
           align-items: start;
         }
         .org-card-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 18px;
+          gap: 20px;
         }
         .org-panel {
-          background: linear-gradient(160deg, rgba(16,20,36,.99) 0%, rgba(8,10,18,1) 100%);
-          border: 1px solid rgba(255,255,255,.07);
-          border-radius: 28px;
+          background: linear-gradient(160deg, rgba(13,17,30,.98) 0%, rgba(7,9,16,1) 100%);
+          border: 1px solid rgba(255,255,255,.06);
+          border-radius: 24px;
           padding: 28px;
           position: sticky;
           top: 24px;
-          backdrop-filter: blur(30px);
-          box-shadow:
-            0 30px 90px rgba(0,0,0,.7),
-            inset 0 1px 0 rgba(255,255,255,.06),
-            inset 0 -1px 0 rgba(0,0,0,.4);
+          backdrop-filter: blur(20px);
+          box-shadow: 0 30px 90px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.04);
           max-height: calc(100vh - 80px);
           overflow-y: auto;
+          transition: all 0.3s ease;
         }
         .org-section-label {
-          font-size: 9px; letter-spacing: 3.5px; text-transform: uppercase;
-          color: rgba(255,255,255,.28); font-weight: 700; margin-bottom: 10px;
+          font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+          color: rgba(255,255,255,.3); font-weight: 700; margin-bottom: 12px;
           font-family: 'Onest', sans-serif;
         }
         .org-divider {
           height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
-          margin: 22px 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
+          margin: 24px 0;
         }
-
-        /* ── Leader avatar ring ── */
         .leader-avatar {
           width: 44px; height: 44px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          font-size: 17px; font-weight: 800;
-          flex-shrink: 0;
-          font-family: 'Onest', sans-serif;
-          position: relative;
+          font-size: 16px; font-weight: 800; flex-shrink: 0;
+          font-family: 'Onest', sans-serif; position: relative;
         }
 
-        /* ── Card inner mobile tweaks ── */
-        @media (max-width: 560px) {
-          .leader-avatar { width: 38px; height: 38px; font-size: 14px; }
-          .org-card-leader-name { font-size: 14px !important; }
-          .org-card-leader-role { font-size: 9px !important; }
-          .org-card-org-name { font-size: 11px !important; letter-spacing: 1.5px !important; }
-          .org-card-icon { width: 38px !important; height: 38px !important; border-radius: 10px !important; }
-          .org-card-icon img { width: 22px !important; height: 22px !important; }
-          .org-card-badge { font-size: 8.5px !important; padding: 3px 9px !important; }
-        }
-
-        /* ── Responsive ── */
-        
         @media (max-width: 900px) {
           .org-page-body { padding: 24px 20px 32px; }
           .org-layout { grid-template-columns: 1fr; }
           .org-panel { position: static; top: auto; max-height: none; }
         }
-        /* ── Tablet ── */
         @media (max-width: 768px) {
-          .org-page-body { padding: 20px 16px 40px; }
-          .org-card-grid { gap: 12px; }
-          .org-header { margin-bottom: 28px; }
-          .org-panel { border-radius: 24px; padding: 22px; }
-          .org-banner-wrap { padding: 0 16px !important; }
+          .org-card-grid { gap: 14px; }
+          .org-panel { border-radius: 20px; padding: 24px; }
         }
-
         @media (max-width: 640px) {
-          .org-page-body { padding: 16px 12px 48px; }
-          .org-card-grid { grid-template-columns: 1fr; gap: 10px; }
-          .org-layout { gap: 16px; }
-          .org-panel { border-radius: 20px; padding: 18px; }
-          .org-header { flex-direction: column; align-items: flex-start; gap: 14px; margin-bottom: 22px; }
+          .org-page-body { padding: 16px 14px 48px; }
+          .org-card-grid { grid-template-columns: 1fr; gap: 12px; }
+          .org-header { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
           .org-header-refresh { width: 100% !important; justify-content: center !important; }
-          .org-title { font-size: 34px !important; letter-spacing: -1.5px !important; }
-          .org-banner-wrap { padding: 0 12px !important; }
+          .org-title { font-size: 36px !important; }
         }
-
-        /* ── Bottom-sheet modal on mobile ── */
         @keyframes org-slideUp {
-          from { transform: translateY(60px); opacity: 0; }
+          from { transform: translateY(30px); opacity: 0; }
           to   { transform: translateY(0);    opacity: 1; }
         }
         @media (max-width: 640px) {
@@ -387,69 +345,35 @@ export default function Organizations({ user }) {
             border-radius: 24px 24px 0 0 !important;
             max-width: 100% !important;
             width: 100% !important;
-            padding: 28px 20px 40px !important;
-            animation: org-slideUp .28s cubic-bezier(.34,1.2,.64,1) both !important;
+            padding: 28px 20px 36px !important;
+            animation: org-slideUp .25s cubic-bezier(0, 0, 0.2, 1) both !important;
           }
-        }
-
-        /* ── Small mobile ── */
-        @media (max-width: 390px) {
-          .org-page-body { padding: 12px 10px 48px; }
-          .org-panel { padding: 14px; }
         }
       `}</style>
 
       {/* ── BANNER ── */}
-      <div style={{
-        width: '100%', background: '#060810',
-        paddingTop: '20px', paddingBottom: '0',
-        borderBottom: '1px solid rgba(255,255,255,.04)',
-      }}>
+      <div style={{ width: '100%', background: '#060810', paddingTop: '20px', borderBottom: '1px solid rgba(255,255,255,.03)' }}>
         <div className="org-banner-wrap" style={{ padding: '0 48px' }}>
-          <div style={{
-            position: 'relative', width: '100%', maxHeight: '160px',
-            overflow: 'hidden', borderRadius: '20px',
-          }}>
+          <div style={{ position: 'relative', width: '100%', maxHeight: '140px', overflow: 'hidden', borderRadius: '16px' }}>
             <img src={banner} alt="banner" style={{ width: '100%', objectFit: 'contain', display: 'block' }}/>
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, width: '100%', height: '100px',
-              background: 'linear-gradient(to top, #060810, transparent)',
-              pointerEvents: 'none',
-            }}/>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '80px', background: 'linear-gradient(to top, #060810, transparent)', pointerEvents: 'none' }}/>
           </div>
         </div>
       </div>
 
       <div className="org-page-body">
-
         {/* ── HEADER ── */}
         <div className="org-header">
           <div>
-            <div className="org-breadcrumb" style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              fontSize: '10px', color: 'rgba(255,255,255,.25)',
-              letterSpacing: '2.5px', textTransform: 'uppercase',
-              marginBottom: '14px', fontWeight: 700,
-              fontFamily: 'Onest, sans-serif',
-            }}>
+            <div className="org-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'rgba(255,255,255,.25)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>
               <span>Реестр</span>
               <span style={{ opacity: .35 }}><IconChevron /></span>
-              <span style={{ color: 'rgba(255,255,255,.5)' }}>Государственные структуры</span>
+              <span style={{ color: 'rgba(255,255,255,.4)' }}>Государственные структуры</span>
             </div>
-
-            <h1 className="org-title" style={{
-              margin: 0, fontSize: '46px', fontWeight: 800,
-              letterSpacing: '-2px', lineHeight: 1,
-              background: 'linear-gradient(125deg, #ffffff 0%, rgba(255,255,255,.5) 100%)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              fontFamily: 'Syne, sans-serif',
-            }}>
+            <h1 className="org-title" style={{ margin: 0, fontSize: '42px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1, background: 'linear-gradient(125deg, #ffffff 30%, rgba(255,255,255,.5) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', fontFamily: 'Syne, sans-serif' }}>
               Организации
             </h1>
-            <p className="org-subtitle" style={{
-              margin: '10px 0 0', fontSize: '14px',
-              color: 'rgba(255,255,255,.32)', fontWeight: 500, letterSpacing: '.2px',
-            }}>
+            <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'rgba(255,255,255,.35)', fontWeight: 500 }}>
               Управление и контроль государственных структур
             </p>
           </div>
@@ -459,22 +383,19 @@ export default function Organizations({ user }) {
             className="org-btn org-header-refresh"
             style={{
               display: 'flex', alignItems: 'center', gap: '10px',
-              background: 'rgba(255,255,255,.05)',
-              border: '1px solid rgba(255,255,255,.1)',
-              color: 'rgba(255,255,255,.55)',
-              padding: '12px 24px', borderRadius: '14px',
-              fontSize: '11px', letterSpacing: '2px', fontWeight: 700,
-              textTransform: 'uppercase', fontFamily: 'Onest, sans-serif',
+              background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
+              color: 'rgba(255,255,255,.6)', padding: '12px 22px', borderRadius: '12px',
+              fontSize: '11px', letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Onest, sans-serif',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,.1)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,.2)'
+              e.currentTarget.style.background = 'rgba(255,255,255,.08)'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'
               e.currentTarget.style.color = '#fff'
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,.05)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,.1)'
-              e.currentTarget.style.color = 'rgba(255,255,255,.55)'
+              e.currentTarget.style.background = 'rgba(255,255,255,.04)'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,.08)'
+              e.currentTarget.style.color = 'rgba(255,255,255,.6)'
             }}
           >
             <IconRefresh spinning={refreshing} />
@@ -484,17 +405,11 @@ export default function Organizations({ user }) {
 
         {/* ── GRID + PANEL ── */}
         <div className="org-layout">
-
           {/* ── ORG CARDS ── */}
           <div>
             {loading ? (
-              <div style={{
-                color: 'rgba(255,255,255,.2)', fontSize: '11px',
-                padding: '80px 0', animation: 'org-pulse 1.4s ease infinite',
-                letterSpacing: '4px', textTransform: 'uppercase', fontWeight: 700,
-                fontFamily: 'Onest, sans-serif',
-              }}>
-                Загрузка данных…
+              <div className="org-card-grid">
+                {[...Array(6)].map((_, i) => <div key={i} className="skeleton-loader" />)}
               </div>
             ) : (
               <div className="org-card-grid">
@@ -512,190 +427,101 @@ export default function Organizations({ user }) {
                       onClick={() => setSel(org)}
                       style={{
                         background: isSel
-                          ? `linear-gradient(150deg, ${accent.dark} 0%, rgba(8,10,18,.97) 60%)`
+                          ? `linear-gradient(150deg, ${accent.dark} 0%, rgba(10,14,26,0.99) 70%)`
                           : isVacant
-                            ? 'linear-gradient(160deg, rgba(248,113,113,.04) 0%, rgba(8,10,18,.95) 70%)'
-                            : 'linear-gradient(160deg, rgba(255,255,255,.025) 0%, rgba(8,10,18,.95) 70%)',
+                            ? 'linear-gradient(160deg, rgba(248,113,113,.02) 0%, rgba(8,10,18,.95) 100%)'
+                            : 'linear-gradient(160deg, rgba(255,255,255,.015) 0%, rgba(8,10,18,.95) 100%)',
                         border: `1px solid ${
-                          isSel ? accent.main + '55'
-                            : isVacant ? 'rgba(248,113,113,.18)'
-                            : 'rgba(255,255,255,.07)'
+                          isSel ? accent.main + '60'
+                            : isVacant ? 'rgba(248,113,113,.15)'
+                            : 'rgba(255,255,255,.06)'
                         }`,
-                        borderRadius: '24px',
-                        padding: '26px 26px 30px',
+                        borderRadius: '20px',
+                        padding: '24px',
                         boxShadow: isSel
-                          ? `0 12px 48px ${accent.glow}, 0 0 0 1px ${accent.main}18, inset 0 1px 0 rgba(255,255,255,.07)`
-                          : isVacant
-                            ? '0 4px 24px rgba(248,113,113,.05), inset 0 1px 0 rgba(255,255,255,.03)'
-                            : '0 4px 24px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.03)',
-                        animation: `org-fadeUp .5s ease both ${idx * 0.07}s`,
+                          ? `0 16px 40px ${accent.glow}, inset 0 1px 0 rgba(255,255,255,.05)`
+                          : '0 4px 20px rgba(0,0,0,.25)',
+                        animation: `org-fadeUp .4s cubic-bezier(0.16, 1, 0.3, 1) both ${idx * 0.04}s`,
                         position: 'relative', overflow: 'hidden',
                       }}
                     >
-                      {/* top glow stripe */}
                       {isSel && (
                         <div style={{
                           position: 'absolute', top: 0, left: '20px', right: '20px', height: '1.5px',
-                          background: `linear-gradient(90deg, transparent, ${accent.main}90, transparent)`,
-                          animation: 'glow-pulse 2.5s ease-in-out infinite',
+                          background: `linear-gradient(90deg, transparent, ${accent.main}aa, transparent)`,
+                          animation: 'glow-pulse 2s ease-in-out infinite',
                         }}/>
                       )}
 
-                      {/* ambient orb */}
                       {isSel && (
                         <div style={{
-                          position: 'absolute', top: '-80px', right: '-80px',
-                          width: '200px', height: '200px',
+                          position: 'absolute', top: '-60px', right: '-60px', width: '160px', height: '160px',
                           background: `radial-gradient(circle, ${accent.glow} 0%, transparent 70%)`,
-                          pointerEvents: 'none',
-                          animation: 'float-orb 4.5s ease-in-out infinite',
+                          pointerEvents: 'none', animation: 'float-orb 4s ease-in-out infinite',
                         }}/>
                       )}
 
-                      {/* ── TOP ROW: org icon + id badge ── */}
-                      <div style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                        marginBottom: '20px',
-                      }}>
-                        {/* Org icon */}
-                        <div className="org-card-icon" style={{
-                          width: '48px', height: '48px',
-                          borderRadius: '14px',
-                          background: isSel ? `${accent.light}` : 'rgba(255,255,255,.05)',
-                          border: `1px solid ${isSel ? accent.main + '35' : 'rgba(255,255,255,.08)'}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          overflow: 'hidden',
-                          boxShadow: isSel ? `0 4px 16px ${accent.glow}` : 'none',
-                          transition: 'all .28s',
-                          flexShrink: 0,
+                      <div style={{ display: 'flex', Jackie: 'space-between', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <div style={{
+                          width: '44px', height: '44px', borderRadius: '12px',
+                          background: isSel ? `${accent.light}` : 'rgba(255,255,255,.03)',
+                          border: `1px solid ${isSel ? accent.main + '40' : 'rgba(255,255,255,.06)'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .25s',
                         }}>
                           {orgIcon ? (
-                            <img
-                              src={orgIcon}
-                              alt={org.name}
-                              width={28}
-                              height={28}
-                              style={{
-                                objectFit: 'contain',
-                                filter: isSel
-                                  ? 'brightness(1) saturate(1.2)'
-                                  : 'brightness(.55) saturate(0)',
-                                transition: 'filter .28s',
-                              }}
-                            />
+                            <img src={orgIcon} alt={org.name} width={24} height={24} style={{ objectFit: 'contain', filter: isSel ? 'none' : 'brightness(.5) saturate(0)', transition: 'all .25s' }} />
                           ) : (
-                            <span style={{
-                              color: isSel ? accent.main : 'rgba(255,255,255,.2)',
-                              transition: 'color .28s',
-                            }}>
-                              <IconShield size={20} />
-                            </span>
+                            <span style={{ color: isSel ? accent.main : 'rgba(255,255,255,.2)', transition: 'all .25s' }}><IconShield size={18} /></span>
                           )}
                         </div>
 
-                        {/* ID badge */}
                         <span style={{
-                          fontSize: '9px', fontWeight: 800,
-                          color: isSel ? accent.main : 'rgba(255,255,255,.25)',
-                          letterSpacing: '2px', textTransform: 'uppercase',
-                          background: isSel ? `${accent.light}` : 'rgba(255,255,255,.04)',
-                          padding: '5px 10px', borderRadius: '8px',
-                          border: `1px solid ${isSel ? accent.main + '35' : 'rgba(255,255,255,.07)'}`,
-                          transition: 'all .25s',
-                          fontFamily: 'Onest, sans-serif',
+                          fontSize: '9px', fontWeight: 800, color: isSel ? accent.main : 'rgba(255,255,255,.3)',
+                          letterSpacing: '1.5px', background: isSel ? `${accent.light}` : 'rgba(255,255,255,.03)',
+                          padding: '4px 8px', borderRadius: '6px', border: `1px solid ${isSel ? accent.main + '30' : 'rgba(255,255,255,.05)'}`,
+                          fontFamily: 'Onest, sans-serif', transition: 'all .25s'
                         }}>
                           #{org.id}
                         </span>
                       </div>
 
-                      {/* ── ORG NAME ── */}
-                      <div className="org-card-org-name" style={{
-                        fontSize: '13px', fontWeight: 700,
-                        letterSpacing: '2.5px', textTransform: 'uppercase',
-                        color: isSel ? accent.main : 'rgba(255,255,255,.4)',
-                        marginBottom: '10px',
-                        transition: 'color .25s',
-                        fontFamily: 'Onest, sans-serif',
-                      }}>
+                      <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: isSel ? accent.main : 'rgba(255,255,255,.5)', marginBottom: '12px', transition: 'color .25s', fontFamily: 'Onest, sans-serif' }}>
                         {org.name}
                       </div>
 
-                      {/* ── LEADER — приоритет ── */}
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: '12px',
-                        marginBottom: '18px',
-                      }}>
-                        {/* Avatar circle */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                         <div className="leader-avatar" style={{
-                          background: isVacant
-                            ? 'rgba(248,113,113,.1)'
-                            : isSel
-                              ? accent.light
-                              : 'rgba(255,255,255,.07)',
-                          border: `1.5px solid ${
-                            isVacant ? 'rgba(248,113,113,.3)'
-                              : isSel ? accent.main + '50'
-                              : 'rgba(255,255,255,.1)'
-                          }`,
-                          color: isVacant ? '#f87171'
-                            : isSel ? accent.main
-                            : 'rgba(255,255,255,.5)',
-                          boxShadow: isSel && !isVacant ? `0 0 16px ${accent.glow}` : 'none',
-                          transition: 'all .28s',
+                          background: isVacant ? 'rgba(248,113,113,.08)' : isSel ? accent.light : 'rgba(255,255,255,.05)',
+                          border: `1.5px solid ${isVacant ? 'rgba(248,113,113,.25)' : isSel ? accent.main + '40' : 'rgba(255,255,255,.08)'}`,
+                          color: isVacant ? '#f87171' : isSel ? accent.main : 'rgba(255,255,255,.4)',
+                          transition: 'all .25s',
                         }}>
                           {isVacant ? '—' : initials}
                         </div>
 
-                        {/* Name block */}
                         <div style={{ minWidth: 0 }}>
-                          <div className="org-card-leader-name" style={{
-                            fontSize: '16px', fontWeight: 800,
-                            color: isVacant ? 'rgba(248,113,113,.6)' : '#eef2f5',
-                            fontStyle: isVacant ? 'italic' : 'normal',
-                            letterSpacing: isVacant ? '.5px' : '-0.3px',
-                            lineHeight: 1.2,
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                            fontFamily: isVacant ? 'inherit' : 'Onest, sans-serif',
-                            transition: 'color .25s',
-                          }}>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: isVacant ? 'rgba(248,113,113,.5)' : '#eef2f5', fontStyle: isVacant ? 'italic' : 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'Onest, sans-serif' }}>
                             {org.leader}
                           </div>
                           {!isVacant && (
-                            <div className="org-card-leader-role" style={{
-                              fontSize: '10px', color: isSel ? accent.main : 'rgba(255,255,255,.28)',
-                              fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase',
-                              marginTop: '2px', transition: 'color .25s',
-                              fontFamily: 'Onest, sans-serif',
-                              display: 'flex', alignItems: 'center', gap: '5px',
-                            }}>
+                            <div style={{ fontSize: '10px', color: isSel ? accent.main : 'rgba(255,255,255,.3)', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'Onest, sans-serif' }}>
                               <IconCrown /> Лидер
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* ── WARN BADGES ── */}
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
                         {[
-                          {
-                            label: `СВ · ${org.strict}/3`, active: org.strict > 0,
-                            color: '#f87171', border: 'rgba(248,113,113,.4)',
-                            bg: 'linear-gradient(135deg, rgba(248,113,113,.18), rgba(248,113,113,.08))',
-                          },
-                          {
-                            label: `УВ · ${org.oral}/3`, active: org.oral > 0,
-                            color: '#fbbf24', border: 'rgba(251,191,36,.4)',
-                            bg: 'linear-gradient(135deg, rgba(251,191,36,.18), rgba(251,191,36,.08))',
-                          },
+                          { label: `СВ · ${org.strict}/3`, active: org.strict > 0, color: '#f87171', border: 'rgba(248,113,113,.25)', bg: 'rgba(248,113,113,.08)' },
+                          { label: `УВ · ${org.oral}/3`, active: org.oral > 0, color: '#fbbf24', border: 'rgba(251,191,36,.2)', bg: 'rgba(251,191,36,.06)' },
                         ].map(b => (
-                          <span key={b.label} className="org-card-badge" style={{
-                            padding: '4px 12px', borderRadius: '10px',
-                            fontSize: '9.5px', fontWeight: 800, letterSpacing: '0.5px',
-                            border: `1px solid ${b.active ? b.border : 'rgba(255,255,255,.06)'}`,
-                            color: b.active ? b.color : 'rgba(255,255,255,.18)',
+                          <span key={b.label} style={{
+                            padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800,
+                            border: `1px solid ${b.active ? b.border : 'rgba(255,255,255,.05)'}`,
+                            color: b.active ? b.color : 'rgba(255,255,255,.2)',
                             background: b.active ? b.bg : 'transparent',
-                            boxShadow: b.active ? `0 2px 10px rgba(0,0,0,.25)` : 'none',
-                            fontFamily: 'Onest, sans-serif',
+                            fontFamily: 'Onest, sans-serif', transition: 'all .25s'
                           }}>
                             {b.label}
                           </span>
@@ -711,102 +537,54 @@ export default function Organizations({ user }) {
           {/* ── RIGHT PANEL ── */}
           <div className="org-panel org-panel-scroll">
             {sel ? (
-              <div key={sel.name} style={{ animation: 'org-fadeUp .3s ease both' }}>
-
+              <div key={sel.name} style={{ animation: 'org-fadeUp .35s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
                 {/* ── PANEL HEADER ── */}
-                <div style={{ marginBottom: '22px' }}>
+                <div style={{ marginBottom: '20px' }}>
                   <div className="org-section-label">Управление</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    {/* org icon in panel */}
                     <div style={{
-                      width: '48px', height: '48px', borderRadius: '14px',
-                      background: selAccent.light,
-                      border: `1px solid ${selAccent.main}40`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: `0 4px 20px ${selAccent.glow}`,
-                      overflow: 'hidden', flexShrink: 0,
+                      width: '44px', height: '44px', borderRadius: '12px', background: selAccent.light,
+                      border: `1px solid ${selAccent.main}35`, display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center',
+                      boxShadow: `0 4px 14px ${selAccent.glow}`, overflow: 'hidden', flexShrink: 0,
                     }}>
                       {ORG_ICONS[sel.name] ? (
-                        <img
-                          src={ORG_ICONS[sel.name]} alt={sel.name}
-                          width={28} height={28}
-                          style={{ objectFit: 'contain', filter: 'brightness(1.1) saturate(1.3)' }}
-                        />
+                        <img src={ORG_ICONS[sel.name]} alt={sel.name} width={24} height={24} style={{ objectFit: 'contain' }} />
                       ) : (
-                        <span style={{ color: selAccent.main }}><IconShield size={22}/></span>
+                        <span style={{ color: selAccent.main }}><IconShield size={20}/></span>
                       )}
                     </div>
-                    <div>
-                      <div style={{
-                        fontSize: '28px', fontWeight: 800,
-                        letterSpacing: '-1px', lineHeight: 1,
-                        color: selAccent.main,
-                        filter: `drop-shadow(0 0 14px ${selAccent.main}70)`,
-                        fontFamily: 'Syne, sans-serif',
-                      }}>
-                        {sel.name}
-                      </div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.5px', color: selAccent.main, fontFamily: 'Syne, sans-serif' }}>
+                      {sel.name}
                     </div>
                   </div>
                 </div>
 
                 {/* ── CURRENT LEADER CARD ── */}
                 <div style={{
-                  background: `linear-gradient(135deg, ${selAccent.dark} 0%, rgba(255,255,255,.015) 100%)`,
-                  border: `1px solid ${selAccent.main}28`,
-                  borderRadius: '18px',
-                  padding: '18px',
-                  marginBottom: '22px',
-                  boxShadow: `inset 0 1px 0 rgba(255,255,255,.05), 0 4px 24px rgba(0,0,0,.4)`,
-                  position: 'relative', overflow: 'hidden',
+                  background: `linear-gradient(135deg, ${selAccent.dark} 0%, rgba(255,255,255,.01) 100%)`,
+                  border: `1px solid ${selAccent.main}20`, borderRadius: '16px', padding: '16px', marginBottom: '20px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,.2)', position: 'relative', overflow: 'hidden',
                 }}>
-                  <div style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
-                    background: `linear-gradient(90deg, transparent, ${selAccent.main}55, transparent)`,
-                  }}/>
-
-                  <div style={{
-                    fontSize: '9px', color: selAccent.main, letterSpacing: '2.5px',
-                    textTransform: 'uppercase', marginBottom: '14px',
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    fontWeight: 700, opacity: .85, fontFamily: 'Onest, sans-serif',
-                  }}>
+                  <div style={{ fontSize: '9px', color: selAccent.main, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>
                     <IconCrown /> Текущий лидер
                   </div>
 
-                  {/* leader big display */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
-                      width: '52px', height: '52px', borderRadius: '50%', flexShrink: 0,
-                      background: vacant
-                        ? 'rgba(248,113,113,.1)'
-                        : `linear-gradient(135deg, ${selAccent.light} 0%, ${selAccent.dark} 100%)`,
-                      border: `2px solid ${vacant ? 'rgba(248,113,113,.3)' : selAccent.main + '60'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '18px', fontWeight: 900,
-                      color: vacant ? '#f87171' : selAccent.main,
-                      boxShadow: vacant ? 'none' : `0 0 24px ${selAccent.glow}`,
-                      fontFamily: 'Onest, sans-serif',
+                      width: '48px', height: '48px', borderRadius: '50%', flexShrink: 0,
+                      background: vacant ? 'rgba(248,113,113,.06)' : selAccent.light,
+                      border: `2px solid ${vacant ? 'rgba(248,113,113,.2)' : selAccent.main + '40'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 900,
+                      color: vacant ? '#f87171' : selAccent.main, fontFamily: 'Onest, sans-serif',
                     }}>
                       {vacant ? '—' : sel.leader.slice(0, 2).toUpperCase()}
                     </div>
-                    <div>
-                      <div style={{
-                        fontSize: '18px', fontWeight: 800,
-                        color: vacant ? 'rgba(248,113,113,.5)' : '#f0f4fa',
-                        fontStyle: vacant ? 'italic' : 'normal',
-                        lineHeight: 1.2,
-                        fontFamily: 'Onest, sans-serif',
-                      }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: vacant ? 'rgba(248,113,113,.4)' : '#f0f4fa', fontStyle: vacant ? 'italic' : 'normal', fontFamily: 'Onest, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {sel.leader}
                       </div>
                       {sel.vk && sel.vk !== '—' && (
-                        <div style={{
-                          fontSize: '11px', color: 'rgba(255,255,255,.3)',
-                          fontWeight: 500, marginTop: '3px',
-                        }}>
-                          {sel.vk}
-                        </div>
+                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,.3)', marginTop: '2px' }}>{sel.vk}</div>
                       )}
                     </div>
                   </div>
@@ -815,44 +593,22 @@ export default function Organizations({ user }) {
                 <div className="org-divider" />
 
                 {vacant ? (
-                  /* ── VACANT: appoint form ── */
+                  /* ── FORM: APPOINT LEADER ── */
                   <>
                     <div className="org-section-label">Назначение лидера</div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
                       {[
                         { val: fNick,  set: setFNick,  ph: 'Ник лидера',       icon: <IconUser/> },
                         { val: fVK,    set: setFVK,    ph: 'VK',               icon: <IconLink/> },
                         { val: fForum, set: setFForum, ph: 'Форумный аккаунт', icon: <IconLink/> },
                       ].map(f => (
                         <div key={f.ph} style={{ position: 'relative' }}>
-                          <span style={{
-                            position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
-                            color: 'rgba(255,255,255,.22)', pointerEvents: 'none', display: 'flex',
-                          }}>
-                            {f.icon}
-                          </span>
+                          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,.2)', display: 'flex' }}>{f.icon}</span>
                           <input
-                            type="text" className="org-input"
-                            placeholder={f.ph} value={f.val}
-                            onChange={e => f.set(e.target.value)}
-                            style={{
-                              background: 'rgba(255,255,255,.04)',
-                              border: '1px solid rgba(255,255,255,.09)',
-                              color: '#eef2f8',
-                              padding: '12px 14px 12px 38px',
-                              borderRadius: '13px', fontSize: '13px', width: '100%',
-                              fontFamily: 'inherit',
-                              boxShadow: 'inset 0 1px 4px rgba(0,0,0,.3)',
-                            }}
-                            onFocus={e => {
-                              e.currentTarget.style.borderColor = selAccent.main + '70'
-                              e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}14, inset 0 1px 4px rgba(0,0,0,.3)`
-                            }}
-                            onBlur={e => {
-                              e.currentTarget.style.borderColor = 'rgba(255,255,255,.09)'
-                              e.currentTarget.style.boxShadow = 'inset 0 1px 4px rgba(0,0,0,.3)'
-                            }}
+                            type="text" className="org-input" placeholder={f.ph} value={f.val} onChange={e => f.set(e.target.value)}
+                            style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', color: '#eef2f8', padding: '12px 14px 12px 38px', borderRadius: '12px', fontSize: '13px', width: '100%' }}
+                            onFocus={e => { e.currentTarget.style.borderColor = selAccent.main + '60'; e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}10` }}
+                            onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)'; e.currentTarget.style.boxShadow = 'none' }}
                           />
                         </div>
                       ))}
@@ -862,41 +618,14 @@ export default function Organizations({ user }) {
                         { label: `Дата снятия (+${sel.name === 'GOV' ? 30 : 28}д)`, val: fExpiry, set: setFExpiry },
                       ].map(f => (
                         <div key={f.label}>
-                          <div style={{
-                            fontSize: '9px', color: 'rgba(255,255,255,.28)',
-                            letterSpacing: '1.5px', textTransform: 'uppercase',
-                            marginBottom: '6px', paddingLeft: '2px', fontWeight: 700,
-                            fontFamily: 'Onest, sans-serif',
-                          }}>
-                            {f.label}
-                          </div>
+                          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.25)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>{f.label}</div>
                           <div style={{ position: 'relative' }}>
-                            <span style={{
-                              position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
-                              color: 'rgba(255,255,255,.22)', pointerEvents: 'none', display: 'flex',
-                            }}>
-                              <IconCalendar />
-                            </span>
+                            <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,.2)', display: 'flex' }}><IconCalendar /></span>
                             <input
-                              type="date" className="org-input" value={f.val}
-                              onChange={e => f.set(e.target.value)}
-                              style={{
-                                background: 'rgba(255,255,255,.04)',
-                                border: '1px solid rgba(255,255,255,.09)',
-                                color: '#eef2f8',
-                                padding: '12px 14px 12px 38px',
-                                borderRadius: '13px', fontSize: '13px', width: '100%',
-                                fontFamily: 'inherit', colorScheme: 'dark',
-                                boxShadow: 'inset 0 1px 4px rgba(0,0,0,.3)',
-                              }}
-                              onFocus={e => {
-                                e.currentTarget.style.borderColor = selAccent.main + '70'
-                                e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}14, inset 0 1px 4px rgba(0,0,0,.3)`
-                              }}
-                              onBlur={e => {
-                                e.currentTarget.style.borderColor = 'rgba(255,255,255,.09)'
-                                e.currentTarget.style.boxShadow = 'inset 0 1px 4px rgba(0,0,0,.3)'
-                              }}
+                              type="date" className="org-input" value={f.val} onChange={e => f.set(e.target.value)}
+                              style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', color: '#eef2f8', padding: '12px 14px 12px 38px', borderRadius: '12px', fontSize: '13px', width: '100%', colorScheme: 'dark' }}
+                              onFocus={e => { e.currentTarget.style.borderColor = selAccent.main + '60'; e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}10` }}
+                              onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)'; e.currentTarget.style.boxShadow = 'none' }}
                             />
                           </div>
                         </div>
@@ -904,75 +633,28 @@ export default function Organizations({ user }) {
                     </div>
 
                     <button
-                      className="org-btn"
-                      onClick={handleSetLeader}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                        background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
-                        border: '1px solid rgba(34,197,94,.4)',
-                        color: '#fff', padding: '14px 20px', borderRadius: '14px',
-                        fontSize: '11px', letterSpacing: '2px', fontWeight: 800,
-                        width: '100%', textTransform: 'uppercase',
-                        boxShadow: '0 4px 28px rgba(34,197,94,.3)',
-                        fontFamily: 'Onest, sans-serif',
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.boxShadow = '0 8px 36px rgba(34,197,94,.5)'
-                        e.currentTarget.style.filter = 'brightness(1.1)'
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.boxShadow = '0 4px 28px rgba(34,197,94,.3)'
-                        e.currentTarget.style.filter = 'brightness(1)'
-                      }}
+                      className="org-btn" onClick={handleSetLeader}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'linear-gradient(135deg, #22c55e 0%, #166534 100%)', border: '1px solid rgba(34,197,94,.2)', color: '#fff', padding: '14px', borderRadius: '12px', fontSize: '11px', letterSpacing: '1.5px', fontWeight: 800, width: '100%', textTransform: 'uppercase', boxShadow: '0 4px 20px rgba(34,197,94,.2)', fontFamily: 'Onest, sans-serif' }}
+                      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 24px rgba(34,197,94,.35)'}
+                      onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(34,197,94,.2)'}
                     >
                       <IconUserPlus /> Назначить лидера
                     </button>
                   </>
                 ) : (
-                  /* ── HAS LEADER: warns + date edit + dismiss ── */
+                  /* ── FORM: MANAGEMENT LEADER ── */
                   <>
                     <div className="org-section-label">Взыскания</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                       {[
-                        {
-                          label: 'Строгий выговор', icon: <IconWarn/>, type: 'CHANGE_STRICT',
-                          bg: 'rgba(248,113,113,.1)', bgHover: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
-                          border: 'rgba(248,113,113,.25)', borderHover: 'rgba(248,113,113,.6)',
-                          color: '#f87171', colorHover: '#fff', glow: 'rgba(239,68,68,.4)',
-                        },
-                        {
-                          label: 'Устный выговор', icon: <IconSpeech/>, type: 'CHANGE_ORAL',
-                          bg: 'rgba(251,191,36,.08)', bgHover: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                          border: 'rgba(251,191,36,.22)', borderHover: 'rgba(251,191,36,.6)',
-                          color: '#fbbf24', colorHover: '#fff', glow: 'rgba(245,158,11,.4)',
-                        },
+                        { label: 'Строгий выговор', icon: <IconWarn/>, type: 'CHANGE_STRICT', bg: 'rgba(248,113,113,.06)', bgHover: 'linear-gradient(135deg, #ef4444 0%, #991b1b 100%)', border: 'rgba(248,113,113,.2)', borderHover: 'rgba(248,113,113,.4)', color: '#f87171', glow: 'rgba(239,68,68,.25)' },
+                        { label: 'Устный выговор', icon: <IconSpeech/>, type: 'CHANGE_ORAL', bg: 'rgba(251,191,36,.04)', bgHover: 'linear-gradient(135deg, #f59e0b 0%, #92400e 100%)', border: 'rgba(251,191,36,.15)', borderHover: 'rgba(251,191,36,.4)', color: '#fbbf24', glow: 'rgba(245,158,11,.2)' },
                       ].map(btn => (
                         <button
-                          key={btn.type}
-                          className="org-btn"
-                          onClick={() => openWarnModal(btn)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '10px',
-                            background: btn.bg,
-                            border: `1px solid ${btn.border}`,
-                            color: btn.color,
-                            padding: '13px 16px', borderRadius: '14px',
-                            fontSize: '11px', letterSpacing: '1.5px', fontWeight: 800,
-                            width: '100%', textAlign: 'left', textTransform: 'uppercase',
-                            fontFamily: 'Onest, sans-serif',
-                          }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.background = btn.bgHover
-                            e.currentTarget.style.borderColor = btn.borderHover
-                            e.currentTarget.style.color = btn.colorHover
-                            e.currentTarget.style.boxShadow = `0 6px 24px ${btn.glow}`
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.background = btn.bg
-                            e.currentTarget.style.borderColor = btn.border
-                            e.currentTarget.style.color = btn.color
-                            e.currentTarget.style.boxShadow = 'none'
-                          }}
+                          key={btn.type} className="org-btn" onClick={() => openWarnModal(btn)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', background: btn.bg, border: `1px solid ${btn.border}`, color: btn.color, padding: '13px 16px', borderRadius: '12px', fontSize: '11px', letterSpacing: '1px', fontWeight: 800, width: '100%', textTransform: 'uppercase', fontFamily: 'Onest, sans-serif' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = btn.bgHover; e.currentTarget.style.borderColor = btn.borderHover; e.currentTarget.style.color = '#fff'; e.currentTarget.style.boxShadow = `0 6px 20px ${btn.glow}` }}
+                          onMouseLeave={e => { e.currentTarget.style.background = btn.bg; e.currentTarget.style.borderColor = btn.border; e.currentTarget.style.color = btn.color; e.currentTarget.style.boxShadow = 'none' }}
                         >
                           {btn.icon} {btn.label}
                         </button>
@@ -988,41 +670,14 @@ export default function Organizations({ user }) {
                         { label: `Дата снятия (+${sel.name === 'GOV' ? 30 : 28}д)`, val: fExpiry, set: setFExpiry },
                       ].map(f => (
                         <div key={f.label}>
-                          <div style={{
-                            fontSize: '9px', color: 'rgba(255,255,255,.28)',
-                            letterSpacing: '1.5px', textTransform: 'uppercase',
-                            marginBottom: '6px', paddingLeft: '2px', fontWeight: 700,
-                            fontFamily: 'Onest, sans-serif',
-                          }}>
-                            {f.label}
-                          </div>
+                          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.25)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>{f.label}</div>
                           <div style={{ position: 'relative' }}>
-                            <span style={{
-                              position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
-                              color: 'rgba(255,255,255,.22)', pointerEvents: 'none', display: 'flex',
-                            }}>
-                              <IconCalendar />
-                            </span>
+                            <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,.2)', display: 'flex' }}><IconCalendar /></span>
                             <input
-                              type="date" className="org-input" value={f.val}
-                              onChange={e => f.set(e.target.value)}
-                              style={{
-                                background: 'rgba(255,255,255,.04)',
-                                border: '1px solid rgba(255,255,255,.09)',
-                                color: '#eef2f8',
-                                padding: '12px 14px 12px 38px',
-                                borderRadius: '13px', fontSize: '13px', width: '100%',
-                                fontFamily: 'inherit', colorScheme: 'dark',
-                                boxShadow: 'inset 0 1px 4px rgba(0,0,0,.3)',
-                              }}
-                              onFocus={e => {
-                                e.currentTarget.style.borderColor = selAccent.main + '70'
-                                e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}14, inset 0 1px 4px rgba(0,0,0,.3)`
-                              }}
-                              onBlur={e => {
-                                e.currentTarget.style.borderColor = 'rgba(255,255,255,.09)'
-                                e.currentTarget.style.boxShadow = 'inset 0 1px 4px rgba(0,0,0,.3)'
-                              }}
+                              type="date" className="org-input" value={f.val} onChange={e => f.set(e.target.value)}
+                              style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', color: '#eef2f8', padding: '12px 14px 12px 38px', borderRadius: '12px', fontSize: '13px', width: '100%', colorScheme: 'dark' }}
+                              onFocus={e => { e.currentTarget.style.borderColor = selAccent.main + '60'; e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}10` }}
+                              onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)'; e.currentTarget.style.boxShadow = 'none' }}
                             />
                           </div>
                         </div>
@@ -1031,234 +686,88 @@ export default function Organizations({ user }) {
 
                     <button
                       className="org-btn"
-                      onClick={() => {
-                        if (!canRemoveLeader(user)) { alert('Недостаточно прав для снятия лидера'); return }
-                        send({ type: 'KICK_LEADER', rowId: sel.id })
-                      }}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                        background: 'rgba(239,68,68,.08)',
-                        border: '1px solid rgba(239,68,68,.2)',
-                        color: '#f87171', padding: '14px 20px', borderRadius: '14px',
-                        fontSize: '11px', letterSpacing: '2px', fontWeight: 800,
-                        width: '100%', textTransform: 'uppercase',
-                        fontFamily: 'Onest, sans-serif',
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)'
-                        e.currentTarget.style.color = '#fff'
-                        e.currentTarget.style.borderColor = 'rgba(239,68,68,.5)'
-                        e.currentTarget.style.boxShadow = '0 8px 32px rgba(239,68,68,.45)'
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = 'rgba(239,68,68,.08)'
-                        e.currentTarget.style.color = '#f87171'
-                        e.currentTarget.style.borderColor = 'rgba(239,68,68,.2)'
-                        e.currentTarget.style.boxShadow = 'none'
-                      }}
+                      onClick={() => { if (!canRemoveLeader(user)) { alert('Недостаточно прав для снятия лидера'); return }; send({ type: 'KICK_LEADER', rowId: sel.id }) }}
+                      style={{ display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', gap: '10px', background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.15)', color: '#f87171', padding: '14px', borderRadius: '12px', fontSize: '11px', letterSpacing: '1.5px', fontWeight: 800, width: '100%', textTransform: 'uppercase', fontFamily: 'Onest, sans-serif' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444 0%, #991b1b 100%)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(239,68,68,.3)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(239,68,68,.3)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,.05)'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(239,68,68,.15)'; e.currentTarget.style.boxShadow = 'none' }}
                     >
                       <IconUserX /> Снять лидера
                     </button>
                   </>
                 )}
-
               </div>
             ) : (
               /* ── EMPTY STATE ── */
               <div style={{ padding: '80px 0', textAlign: 'center' }}>
-                <div style={{
-                  width: '64px', height: '64px', borderRadius: '20px',
-                  background: 'rgba(255,255,255,.03)',
-                  border: '1px solid rgba(255,255,255,.07)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 18px',
-                  color: 'rgba(255,255,255,.15)',
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.04)',
-                }}>
-                  <IconShield size={26} />
+                <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.05)', display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'rgba(255,255,255,.12)' }}>
+                  <IconShield size={24} />
                 </div>
-                <div style={{
-                  fontSize: '13px', color: 'rgba(255,255,255,.28)',
-                  fontWeight: 700, letterSpacing: '.8px',
-                  fontFamily: 'Onest, sans-serif',
-                }}>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,.3)', fontWeight: 700, letterSpacing: '.5px', fontFamily: 'Onest, sans-serif' }}>
                   Выберите организацию
                 </div>
-                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,.13)', marginTop: '5px' }}>
-                  для управления
-                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,.15)', marginTop: '4px' }}>для управления</div>
               </div>
             )}
           </div>
-
         </div>
       </div>
 
       {/* ── WARN NOTE MODAL ── */}
       {warnModal && (
         <div
-          className="org-warn-modal-overlay"
-          onClick={closeWarnModal}
-          style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,.75)',
-            backdropFilter: 'blur(16px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 60,
-            animation: 'org-fadeIn .18s ease both',
-            padding: '20px',
-          }}
+          className="org-warn-modal-overlay" onClick={closeWarnModal}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(3, 5, 10, 0.6)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', zIndex: 60, animation: 'org-fadeIn .2s ease both', padding: '20px' }}
         >
           <div
-            className="org-warn-modal-box"
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: 'linear-gradient(160deg, #141b2e 0%, #090d1a 100%)',
-              border: `1px solid ${warnModal.color}30`,
-              borderRadius: '26px',
-              padding: '32px',
-              width: '100%', maxWidth: '420px',
-              boxShadow: `0 40px 100px rgba(0,0,0,.8), 0 0 0 1px ${warnModal.color}15, inset 0 1px 0 rgba(255,255,255,.06)`,
-              animation: 'org-fadeUp .22s cubic-bezier(.34,1.56,.64,1) both',
-              position: 'relative', overflow: 'hidden',
-            }}
+            className="org-warn-modal-box" onClick={e => e.stopPropagation()}
+            style={{ background: 'linear-gradient(160deg, #111625 0%, #070911 100%)', border: `1px solid ${warnModal.color}25`, borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '400px', boxShadow: '0 40px 80px rgba(0,0,0,.7)', position: 'relative', overflow: 'hidden' }}
           >
-            {/* top accent line */}
-            <div style={{
-              position: 'absolute', top: 0, left: '20px', right: '20px', height: '1.5px',
-              background: `linear-gradient(90deg, transparent, ${warnModal.color}70, transparent)`,
-            }}/>
+            <div style={{ position: 'absolute', top: 0, left: '20px', right: '20px', height: '1.5px', background: `linear-gradient(90deg, transparent, ${warnModal.color}50, transparent)` }}/>
 
-            {/* icon + title */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '22px' }}>
-              <div style={{
-                width: '46px', height: '46px', borderRadius: '14px', flexShrink: 0,
-                background: `rgba(${warnModal.color === '#f87171' ? '248,113,113' : '251,191,36'},.12)`,
-                border: `1px solid ${warnModal.color}35`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: warnModal.color,
-                boxShadow: `0 4px 18px ${warnModal.glow}`,
-              }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '10px', flexShrink: 0, background: `rgba(${warnModal.color === '#f87171' ? '248,113,113' : '251,191,36'},.08)`, border: `1px solid ${warnModal.color}25`, display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', color: warnModal.color }}>
                 {warnModal.type === 'CHANGE_STRICT' ? <IconWarn /> : <IconSpeech />}
               </div>
               <div>
-                <div style={{
-                  fontSize: '9px', color: warnModal.color, letterSpacing: '3px',
-                  textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px',
-                  fontFamily: 'Onest, sans-serif', opacity: .8,
-                }}>
-                  Выговор
-                </div>
-                <div style={{
-                  fontSize: '18px', fontWeight: 800, color: '#f0f4fa',
-                  letterSpacing: '-0.3px', fontFamily: 'Syne, sans-serif',
-                }}>
-                  {warnModal.label}
-                </div>
+                <div style={{ fontSize: '9px', color: warnModal.color, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '2px', fontFamily: 'Onest, sans-serif' }}>Выговор</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#f0f4fa', fontFamily: 'Syne, sans-serif' }}>{warnModal.label}</div>
               </div>
             </div>
 
-            {/* label */}
-            <div style={{
-              fontSize: '9px', color: 'rgba(255,255,255,.28)',
-              letterSpacing: '2.5px', textTransform: 'uppercase',
-              fontWeight: 700, marginBottom: '10px',
-              fontFamily: 'Onest, sans-serif',
-            }}>
-              Примечание к выговору
-            </div>
+            <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '8px', fontFamily: 'Onest, sans-serif' }}>Примечание к выговору</div>
 
-            {/* textarea */}
             <textarea
-              autoFocus
-              placeholder="Опишите причину выговора…"
-              value={warnNote}
-              onChange={e => setWarnNote(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) confirmWarn() }}
-              rows={4}
-              style={{
-                width: '100%', resize: 'none',
-                background: 'rgba(255,255,255,.04)',
-                border: `1px solid ${warnNote.trim() ? warnModal.color + '50' : 'rgba(255,255,255,.09)'}`,
-                color: '#eef2f8',
-                padding: '14px 16px',
-                borderRadius: '14px', fontSize: '13px',
-                fontFamily: 'Onest, sans-serif',
-                lineHeight: 1.6,
-                colorScheme: 'dark',
-                boxShadow: warnNote.trim()
-                  ? `0 0 0 3px ${warnModal.color}12, inset 0 1px 4px rgba(0,0,0,.3)`
-                  : 'inset 0 1px 4px rgba(0,0,0,.3)',
-                outline: 'none',
-                transition: 'border-color .18s, box-shadow .18s',
-                marginBottom: '8px',
-              }}
+              autoFocus placeholder="Опишите причину выговора…" value={warnNote} onChange={e => setWarnNote(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) confirmWarn() }} rows={4}
+              style={{ width: '100%', resize: 'none', background: 'rgba(255,255,255,.03)', border: `1px solid ${warnNote.trim() ? warnModal.color + '40' : 'rgba(255,255,255,.07)'}`, color: '#eef2f8', padding: '12px', borderRadius: '12px', fontSize: '13px', fontFamily: 'Onest, sans-serif', lineHeight: 1.5, colorScheme: 'dark', outline: 'none', transition: 'all .2s', marginBottom: '6px' }}
             />
-            <div style={{
-              fontSize: '10px', color: 'rgba(255,255,255,.18)',
-              textAlign: 'right', marginBottom: '20px',
-              fontFamily: 'Onest, sans-serif',
-            }}>
-              Ctrl+Enter — подтвердить
-            </div>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.15)', textAlign: 'right', marginBottom: '20px', fontFamily: 'Onest, sans-serif' }}>Ctrl+Enter — подтвердить</div>
 
-            {/* buttons */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
-                className="org-btn"
-                onClick={closeWarnModal}
-                style={{
-                  flex: 1,
-                  background: 'rgba(255,255,255,.05)',
-                  border: '1px solid rgba(255,255,255,.1)',
-                  color: 'rgba(255,255,255,.5)',
-                  padding: '13px 0', borderRadius: '13px',
-                  fontSize: '11px', letterSpacing: '1.5px',
-                  fontWeight: 800, textTransform: 'uppercase',
-                  fontFamily: 'Onest, sans-serif',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,.1)'
-                  e.currentTarget.style.color = '#fff'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,.05)'
-                  e.currentTarget.style.color = 'rgba(255,255,255,.5)'
-                }}
+                className="org-btn" onClick={closeWarnModal}
+                style={{ flex: 1, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)', padding: '12px 0', borderRadius: '11px', fontSize: '11px', letterSpacing: '1px', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'Onest, sans-serif' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.06)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,.03)'; e.currentTarget.style.color = 'rgba(255,255,255,.4)' }}
               >
                 Назад
               </button>
 
               <button
-                className="org-btn"
-                onClick={confirmWarn}
-                disabled={!warnNote.trim()}
+                className="org-btn" onClick={confirmWarn} disabled={!warnNote.trim()}
                 style={{
                   flex: 2,
                   background: warnNote.trim()
-                    ? warnModal.type === 'CHANGE_STRICT'
-                      ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)'
-                      : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-                    : 'rgba(255,255,255,.05)',
-                  border: `1px solid ${warnNote.trim() ? warnModal.color + '50' : 'rgba(255,255,255,.08)'}`,
-                  color: warnNote.trim() ? '#fff' : 'rgba(255,255,255,.2)',
-                  padding: '13px 0', borderRadius: '13px',
-                  fontSize: '11px', letterSpacing: '1.5px',
-                  fontWeight: 800, textTransform: 'uppercase',
-                  fontFamily: 'Onest, sans-serif',
-                  boxShadow: warnNote.trim() ? `0 4px 20px ${warnModal.glow}` : 'none',
+                    ? warnModal.type === 'CHANGE_STRICT' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                    : 'rgba(255,255,255,.02)',
+                  border: `1px solid ${warnNote.trim() ? warnModal.color + '40' : 'rgba(255,255,255,.04)'}`,
+                  color: warnNote.trim() ? '#fff' : 'rgba(255,255,255,.15)',
+                  padding: '12px 0', borderRadius: '11px', fontSize: '11px', letterSpacing: '1px', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'Onest, sans-serif',
+                  boxShadow: warnNote.trim() ? `0 4px 14px ${warnModal.glow}` : 'none',
                   cursor: warnNote.trim() ? 'pointer' : 'not-allowed',
-                  transition: 'all .18s',
                 }}
-                onMouseEnter={e => {
-                  if (!warnNote.trim()) return
-                  e.currentTarget.style.boxShadow = `0 8px 32px ${warnModal.glow}`
-                  e.currentTarget.style.filter = 'brightness(1.1)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.boxShadow = warnNote.trim() ? `0 4px 20px ${warnModal.glow}` : 'none'
-                  e.currentTarget.style.filter = 'brightness(1)'
-                }}
+                onMouseEnter={e => { if (!warnNote.trim()) return; e.currentTarget.style.filter = 'brightness(1.1)' }}
+                onMouseLeave={e => { e.currentTarget.style.filter = 'none' }}
               >
                 Выдать выговор
               </button>
@@ -1269,37 +778,10 @@ export default function Organizations({ user }) {
 
       {/* ── BUSY OVERLAY ── */}
       {busy && (
-        <div style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,.82)',
-          backdropFilter: 'blur(14px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 50,
-          animation: 'org-fadeIn .18s ease both',
-        }}>
-          <div style={{
-            background: 'linear-gradient(160deg, #121828 0%, #080b14 100%)',
-            border: '1px solid rgba(255,255,255,.09)',
-            borderRadius: '26px',
-            padding: '42px 64px',
-            textAlign: 'center',
-            boxShadow: '0 40px 100px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06)',
-          }}>
-            <div style={{
-              width: '40px', height: '40px', margin: '0 auto 20px',
-              border: '2.5px solid rgba(255,255,255,.07)',
-              borderTopColor: '#fbbf24',
-              borderRadius: '50%',
-              animation: 'org-spin .7s linear infinite',
-              boxShadow: '0 0 20px rgba(251,191,36,.2)',
-            }}/>
-            <div style={{
-              color: 'rgba(255,255,255,.4)', fontSize: '10px',
-              letterSpacing: '4px', textTransform: 'uppercase',
-              fontWeight: 800, fontFamily: 'Onest, sans-serif',
-            }}>
-              Сохранение…
-            </div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(3, 5, 10, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', zIndex: 50, animation: 'org-fadeIn .15s ease both' }}>
+          <div style={{ background: 'linear-gradient(160deg, #0e1220 0%, #06080e 100%)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '20px', padding: '36px 54px', textAlign: 'center', boxShadow: '0 30px 60px rgba(0,0,0,.6)' }}>
+            <div style={{ width: '32px', height: '32px', margin: '0 auto 16px', border: '2px solid rgba(255,255,255,.05)', borderTopColor: '#fbbf24', borderRadius: '50%', animation: 'org-spin .6s linear infinite' }}/>
+            <div style={{ color: 'rgba(255,255,255,.3)', fontSize: '10px', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 800, fontFamily: 'Onest, sans-serif' }}>Сохранение…</div>
           </div>
         </div>
       )}

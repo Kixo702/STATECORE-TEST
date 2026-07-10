@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import banner from '../assets/banner.png'
 
 // ── Constants ────────────────────────────────────────────────
 const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
@@ -23,6 +22,9 @@ const IC = {
   check:   <svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   shield:  <svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   spin:    <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeDasharray="56" strokeDashoffset="14" strokeLinecap="round"/></svg>,
+  flag:    <svg viewBox="0 0 24 24" fill="none"><path d="M5 3v18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><path d="M5 4h11l-2.2 4L16 12H5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>,
+  seal:    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 1.9 3-.5 1 2.9 2.9 1-.5 3L23 12l-1.9 2.4.5 3-2.9 1-1 2.9-3-.5L12 23l-2.4-1.9-3 .5-1-2.9-2.9-1 .5-3L1 12l1.9-2.4-.5-3 2.9-1 1-2.9 3 .5L12 2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M9 12.3l2 2 4-4.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  arrow:   <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 }
 
 // ── Assign Leader Modal ───────────────────────────────────────
@@ -383,50 +385,58 @@ export default function Dashboard({ user, onLogout }) {
   })
 
   const [showAssign, setShowAssign] = useState(false)
+  const [now, setNow] = useState(new Date())
 
-  const recentActions = [
-    { admin: 'Robert_Kamiya', action: 'Выдал строгий выговор', target: 'LSPD', time: '13:42' },
-    { admin: 'Robert_Kamiya', action: 'Назначил лидера',        target: 'FBI',  time: '12:17' },
-    { admin: 'Robert_Kamiya', action: 'Добавил запрет',         target: 'Nick_Ross', time: '11:05' },
-    { admin: 'Robert_Kamiya', action: 'Снял лидера',            target: 'LSMC', time: '10:28' },
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(t)
+  }, [])
+
+  const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  const dateStr = now.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' })
+
+  const orgGroup = [
+    { title: 'Организаций',      value: stats.organizations, icon: IC.org,   ring: 'from-sky-500/35 to-sky-500/0',     iconColor: 'text-sky-300'    },
+    { title: 'Активных лидеров', value: stats.leaders,       icon: IC.crown, ring: 'from-orange-500/35 to-orange-500/0', iconColor: 'text-orange-300' },
+    { title: 'Вакансий',         value: stats.vacancies,     icon: IC.cross, ring: 'from-rose-500/35 to-rose-500/0',   iconColor: 'text-rose-300'   },
   ]
 
-  const statCards = [
-    { title: 'Организаций',       value: stats.organizations, icon: IC.org,     color: 'text-blue-400'   },
-    { title: 'Активных лидеров',  value: stats.leaders,       icon: IC.crown,   color: 'text-orange-400' },
-    { title: 'Ваканток',          value: stats.vacancies,     icon: IC.cross,   color: 'text-red-400'    },
-    { title: 'Строгих выговоров', value: stats.strictWarns,   icon: IC.warning, color: 'text-yellow-400' },
-    { title: 'Устных выговоров',  value: stats.oralWarns,     icon: IC.warning, color: 'text-slate-300'  },
-    { title: 'Запретов',          value: stats.blacklist,     icon: IC.cross,   color: 'text-red-500'    },
+  const disciplineGroup = [
+    { title: 'Строгих выговоров', value: stats.strictWarns, icon: IC.warning, ring: 'from-amber-500/35 to-amber-500/0', iconColor: 'text-amber-300' },
+    { title: 'Устных выговоров',  value: stats.oralWarns,   icon: IC.warning, ring: 'from-slate-400/30 to-slate-400/0', iconColor: 'text-slate-300' },
+    { title: 'В реестре запретов', value: stats.blacklist,  icon: IC.cross,   ring: 'from-red-500/35 to-red-500/0',    iconColor: 'text-red-300'   },
   ]
 
   return (
-    <div className="text-white bg-[#0b0f19] min-h-screen">
+    <div className="text-white min-h-screen" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
       <style>{`
-        @keyframes db-shimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
-        @keyframes db-spin    { to{transform:rotate(360deg)} }
-        @keyframes db-fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes db-pulse   { 0%,100%{opacity:.3} 50%{opacity:.8} }
-        @keyframes db-success { 0%{transform:scale(0);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+        @keyframes db-shimmer  { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes db-spin     { to{transform:rotate(360deg)} }
+        @keyframes db-fadeUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes db-pulse    { 0%,100%{opacity:.3} 50%{opacity:.8} }
+        @keyframes db-success  { 0%{transform:scale(0);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+        @keyframes db-spinSlow { to{transform:rotate(360deg)} }
+        @keyframes db-glow     { 0%,100%{opacity:.5} 50%{opacity:1} }
+        @keyframes db-marquee  { from{transform:translateX(0)} to{transform:translateX(-50%)} }
       `}</style>
 
-      {/* BANNER */}
-      <div className="w-full bg-[#0b0f19] pt-4 pb-2 border-b border-white/5">
-        <div className="px-8">
-          <div className="relative w-full max-h-[140px] overflow-hidden rounded-2xl">
-            <img src={banner} alt="banner" className="w-full object-contain block" />
-            <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-[#0b0f19] to-transparent pointer-events-none" />
+      {/* ── STATUS STRIP ───────────────────────────────── */}
+      <div className="border-b border-white/5">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 h-10 flex items-center justify-between text-[11px] font-semibold tracking-wide text-white/35">
+          <div className="flex items-center gap-2">
           </div>
+          <div className="uppercase">{dateStr}, {timeStr}</div>
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 md:px-10 py-10 mt-2">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 py-8 sm:py-10">
 
-        {/* HEADER */}
-        <div className="flex items-start justify-between flex-wrap gap-4 mb-10">
+        {/* ── HEADER ─────────────────────────────────────── */}
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2">Мониторинг системы</h1>
-            <p className="text-slate-400">Актуальная статистика государственных структур</p>
+            <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Мониторинг системы</div>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">Государственные структуры</h1>
+            <p className="text-slate-400 max-w-lg">Актуальная статистика по организациям, лидерам и дисциплинарным взысканиям</p>
           </div>
           <button
             style={{
@@ -446,28 +456,140 @@ export default function Dashboard({ user, onLogout }) {
           </button>
         </div>
 
-        {/* STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10">
-          {statCards.map(card => (
-            <div key={card.title} className="bg-[#111827] border border-white/5 rounded-3xl p-6 hover:border-orange-500/20 hover:shadow-xl transition-all duration-300">
+        {/* ── PARTIES ANNOUNCEMENT — hero banner ─────────── */}
+        <div
+          className="relative overflow-hidden mb-6"
+          style={{
+            borderRadius: 28,
+            border: '1px solid rgba(167,139,250,.35)',
+            background: 'linear-gradient(135deg, #1f1745 0%, #140f2e 55%, #0f0c22 100%)',
+            boxShadow: '0 30px 90px rgba(90,40,180,.35)',
+          }}
+        >
+          {/* ambient glows */}
+          <div style={{ position: 'absolute', top: -100, right: -60, width: 320, height: 320, background: 'radial-gradient(circle, rgba(167,139,250,.42) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: -120, left: 60, width: 260, height: 260, background: 'radial-gradient(circle, rgba(255,201,51,.16) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+          {/* diagonal ribbon */}
+          <div style={{
+            position: 'absolute', top: 18, right: -46, width: 200, textAlign: 'center',
+            transform: 'rotate(40deg)', background: 'linear-gradient(90deg, #A78BFA, #7C3AED)',
+            color: '#fff', fontSize: 11, fontWeight: 900, letterSpacing: '2px',
+            padding: '5px 0', boxShadow: '0 6px 20px rgba(124,58,237,.65)',
+          }}>
+            СКОРО
+          </div>
+
+          <div className="relative flex flex-col md:flex-row items-center gap-6 md:gap-10 p-6 sm:p-8 md:p-10">
+            {/* seal badge */}
+            <div className="shrink-0 relative w-[92px] h-[92px] sm:w-[104px] sm:h-[104px]">
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{
+                  border: '1.5px dashed rgba(255,201,51,.6)',
+                  animation: 'db-spinSlow 18s linear infinite',
+                }}
+              />
+              <div
+                className="absolute inset-[8px] rounded-full flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(155deg, #A78BFA, #6D28D9)',
+                  boxShadow: '0 10px 30px rgba(167,139,250,.6), inset 0 1px 0 rgba(255,255,255,.2)',
+                }}
+              >
+                <span style={{ width: 34, height: 34, color: '#FFC933' }}>{IC.seal}</span>
+              </div>
+            </div>
+
+            <div className="flex-1 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 text-[11px] font-extrabold tracking-[2.5px] uppercase mb-3" style={{ color: '#D8B4FE' }}>
+                <span style={{ width: 14, height: 14 }}>{IC.flag}</span>
+                Новая система
+              </div>
+              <h2 className="text-xl sm:text-2xl md:text-[28px] font-black leading-snug mb-2 text-white">
+                Система партий уже в разработке
+              </h2>
+              <p className="text-[13px] sm:text-sm max-w-xl mx-auto md:mx-0" style={{ color: 'rgba(230,225,255,.55)' }}>
+                Регистрация политических объединений, внутренние рейтинги и собственные структуры руководства —
+                появится в одном из ближайших обновлений.
+              </p>
+            </div>
+
+            <div className="shrink-0">
+              <div
+                className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold select-none"
+                style={{
+                  background: 'rgba(167,139,250,.18)',
+                  border: '1px solid rgba(167,139,250,.45)',
+                  color: '#D8B4FE',
+                }}
+              >
+                В разработке
+                <span className="flex gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-300" style={{ animation: 'db-pulse 1.2s ease infinite' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-300" style={{ animation: 'db-pulse 1.2s ease infinite .2s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-300" style={{ animation: 'db-pulse 1.2s ease infinite .4s' }} />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── ORGANIZATIONS ──────────────────────────────── */}
+        <div className="flex items-center gap-3 mb-4 mt-10">
+          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Организации</span>
+          <div className="flex-1 h-px bg-white/5" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+          {orgGroup.map(card => (
+            <div
+              key={card.title}
+              className={`relative overflow-hidden rounded-3xl p-6 border border-white/5 bg-gradient-to-br ${card.ring} bg-[#111827] hover:border-white/10 hover:-translate-y-0.5 transition-all duration-300`}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-sm">{card.title}</p>
-                  <h2 className="text-4xl font-black mt-2">{card.value}</h2>
+                  <h2 className="text-4xl font-black mt-2 tabular-nums">{card.value}</h2>
                 </div>
-                <div className={`p-3 rounded-xl bg-white/5 ${card.color}`}>{card.icon}</div>
+                <div className={`p-3 rounded-xl bg-white/5 ${card.iconColor}`}>{card.icon}</div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* QUICK ACTIONS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+        {/* ── DISCIPLINE ──────────────────────────────────── */}
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Дисциплина</span>
+          <div className="flex-1 h-px bg-white/5" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+          {disciplineGroup.map(card => (
+            <div
+              key={card.title}
+              className={`relative overflow-hidden rounded-3xl p-6 border border-white/5 bg-gradient-to-br ${card.ring} bg-[#111827] hover:border-white/10 hover:-translate-y-0.5 transition-all duration-300`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-400 text-sm">{card.title}</p>
+                  <h2 className="text-4xl font-black mt-2 tabular-nums">{card.value}</h2>
+                </div>
+                <div className={`p-3 rounded-xl bg-white/5 ${card.iconColor}`}>{card.icon}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── QUICK ACTIONS ───────────────────────────────── */}
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Быстрые действия</span>
+          <div className="flex-1 h-px bg-white/5" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-10">
 
           {/* ASSIGN LEADER — opens modal */}
           <button
             onClick={() => setShowAssign(true)}
-            className="group relative overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 hover:scale-[1.02] shadow-lg shadow-orange-500/20"
+            className="group relative overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 hover:scale-[1.015] shadow-lg shadow-orange-500/20"
           >
             <div className="text-orange-900 mb-3">{IC.crown}</div>
             <h3 className="font-black text-xl mb-1">Назначить лидера</h3>
@@ -475,33 +597,35 @@ export default function Dashboard({ user, onLogout }) {
           </button>
 
           {/* BLACKLIST */}
-          <button className="group relative overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent border border-red-500/20 hover:bg-gradient-to-br hover:from-red-500 hover:to-pink-600 hover:text-white hover:scale-[1.02]">
-            <div className="text-red-400 mb-3 transition group-hover:text-white">{IC.cross}</div>
+          <button className="group relative overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent border border-red-500/20 hover:bg-gradient-to-br hover:from-red-500 hover:to-pink-600 hover:text-white hover:scale-[1.015]">
+            <div className="text-red-300 mb-3 transition group-hover:text-white">{IC.cross}</div>
             <h3 className="font-black text-xl mb-1">Внести в реестр запретов</h3>
             <p className="text-sm text-slate-300 group-hover:text-white/80">Запреты на вступление в гос.организации</p>
           </button>
 
         </div>
 
-        {/* ACTIVITY */}
-        <div className="bg-[#111827] border border-white/5 rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-black">Последние действия</h2>
-            <button className="text-blue-400 hover:text-blue-300 transition">Все логи →</button>
-          </div>
-          <div className="space-y-4">
-            {recentActions.map((log, i) => (
-              <div key={i} className="flex items-center justify-between bg-black/20 rounded-2xl p-4 hover:bg-black/30 hover:translate-x-1 transition-all">
-                <div>
-                  <h4 className="font-bold">{log.admin}</h4>
-                  <p className="text-slate-400 text-sm">{log.action}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold">{log.target}</p>
-                  <span className="text-xs text-slate-500">{log.time}</span>
-                </div>
+        {/* ── PARTIES ANNOUNCEMENT — compact strip ───────── */}
+        <div
+          className="relative overflow-hidden rounded-3xl mb-2"
+          style={{
+            border: '1px solid rgba(167,139,250,.3)',
+            background: 'linear-gradient(90deg, rgba(167,139,250,.16), rgba(255,201,51,.08))',
+          }}
+        >
+          <div className="flex flex-col sm:flex-row items-center gap-4 px-6 py-5">
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(167,139,250,.26)', color: '#D8B4FE' }}>
+                <span style={{ width: 18, height: 18 }}>{IC.flag}</span>
               </div>
-            ))}
+              <span className="font-black text-sm sm:text-base whitespace-nowrap">Система партий</span>
+            </div>
+            <p className="text-sm text-white/45 flex-1 text-center sm:text-left">
+              Следите за обновлениями — запуск политических объединений уже на подходе
+            </p>
+            <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: 'rgba(167,139,250,.22)', color: '#D8B4FE' }}>
+              Скоро <span style={{ width: 13, height: 13 }}>{IC.arrow}</span>
+            </span>
           </div>
         </div>
 
