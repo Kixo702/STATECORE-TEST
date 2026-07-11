@@ -49,7 +49,7 @@ export default function Blacklist() {
   const [filter, setFilter] = useState('ALL')
 
   const BLACKLIST_URL =
-    'https://docs.google.com/spreadsheets/d/1AlVjhUGWnIg-yJY7vliG1kARBiO0YQPfBc-NLdM3UJI/export?format=csv&gid=1376095683'
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vScK5HNQA_dCCQcgADjGHhxAmDJQo3rcIHtoFWPNTyhQWJvoEO-uzPVfYFRnEOjtJqcIVovmSzFaNRp/pub?gid=1376095683&single=true&output=csv'
 
   useEffect(() => {
     fetchData()
@@ -69,12 +69,15 @@ export default function Blacklist() {
         .map((r) => ({
           id: clean(r[0]),
           nickname: clean(r[1]),
+          decisionDate: clean(r[2]),
           startDate: clean(r[3]),
           endDate: clean(r[4]),
           reason: clean(r[5]),
           days: clean(r[6]),
           admin: clean(r[7]),
           proofs: clean(r[8]),
+          status: clean(r[9]),
+          passport: clean(r[10]),
         }))
         .filter((x) => x.nickname)
 

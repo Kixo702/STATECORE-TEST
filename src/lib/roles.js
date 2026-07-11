@@ -55,6 +55,16 @@ export function canRemoveLeader(user) {
   return isFullAccess(user) || isChief(user) || isDeputy(user)
 }
 
+export function canEditRoles(user) {
+  // Изменять роли других может только руководство
+  return isFullAccess(user) || isChief(user)
+}
+
+export function canReviewNickRequests(user) {
+  // Рассматривать заявки на смену ника могут те же, кто выдаёт выговоры
+  return canIssueReprimand(user)
+}
+
 // menu visibility helper
 export function canViewMenu(user, menuId) {
   if (!menuId || typeof menuId !== 'string') return false
@@ -65,9 +75,11 @@ export function canViewMenu(user, menuId) {
 
   const id = menuId.toLowerCase()
 
-  // Только Главный Следящий и Главный Разработчик
+  // Раздел виден всем, у кого есть право просматривать пользователей —
+  // конкретные действия (смена роли, выговор, снятие лидера) уже
+  // ограничены внутри самой страницы в зависимости от роли
   if (id === 'users') {
-    return isChief(user) || isFullAccess(user)
+    return canViewAll(user)
   }
 
   // Игрок
@@ -92,5 +104,5 @@ export function canViewMenu(user, menuId) {
 export default {
   ROLE_FULL, ROLE_CHIEF, ROLE_DEPUTY, ROLE_WATCHER, ROLE_PLAYER, LEADER_PREFIX,
   isFullAccess, isChief, isDeputy, isWatcher, isLeader, isPlayer,
-  canViewAll, canIssueReprimand, canRemoveLeader, canViewMenu,
+  canViewAll, canIssueReprimand, canRemoveLeader, canEditRoles, canReviewNickRequests, canViewMenu,
 }
