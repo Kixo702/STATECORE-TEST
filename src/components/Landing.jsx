@@ -947,7 +947,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
           {/* Bottom bar */}
           <div style={{ borderTop:'1px solid rgba(255,255,255,.06)', paddingTop:22, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
             <div style={{ fontSize:12, color:T.ink3 }}>
-              © 2025 ГС Портал. Все права защищены.
+              © 2026 STATECORE. Все права защищены.
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               <div style={{ width:6, height:6, borderRadius:'50%', background:T.green, boxShadow:`0 0 8px ${T.green}`, animation:'land-pulse-dot 2s ease infinite' }}/>
