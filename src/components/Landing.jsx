@@ -480,12 +480,49 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
         ::-webkit-scrollbar-track { background: ${T.bg}; }
         ::-webkit-scrollbar-thumb { background: ${hexToRgba(T.orange,.3)}; border-radius:3px; }
 
+        section[id] { scroll-margin-top: 96px; }
+
         @media (max-width: 860px) {
           .land-hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; }
           .land-org-grid { grid-template-columns: 1fr 1fr !important; }
           .land-features-grid { grid-template-columns: 1fr !important; }
           .land-stats-grid { grid-template-columns: 1fr 1fr !important; }
           .land-nav-links { display: none !important; }
+        }
+
+        /* ── Tablet / large phone ── */
+        @media (max-width: 640px) {
+          .land-container-pad { padding-left: 16px !important; padding-right: 16px !important; }
+          .land-banner-pad-top { padding-top: 84px !important; }
+          .land-banner-radius { border-radius: 20px !important; }
+          .land-hero-section { padding: 44px 16px 56px !important; }
+          .land-hero-title { font-size: clamp(32px, 9vw, 44px) !important; letter-spacing: -1px !important; }
+          .land-section-pad { padding: 64px 16px !important; }
+          .land-section-pad-b { padding: 56px 16px !important; }
+          .land-faq-section { padding: 0 16px 64px !important; }
+          .land-cta-section { padding: 56px 16px !important; }
+          .land-cta-box { flex-direction: column !important; align-items: flex-start !important; text-align: left !important; padding: 32px 24px !important; gap: 24px !important; }
+          .land-cta-box > div:last-child { align-items: stretch !important; width: 100%; }
+          .land-cta-box .land-btn { width: 100%; }
+          .land-footer { padding: 40px 16px 24px !important; }
+          .land-footer-grid { grid-template-columns: 1fr 1fr !important; gap: 28px !important; row-gap: 32px !important; }
+          .land-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+          .land-modal-sheet { padding: 14px 18px 22px !important; border-radius: 26px !important; }
+          .land-stats-grid { margin-top: 44px !important; gap: 10px !important; }
+          .land-input, input.land-input { font-size: 16px !important; }
+        }
+
+        /* ── Small phone ── */
+        @media (max-width: 460px) {
+          .land-wordmark { display: none !important; }
+          .land-nav-cta { gap: 6px !important; }
+          .land-nav-cta .land-btn { padding: 8px 12px !important; font-size: 12px !important; }
+          .land-profile-role { display: none !important; }
+          .land-footer-grid { grid-template-columns: 1fr !important; }
+          .land-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .land-org-grid { grid-template-columns: 1fr !important; }
+          .land-features-grid { gap: 10px !important; }
+          .land-hero-title { font-size: clamp(28px, 10vw, 36px) !important; }
         }
       `}</style>
 
@@ -496,7 +533,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
 
       {/* ── FLOATING ISLAND NAVBAR ── */}
       <div style={{ position:'fixed', top:0, left:0, right:0, zIndex:50, display:'flex', justifyContent:'center', padding: scrolled ? '14px 16px' : '22px 16px', transition:'padding .4s cubic-bezier(.2,.8,.2,1)' }}>
-        <nav style={{
+        <nav className="land-navbar" style={{
           width:'100%', maxWidth: scrolled ? 940 : 1180,
           display:'flex', alignItems:'center', justifyContent:'space-between', gap:24,
           padding: '9px 10px 9px 16px',
@@ -512,7 +549,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             <div style={{ width:30, height:30, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
               <img src={viteLogo} alt="logo" style={{ width:30, height:30, objectFit:'contain' }} />
             </div>
-            <span style={{ fontSize:14.5, fontWeight:700, letterSpacing:'-0.3px' }}>
+            <span className="land-wordmark" style={{ fontSize:14.5, fontWeight:700, letterSpacing:'-0.3px' }}>
               STATE <span style={{ color:T.orange }}>CORE</span>
             </span>
           </div>
@@ -540,7 +577,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                   <div style={{ fontSize:12, fontWeight:600, color:T.ink, lineHeight:1.1 }}>
                     {currentUser.nickname || currentUser.login}
                   </div>
-                  <div style={{ fontSize:10, color:hexToRgba(T.orange,.85), fontWeight:600 }}>
+                  <div className="land-profile-role" style={{ fontSize:10, color:hexToRgba(T.orange,.85), fontWeight:600 }}>
                     {currentUser.roleName}
                   </div>
                 </div>
@@ -558,7 +595,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
               )}
             </div>
           ) : (
-            <div style={{ display:'flex', gap:8 }}>
+            <div className="land-nav-cta" style={{ display:'flex', gap:8 }}>
               <Pill variant="glass" onClick={() => openModal('register')} style={{ padding:'9px 16px', fontSize:12.5 }}>Регистрация</Pill>
               <Pill variant="primary" onClick={() => openModal('login')} style={{ padding:'9px 18px', fontSize:12.5 }}>Войти {IC.arrow(12)}</Pill>
             </div>
@@ -567,9 +604,9 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       </div>
 
       {/* BANNER */}
-      <div style={{ position: 'relative', zIndex: 1, paddingTop: 108 }}>
-        <div style={{ padding: '0 24px', maxWidth: 1280, margin: '0 auto' }}>
-          <div style={{ position: 'relative', borderRadius: 32, overflow: 'hidden', border:`1px solid ${T.glassBorder}` }}>
+      <div className="land-banner-pad-top" style={{ position: 'relative', zIndex: 1, paddingTop: 108 }}>
+        <div className="land-container-pad" style={{ padding: '0 24px', maxWidth: 1280, margin: '0 auto' }}>
+          <div className="land-banner-radius" style={{ position: 'relative', borderRadius: 32, overflow: 'hidden', border:`1px solid ${T.glassBorder}` }}>
             <img src={banner} alt="STATE CORE Banner" style={{ width: '100%', height: 'auto', display: 'block' }} />
             <div style={{
               position: 'absolute', inset: 0,
@@ -586,7 +623,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       </div>
 
       {/* ── HERO ── */}
-      <section style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'72px 24px 96px' }}>
+      <section className="land-hero-section" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'72px 24px 96px' }}>
         <div className="land-hero-grid" style={{ display:'grid', gridTemplateColumns:'1.05fr .95fr', gap:64, alignItems:'center' }}>
 
           {/* LEFT */}
@@ -604,7 +641,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
               Система работает штатно
             </div>
 
-            <h1 style={{
+            <h1 className="land-hero-title" style={{
               fontSize:'clamp(38px, 4.6vw, 62px)', fontWeight:700,
               letterSpacing:'-2px', lineHeight:1.06,
               margin:'0 0 20px',
@@ -740,7 +777,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       </div>
 
       {/* ── FEATURES ── */}
-      <section id="возможности" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'96px 24px' }}>
+      <section id="возможности" className="land-section-pad" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'96px 24px' }}>
 
         <div style={{ textAlign:'center', marginBottom:56 }}>
           <div style={{ display:'inline-flex', alignItems:'center', gap:7, background:hexToRgba(T.orange,.1), border:`1px solid ${hexToRgba(T.orange,.24)}`, borderRadius:999, padding:'6px 14px', marginBottom:20, fontSize:11.5, fontWeight:600, color:T.orange }}>
@@ -782,7 +819,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       </section>
 
       {/* ── ORGANIZATIONS ── */}
-      <section id="организации" style={{ position:'relative', zIndex:1, borderTop:'1px solid rgba(255,255,255,.06)', borderBottom:'1px solid rgba(255,255,255,.06)', padding:'88px 24px' }}>
+      <section id="организации" className="land-section-pad-b" style={{ position:'relative', zIndex:1, borderTop:'1px solid rgba(255,255,255,.06)', borderBottom:'1px solid rgba(255,255,255,.06)', padding:'88px 24px' }}>
         <div style={{ maxWidth:1280, margin:'0 auto' }}>
 
           <div className="land-hero-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:64, alignItems:'center' }}>
@@ -849,8 +886,8 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       </section>
 
       {/* ── CTA BANNER ── */}
-      <section style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'88px 24px' }}>
-        <div style={{
+      <section className="land-cta-section" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'88px 24px' }}>
+        <div className="land-cta-box" style={{
           background:`linear-gradient(135deg, ${hexToRgba(T.orange,.14)} 0%, ${hexToRgba(T.orangeDeep,.06)} 50%, rgba(255,255,255,.02) 100%)`,
           border:`1px solid ${hexToRgba(T.orange,.22)}`,
           borderRadius:32, padding:'56px 48px',
@@ -881,7 +918,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" style={{ position:'relative', zIndex:1, maxWidth:760, margin:'0 auto', padding:'0 24px 96px' }}>
+      <section id="faq" className="land-faq-section" style={{ position:'relative', zIndex:1, maxWidth:760, margin:'0 auto', padding:'0 24px 96px' }}>
         <div style={{ textAlign:'center', marginBottom:48 }}>
           <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`, borderRadius:999, padding:'6px 14px', marginBottom:18, fontSize:11.5, fontWeight:600, color:T.ink2 }}>
             Вопросы и ответы
@@ -896,10 +933,10 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer style={{ position:'relative', zIndex:1, borderTop:'1px solid rgba(255,255,255,.06)', padding:'44px 24px 28px' }}>
+      <footer className="land-footer" style={{ position:'relative', zIndex:1, borderTop:'1px solid rgba(255,255,255,.06)', padding:'44px 24px 28px' }}>
         <div style={{ maxWidth:1280, margin:'0 auto' }}>
 
-          <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:40, marginBottom:40 }}>
+          <div className="land-footer-grid" style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:40, marginBottom:40 }}>
 
             {/* Brand */}
             <div>
@@ -945,7 +982,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
           </div>
 
           {/* Bottom bar */}
-          <div style={{ borderTop:'1px solid rgba(255,255,255,.06)', paddingTop:22, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
+          <div className="land-footer-bottom" style={{ borderTop:'1px solid rgba(255,255,255,.06)', paddingTop:22, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
             <div style={{ fontSize:12, color:T.ink3 }}>
               © 2026 STATECORE. Все права защищены.
             </div>
@@ -971,6 +1008,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
         >
           <div
             onClick={e => e.stopPropagation()}
+            className="land-modal-sheet"
             style={{
               width:'100%', maxWidth:440,
               background:'linear-gradient(180deg, rgba(32,32,37,.9) 0%, rgba(20,20,24,.9) 100%)',
