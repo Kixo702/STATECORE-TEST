@@ -56,8 +56,8 @@ export function canRemoveLeader(user) {
 }
 
 export function canEditRoles(user) {
-  // Изменять роли других может только руководство
-  return isFullAccess(user) || isChief(user)
+  // Изменять роли других может руководство и заместитель главного следящего
+  return isFullAccess(user) || isChief(user) || isDeputy(user)
 }
 
 export function canReviewNickRequests(user) {

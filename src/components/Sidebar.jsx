@@ -176,6 +176,23 @@ export default function Sidebar({
           )
         }
       ]
+    },
+    {
+      label: 'Помощь',
+      items: [
+        {
+          id: 'faq',
+          title: 'FAQ',
+          alwaysVisible: true,
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+              <path d="M9.5 9.2a2.5 2.5 0 014.7 1.15c0 1.65-2.2 1.7-2.2 3.15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="16.7" r="0.9" fill="currentColor"/>
+            </svg>
+          )
+        }
+      ]
     }
   ]
 

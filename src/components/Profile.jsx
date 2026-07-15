@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { getPendingNickRequestForUser, createNickRequest } from '../lib/requests'
+import { getUsers, saveUsers, setSession, getSession } from '../lib/userStore'
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -141,11 +142,13 @@ export default function Profile({ user, onUpdate }) {
     try {
       const session = JSON.parse(localStorage.getItem('sc_user') || 'null')
       if (!session || !session.id) return
-      const raw = localStorage.getItem('sc_users')
-      const users = raw ? JSON.parse(raw) : null
+      const users = getUsers()
       const exists = Array.isArray(users) && users.find(x => x.id === session.id || (x.login && session.login && x.login.toLowerCase() === (session.login || '').toLowerCase()))
-      if (!exists) setShowAddSharedModal(true)
-    } catch (e) {}
+      if (!exists) {
+        const timer = window.setTimeout(() => setShowAddSharedModal(true), 0)
+        return () => window.clearTimeout(timer)
+      }
+    } catch {}
   }, [])
 
   // Отслеживаем решение по заявке на смену ника (в т.ч. из другой вкладки)
@@ -176,17 +179,20 @@ export default function Profile({ user, onUpdate }) {
       stored.avatar = dataUrl
       localStorage.setItem('sc_user', JSON.stringify(stored))
 
-      const raw = localStorage.getItem('sc_users')
-      if (raw) {
-        try {
-          const users = JSON.parse(raw)
-          const idx = users.findIndex(x => x.id === data.id)
-          if (idx !== -1) { users[idx].avatar = dataUrl; localStorage.setItem('sc_users', JSON.stringify(users)) }
-        } catch {}
+      const users = getUsers()
+      const idx = users.findIndex(x => x.id === data.id)
+      if (idx !== -1) {
+        users[idx].avatar = dataUrl
+        saveUsers(users)
+        const current = getSession()
+        if (current?.id === data.id) {
+          setSession({ ...current, avatar: dataUrl })
+        }
       }
 
       pushLog('Обновлена аватарка профиля')
       onUpdate && onUpdate({ ...stored, avatar: dataUrl })
+      window.setTimeout(() => window.location.reload(), 250)
     } catch (err) {
       setAvatarError(err.message || 'Не удалось загрузить изображение')
     } finally {
@@ -210,6 +216,7 @@ export default function Profile({ user, onUpdate }) {
         })
         setPendingReq(req)
         pushLog(`Отправлена заявка на смену никнейма: «${data.nickname}» → «${trimmed}»`)
+        window.setTimeout(() => window.location.reload(), 250)
       } catch (e) { console.error(e) }
       setEditingNick(false)
       setNickSaving(false)
@@ -222,11 +229,7 @@ export default function Profile({ user, onUpdate }) {
       setAddingShared(true)
       const session = JSON.parse(localStorage.getItem('sc_user') || 'null')
       if (!session || !session.id) return
-      let users = []
-      try {
-        const raw = localStorage.getItem('sc_users')
-        if (raw) users = JSON.parse(raw)
-      } catch(e) { users = [] }
+      let users = getUsers()
 
       const exists = users.find(x => x.id === session.id)
       if (!exists) {
@@ -241,8 +244,9 @@ export default function Profile({ user, onUpdate }) {
           registeredAt: session.registeredAt || new Date().toISOString(),
           roleName: session.roleName || 'Игрок'
         })
-        localStorage.setItem('sc_users', JSON.stringify(users))
+        saveUsers(users)
         pushLog('Добавлен в базу пользователей')
+        window.setTimeout(() => window.location.reload(), 250)
       }
       setShowAddSharedModal(false)
     } finally { setAddingShared(false) }

@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id          String   @id @default(cuid())
+  login       String   @unique
+  nickname    String
+  password    String
+  vk          String?
+  forum       String?
+  roleName    String   @default("Игрок")
+  avatar      String?
+  registeredAt DateTime @default(now())
+
+  sentRequests     FriendRequest[] @relation("SentRequests")
+  receivedRequests FriendRequest[] @relation("ReceivedRequests")
+  friendsA         Friend[]        @relation("FriendA")
+  friendsB         Friend[]        @relation("FriendB")
+}
+
+model FriendRequest {
+  id           String   @id @default(cuid())
+  fromUserId   String
+  toUserId     String
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+
+  fromUser     User     @relation("SentRequests", fields: [fromUserId], references: [id])
+  toUser       User     @relation("ReceivedRequests", fields: [toUserId], references: [id])
+}
+
+model Friend {
+  id           String   @id @default(cuid())
+  userAId      String
+  userBId      String
+  createdAt    DateTime @default(now())
+
+  userA        User     @relation("FriendA", fields: [userAId], references: [id])
+  userB        User     @relation("FriendB", fields: [userBId], references: [id])
+}

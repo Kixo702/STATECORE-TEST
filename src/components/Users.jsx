@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   canViewAll,
   canEditRoles,
@@ -8,13 +9,16 @@ import {
   isLeader,
 } from '../lib/roles'
 import { getNickRequests, reviewNickRequest } from '../lib/requests'
+import { getUsers, saveUsers, setSession } from '../lib/userStore'
 
 const ROLES = [
-  { value: 'Игрок',             color: '#6b7280' },
-  { value: 'Лидер',             color: '#06b6d4' },
-  { value: 'Следящий',          color: '#8b5cf6' },
+  { value: 'Игрок', color: '#6b7280' },
+  { value: 'Лидер', color: '#06b6d4' },
+  { value: 'Следящий', color: '#8b5cf6' },
   { value: 'Заместитель Главного Следящего', color: '#f59e0b' },
-  { value: 'Главный Следящий',  color: '#f59e0b' },
+  { value: 'Главный Следящий', color: '#f59e0b' },
+  { value: 'Разработчик', color: '#22c55e' },
+  { value: 'PR-Assistent', color: '#ec4899' },
   { value: 'Главный Разработчик', color: '#ff8c00' },
 ]
 
@@ -71,10 +75,29 @@ export default function Users({ currentUser }) {
   const [page, setPage] = useState('list') // 'list' | 'requests'
   const [search, setSearch] = useState('')
   const [filterRole, setFilterRole] = useState('Все')
+  const [filterRoleOpen, setFilterRoleOpen] = useState(false)
+  const [filterMenuPos, setFilterMenuPos] = useState(null)
+  const filterBtnRef = useRef(null)
   const [pendingRole, setPendingRole] = useState({}) // userId → newRole
+  const [roleMenuOpen, setRoleMenuOpen] = useState(null)
+  const [roleMenuPos, setRoleMenuPos] = useState(null)
+  const roleBtnRefs = useRef({})
+
+  // Закрываем открытое меню при скролле/ресайзе, чтобы оно не "отклеивалось" от кнопки
+  useEffect(() => {
+    if (!roleMenuOpen && !filterRoleOpen) return
+    const close = () => { setRoleMenuOpen(null); setFilterRoleOpen(false) }
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [roleMenuOpen, filterRoleOpen])
   const [saving, setSaving] = useState(null)
   const [saved, setSaved] = useState(null)
-  const [confirmModal, setConfirmModal] = useState(null) // { kind, user, role? }
+  const [confirmModal, setConfirmModal] = useState(null) // { kind, user, role?, ban? }
+  const [profileModal, setProfileModal] = useState(null)
 
   const [nickRequests, setNickRequests] = useState(() => getNickRequests())
   const refreshNickRequests = () => setNickRequests(getNickRequests())
@@ -91,13 +114,7 @@ export default function Users({ currentUser }) {
 
   const pendingNickRequests = useMemo(() => nickRequests.filter(r => r.status === 'pending'), [nickRequests])
 
-  const allUsers = useMemo(() => {
-    try {
-      const raw = localStorage.getItem('sc_users')
-      if (!raw || raw === 'undefined' || raw === 'null') return []
-      return JSON.parse(raw)
-    } catch { return [] }
-  }, [saved])
+  const allUsers = useMemo(() => getUsers(), [saved])
 
   const usersById = useMemo(() => {
     const map = {}
@@ -127,24 +144,24 @@ export default function Users({ currentUser }) {
   }
 
   const writeUsers = (mutator) => {
-    let users = []
-    try {
-      const raw = localStorage.getItem('sc_users')
-      users = (raw && raw !== 'undefined' && raw !== 'null') ? JSON.parse(raw) : []
-    } catch(e) { users = [] }
+    let users = getUsers()
     const idx = users.findIndex(x => x.id === mutator.id)
     if (idx === -1) return
     mutator.apply(users[idx])
-    localStorage.setItem('sc_users', JSON.stringify(users))
+    saveUsers(users)
 
     let session = {}
     try {
       const sraw = localStorage.getItem('sc_user')
       session = (sraw && sraw !== 'undefined' && sraw !== 'null') ? JSON.parse(sraw) : {}
-    } catch(e) { session = {} }
+    } catch {
+      session = {}
+    }
     if (session.id === mutator.id) {
       mutator.apply(session)
       localStorage.setItem('sc_user', JSON.stringify(session))
+      setSession(session)
+      window.dispatchEvent(new CustomEvent('statecore:users-updated'))
     }
   }
 
@@ -154,7 +171,9 @@ export default function Users({ currentUser }) {
     try {
       const lraw = localStorage.getItem(logsKey)
       logs = (lraw && lraw !== 'undefined' && lraw !== 'null') ? JSON.parse(lraw) : []
-    } catch(e) { logs = [] }
+    } catch {
+      logs = []
+    }
     logs.unshift({ text, at: new Date().toISOString() })
     localStorage.setItem(logsKey, JSON.stringify(logs.slice(0, 30)))
   }
@@ -163,7 +182,7 @@ export default function Users({ currentUser }) {
     const modal = confirmModal
     setConfirmModal(null)
     if (!modal) return
-    const { kind, user: u, role: newRole } = modal
+    const { kind, user: u, role: newRole, ban } = modal
     setSaving(u.id)
     setTimeout(() => {
       try {
@@ -172,14 +191,21 @@ export default function Users({ currentUser }) {
           writeUsers({ id: u.id, apply: (obj) => { obj.roleName = newRole } })
           pushLog(u.id, `Роль изменена: «${prevRole}» → «${newRole}» (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
           setPendingRole(p => { const n = { ...p }; delete n[u.id]; return n })
+          window.setTimeout(() => window.location.reload(), 220)
         } else if (kind === 'reprimand') {
           writeUsers({ id: u.id, apply: (obj) => { obj.warnings = (obj.warnings || 0) + 1 } })
           pushLog(u.id, `Выдан выговор (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
+          window.setTimeout(() => window.location.reload(), 220)
         } else if (kind === 'removeLeader') {
           writeUsers({ id: u.id, apply: (obj) => { obj.roleName = 'Игрок' } })
           pushLog(u.id, `Статус лидера снят (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
+          window.setTimeout(() => window.location.reload(), 220)
+        } else if (kind === 'ban') {
+          writeUsers({ id: u.id, apply: (obj) => { obj.isBanned = ban; obj.banReason = ban ? 'Забанен администратором' : '' } })
+          pushLog(u.id, ban ? `Пользователь забанен (${currentUser?.nickname || currentUser?.login || 'модератор'})` : `Пользователь разбанен (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
+          window.setTimeout(() => window.location.reload(), 220)
         }
-        setSaved(u.id + '_' + Date.now())
+        setSaved(`${u.id}_${Math.random().toString(36).slice(2, 8)}`)
       } catch(e) { console.error(e) }
       setSaving(null)
     }, 350)
@@ -188,7 +214,7 @@ export default function Users({ currentUser }) {
   const handleReview = (req, decision) => {
     reviewNickRequest(req.id, decision, currentUser)
     refreshNickRequests()
-    setSaved('req_' + Date.now()) // trigger allUsers re-read too, in case approved
+    setSaved(`req_${Math.random().toString(36).slice(2, 8)}`)
   }
 
   const roleCounts = useMemo(() => {
@@ -199,6 +225,8 @@ export default function Users({ currentUser }) {
     })
     return counts
   }, [allUsers])
+
+  const canBan = canEditRolesPerm || canReprimand
 
   const sharedStyles = `
     @keyframes u-fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
@@ -216,17 +244,19 @@ export default function Users({ currentUser }) {
     .u-input:focus { border-color: rgba(255,140,0,.4); box-shadow: 0 0 0 3px rgba(255,140,0,.1); }
 
     .u-select {
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
-      color: #e8edf3; padding: 7px 10px;
-      border-radius: 9px; font-size: 12px;
-      font-family: inherit; font-weight: 600;
+      background: linear-gradient(180deg, #161f30 0%, #111827 100%);
+      border: 1px solid rgba(255,255,255,.16);
+      color: #f8fafc; padding: 8px 12px;
+      border-radius: 10px; font-size: 12px;
+      font-family: inherit; font-weight: 700;
       outline: none; cursor: pointer;
-      transition: border-color .15s;
+      transition: border-color .15s, box-shadow .15s, background .15s;
       appearance: none;
       -webkit-appearance: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
     }
-    .u-select:focus { border-color: rgba(255,140,0,.4); }
+    .u-select:hover { background: linear-gradient(180deg, #1b2538 0%, #131b2a 100%); border-color: rgba(255,140,0,.4); }
+    .u-select:focus { border-color: rgba(255,140,0,.45); box-shadow: 0 0 0 3px rgba(255,140,0,.16); }
     .u-select:disabled { opacity: .5; cursor: default; }
 
     .u-row {
@@ -268,6 +298,41 @@ export default function Users({ currentUser }) {
       display: inline-flex; align-items: center; gap: 5px;
       padding: 3px 10px; border-radius: 20px;
       font-size: 11px; font-weight: 700;
+    }
+
+    .u-role-menu {
+      z-index: 10000;
+      background: linear-gradient(180deg, #121b2d 0%, #0d1424 100%);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 12px; padding: 8px; min-width: 186px;
+      box-shadow: 0 18px 42px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+      animation: u-fadeUp .12s ease both;
+    }
+    .u-menu-backdrop {
+      position: fixed; inset: 0; z-index: 9999; background: transparent;
+    }
+    .u-filter-wrap {
+      position: relative; overflow: visible;
+    }
+
+    .u-role-option {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; background: rgba(255,255,255,.04); color: #f3f6fb;
+      font-size: 12px; font-weight: 700; cursor: pointer; text-align: left;
+      transition: background .15s, border-color .15s, transform .15s;
+    }
+    .u-role-option:hover {
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.08);
+      transform: translateX(1px);
+    }
+
+    .u-profile-card {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 120;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .u-profile-card > div {
+      width: min(420px, 100%); background: #0f172a; border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,.45);
     }
 
     .u-modal-bg {
@@ -447,14 +512,41 @@ export default function Users({ currentUser }) {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <div style={{ position: 'relative' }}>
-            <select className="u-select" value={filterRole} onChange={e => setFilterRole(e.target.value)} style={{ paddingRight: 28 }}>
-              <option value="Все">Все роли</option>
-              {ROLES.map(r => <option key={r.value} value={r.value}>{r.value}</option>)}
-            </select>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" strokeWidth="2.5" strokeLinecap="round" style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+          <div className="u-filter-wrap" style={{ position: 'relative' }}>
+            <button
+              ref={filterBtnRef}
+              className="u-select"
+              onClick={() => {
+                if (filterRoleOpen) { setFilterRoleOpen(false); return }
+                const rect = filterBtnRef.current?.getBoundingClientRect()
+                if (rect) setFilterMenuPos({ top: rect.bottom + 6, left: rect.left, width: rect.width })
+                setFilterRoleOpen(true)
+              }}
+              style={{ paddingRight: 28, minWidth: 180, textAlign: 'left' }}
+            >
+              {filterRole === 'Все' ? 'Все роли' : filterRole}
+            </button>
+            {filterRoleOpen && filterMenuPos && createPortal(
+              <>
+                <div className="u-menu-backdrop" onClick={() => setFilterRoleOpen(false)} />
+                <div
+                  className="u-role-menu"
+                  style={{ position: 'fixed', top: filterMenuPos.top, left: filterMenuPos.left, minWidth: Math.max(186, filterMenuPos.width) }}
+                >
+                  <button className="u-role-option" onClick={() => { setFilterRole('Все'); setFilterRoleOpen(false) }}>
+                    <span>Все роли</span>
+                    <span style={{ color: '#ff8c00' }}>●</span>
+                  </button>
+                  {ROLES.map(r => (
+                    <button key={r.value} className="u-role-option" onClick={() => { setFilterRole(r.value); setFilterRoleOpen(false) }}>
+                      <span>{r.value}</span>
+                      <span style={{ color: r.color }}>●</span>
+                    </button>
+                  ))}
+                </div>
+              </>,
+              document.body
+            )}
           </div>
         </div>
 
@@ -500,14 +592,19 @@ export default function Users({ currentUser }) {
                 </div>
 
                 {/* User info */}
-                <div style={{ overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ overflow: 'hidden', cursor: 'pointer' }} onClick={() => setProfileModal(u)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#e8edf3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {u.nickname || u.login}
                     </span>
                     {isMe && (
                       <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 10, background: 'rgba(255,140,0,.15)', color: '#ff8c00', fontWeight: 700, letterSpacing: '1px', flexShrink: 0 }}>
                         ВЫ
+                      </span>
+                    )}
+                    {u.isBanned && (
+                      <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 10, background: 'rgba(239,68,68,.15)', color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>
+                        BAN
                       </span>
                     )}
                     {u.warnings > 0 && (
@@ -529,28 +626,49 @@ export default function Users({ currentUser }) {
                   </span>
                 </div>
 
-                {/* Role selector (только для тех, кто может менять роли) */}
+                {/* Role selector (кастомный, без браузерного select) */}
                 <div style={{ position: 'relative' }}>
                   {canEditRolesPerm ? (
                     <>
-                      <select
+                      <button
+                        ref={el => { roleBtnRefs.current[u.id] = el }}
                         className="u-select"
-                        value={selected}
-                        onChange={e => handleRoleChange(u.id, e.target.value)}
                         disabled={isSaving}
+                        onClick={() => {
+                          if (roleMenuOpen === u.id) { setRoleMenuOpen(null); return }
+                          const rect = roleBtnRefs.current[u.id]?.getBoundingClientRect()
+                          if (rect) setRoleMenuPos({ top: rect.bottom + 6, left: rect.right, width: rect.width })
+                          setRoleMenuOpen(u.id)
+                        }}
                         style={{
-                          width: '100%', paddingRight: 26,
+                          width: '100%', paddingRight: 28,
                           borderColor: changed ? 'rgba(255,140,0,.45)' : undefined,
                           color: changed ? '#ff8c00' : undefined,
                         }}
                       >
-                        {ROLES.map(r => (
-                          <option key={r.value} value={r.value}>{r.value}</option>
-                        ))}
-                      </select>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="2.5" strokeLinecap="round" style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                        <polyline points="6 9 12 15 18 9"/>
-                      </svg>
+                        {selected}
+                      </button>
+                      {roleMenuOpen === u.id && roleMenuPos && createPortal(
+                        <>
+                          <div className="u-menu-backdrop" onClick={() => setRoleMenuOpen(null)} />
+                          <div
+                            className="u-role-menu"
+                            style={{ position: 'fixed', top: roleMenuPos.top, left: roleMenuPos.left - Math.max(186, roleMenuPos.width) }}
+                          >
+                            {ROLES.map(r => (
+                              <button
+                                key={r.value}
+                                className="u-role-option"
+                                onClick={() => { handleRoleChange(u.id, r.value); setRoleMenuOpen(null) }}
+                              >
+                                <span>{r.value}</span>
+                                <span style={{ color: r.color }}>●</span>
+                              </button>
+                            ))}
+                          </div>
+                        </>,
+                        document.body
+                      )}
                     </>
                   ) : (
                     <span style={{ fontSize: 11, color: 'rgba(255,255,255,.15)' }}>—</span>
@@ -582,6 +700,14 @@ export default function Users({ currentUser }) {
                           Выговор
                         </button>
                       )}
+                      {canBan && !isMe && (
+                        <button
+                          className="u-ghost-btn danger"
+                          onClick={() => setConfirmModal({ kind: 'ban', user: u, ban: !u.isBanned })}
+                        >
+                          {u.isBanned ? 'Разбан' : 'Бан'}
+                        </button>
+                      )}
                       {canRemoveLead && targetIsLeader && (
                         <button
                           className="u-ghost-btn danger"
@@ -603,6 +729,33 @@ export default function Users({ currentUser }) {
         </div>
 
       </div>
+
+      {profileModal && (
+        <div className="u-profile-card" onClick={() => setProfileModal(null)}>
+          <div onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 11, color: '#ff8c00', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>
+              Мини-статистика
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, overflow: 'hidden', background: `${roleColor(profileModal.roleName || 'Игрок')}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: roleColor(profileModal.roleName || 'Игрок') }}>
+                {(profileModal.nickname || profileModal.login || '?')[0].toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{profileModal.nickname || profileModal.login}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,.45)', marginTop: 2 }}>{profileModal.login}</div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: 10, fontSize: 13 }}>
+              <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,.04)' }}><b>Роль:</b> {profileModal.roleName || 'Игрок'}</div>
+              <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,.04)' }}><b>Выговоры:</b> {profileModal.warnings || 0}</div>
+              <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,.04)' }}><b>Статус бана:</b> {profileModal.isBanned ? 'Забанен' : 'Активен'}</div>
+              <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,.04)' }}><b>Дата регистрации:</b> {fmtDate(profileModal.registeredAt)}</div>
+              {profileModal.vk && <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,.04)' }}><b>VK:</b> {profileModal.vk}</div>}
+              {profileModal.forum && <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,.04)' }}><b>Форум:</b> {profileModal.forum}</div>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirm modal */}
       {confirmModal && (
@@ -633,6 +786,14 @@ export default function Users({ currentUser }) {
                 <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 900 }}>Снять статус лидера?</h3>
                 <p style={{ margin: '0 0 20px', fontSize: 13, color: 'rgba(255,255,255,.5)', lineHeight: 1.6 }}>
                   Пользователь <span style={{ color: '#e8edf3', fontWeight: 700 }}>{confirmModal.user.nickname || confirmModal.user.login}</span> потеряет статус лидера и получит роль «Игрок».
+                </p>
+              </>
+            )}
+            {confirmModal.kind === 'ban' && (
+              <>
+                <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 900 }}>{confirmModal.ban ? 'Забанить пользователя?' : 'Разбанить пользователя?'}</h3>
+                <p style={{ margin: '0 0 20px', fontSize: 13, color: 'rgba(255,255,255,.5)', lineHeight: 1.6 }}>
+                  Пользователь <span style={{ color: '#e8edf3', fontWeight: 700 }}>{confirmModal.user.nickname || confirmModal.user.login}</span> будет {confirmModal.ban ? 'забанен' : 'разбанен'}.
                 </p>
               </>
             )}

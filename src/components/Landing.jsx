@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect, useRef } from 'react'
 import banner from '../assets/banner.png'
 import viteLogo from '../assets/vite.svg';
+import { upsertUser, setSession, getUsers } from '../lib/userStore'
+import { registerUser, loginUser } from '../lib/api'
 
 // ── Design tokens ─────────────────────────────────────────────
 // Apple-inspired palette: near-black canvas, frosted glass surfaces,
@@ -290,7 +292,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
     setTimeout(() => { setShowModal(false); setStep('hero'); setError(''); setLogin(''); setPassword('') }, 320)
   }
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     setRegError('')
     if (!regLogin.trim()) {
       setRegError('Укажите логин для входа')
@@ -310,36 +312,31 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
     }
     setRegLoading(true)
     try {
-      const raw = localStorage.getItem('sc_users')
-      const users = (raw && raw !== 'undefined' && raw !== 'null') ? JSON.parse(raw) : []
       const loginId = regLogin.trim()
-      if (users.find(u => u.login === loginId)) {
-        setRegError('Аккаунт с таким логином уже существует')
-        setRegLoading(false)
-        return
-      }
       const normalize = s => (s || '').trim().replace(/\/+$/, '')
-      const genUid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2,8))
-      const newUser = {
-        id: genUid(),
+      const response = await registerUser({
         login: loginId,
-        vk: normalize(regVk),
-        forum: normalize(regForum),
         password: regPassword,
         nickname: regNickname.trim(),
-        registeredAt: new Date().toISOString(),
-        roleName: 'Игрок',
+        vk: normalize(regVk),
+        forum: normalize(regForum),
+      })
+      const userData = {
+        id: response.user.id,
+        login: response.user.login,
+        nickname: response.user.nickname,
+        roleName: response.user.roleName || 'Игрок',
+        vk: response.user.vk || '',
+        forum: response.user.forum || '',
+        registeredAt: response.user.registeredAt,
       }
-      users.push(newUser)
-      localStorage.setItem('sc_users', JSON.stringify(users))
-      // auto-login
-      const userData = { id: newUser.id, login: newUser.login, nickname: newUser.nickname, roleName: 'Игрок', vk: newUser.vk, forum: newUser.forum, registeredAt: newUser.registeredAt }
-      localStorage.setItem('sc_user', JSON.stringify(userData))
+      upsertUser(userData)
+      setSession(userData)
       setSuccess(true)
       setTimeout(() => { onLogin && onLogin(userData) }, 700)
     } catch (err) {
       console.error(err)
-      setRegError('Ошибка при регистрации')
+      setRegError(err.message || 'Ошибка при регистрации')
     } finally {
       setRegLoading(false)
     }
@@ -354,16 +351,10 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
     setLoading(true)
     setError('')
     try {
-      // Проверка в локальном хранилище: база пользователей `sc_users`
-      const raw = localStorage.getItem('sc_users')
-      const users = (raw && raw !== 'undefined' && raw !== 'null') ? JSON.parse(raw) : []
       const normalize = s => (s || '').trim().replace(/\/+$/, '').toLowerCase()
       const l = normalize(login)
-      const found = users.find(u => (u.login && normalize(u.login) === l) && u.password === password)
-      if (!found) {
-        setError('Неверный логин или пароль')
-        return
-      }
+      const response = await loginUser({ login: l, password })
+      const found = response.user
       const userData = {
         id: found.id,
         login: found.login || found.vk || found.forum,
@@ -374,8 +365,12 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
         forum: found.forum || '',
         registeredAt: found.registeredAt || null,
       }
-      if (remember) localStorage.setItem('sc_user', JSON.stringify(userData))
-      else localStorage.removeItem('sc_user')
+      if (remember) {
+        upsertUser(userData)
+        setSession(userData)
+      } else {
+        localStorage.removeItem('sc_user')
+      }
       setSuccess(true)
       setTimeout(() => { onLogin && onLogin(userData) }, 700)
     } catch (err) {

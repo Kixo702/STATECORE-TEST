@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import seedUsers from './data/sc_users.json'
+import { ensureUserStoreSeeded, getSession, setSession, clearSession, upsertUser, getUsers } from './lib/userStore'
+import { syncLocalUsers } from './lib/api'
 
 import Landing from './components/Landing'
 import Dashboard from './components/Dashboard'
@@ -10,111 +11,131 @@ import Sidebar from './components/Sidebar'
 import MobileHeader from './components/MobileHeader'
 import Profile from './components/Profile'
 import Users from './components/Users'
+import FAQ from './components/FAQ'
 
-// Добавляет/обновляет пользователя в общей таблице sc_users (источник для Users.jsx, Profile.jsx и т.д.)
-function upsertIntoUsersTable(u) {
-  if (!u?.id) return
-  try {
-    const raw = localStorage.getItem('sc_users')
-    let users = (raw && raw !== 'undefined' && raw !== 'null') ? JSON.parse(raw) : []
-    if (!Array.isArray(users)) users = []
+const PAGE_TITLES = {
+  dashboard: 'Мониторинг системы',
+  organizations: 'Организации',
+  blacklist: 'Запреты',
+  logs: 'Логи',
+  users: 'Пользователи',
+  profile: 'Профиль',
+  faq: 'FAQ и помощь',
+}
 
-    const idx = users.findIndex(x => x.id === u.id)
-    if (idx !== -1) {
-      // Обновляем существующую запись, не затирая роль и другие поля, изменённые отдельно (Profile/Users)
-      users[idx] = { ...users[idx], ...u, roleName: users[idx].roleName || u.roleName }
-    } else {
-      users.push({
-        id: u.id,
-        login: u.login || u.name || u.id,
-        nickname: u.nickname || u.name || u.login || u.id,
-        vk: u.vk || '',
-        forum: u.forum || '',
-        registeredAt: u.registeredAt || new Date().toISOString(),
-        roleName: u.roleName || 'Игрок',
-      })
-    }
-    localStorage.setItem('sc_users', JSON.stringify(users))
-  } catch (e) {
-    console.error('upsertIntoUsersTable failed', e)
+function resolvePageFromPath(pathname) {
+  const clean = pathname.replace(/\/+$/, '')
+  const base = '/STATECORE-TEST'
+  const suffix = clean.startsWith(base) ? clean.slice(base.length) : clean
+  const parts = suffix.replace(/^\//, '').split('/').filter(Boolean)
+  const page = parts[0] || 'dashboard'
+  const pageNumber = parts.length > 1 ? Number(parts[1]) : 1
+  return {
+    page: page in PAGE_TITLES ? page : 'dashboard',
+    pageNumber: Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1,
+  }
+}
+
+function setPath(page, pageNumber = 1, mode = 'push') {
+  let nextPath = '/STATECORE-TEST'
+
+  if (page !== 'dashboard') {
+    nextPath += `/${page}/${pageNumber}`
+  }
+
+  if (mode === 'replace') {
+    window.history.replaceState({}, document.title, nextPath)
+  } else {
+    window.history.pushState({}, document.title, nextPath)
   }
 }
 
 export default function App() {
+  const initialRoute = resolvePageFromPath(window.location.pathname)
   const [user, setUser] = useState(null)
-  const [activePage, setActivePage] = useState('dashboard')
+  const [activePage, setActivePage] = useState(initialRoute.page)
+  const [pageNumber, setPageNumber] = useState(initialRoute.pageNumber)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
-  // Сеем таблицу пользователей демо-данными, если она ещё пустая
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('sc_users')
-      const existing = (raw && raw !== 'undefined' && raw !== 'null') ? JSON.parse(raw) : []
-      if (!Array.isArray(existing) || existing.length === 0) {
-        localStorage.setItem('sc_users', JSON.stringify(seedUsers))
-      }
-    } catch (e) {
-      localStorage.setItem('sc_users', JSON.stringify(seedUsers))
-    }
+    ensureUserStoreSeeded()
   }, [])
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+    if (!hydrated) return
+    try {
+      syncLocalUsers(getUsers(), getSession()).catch(() => {})
+    } catch {}
+  }, [hydrated])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
 
     if (code) {
       const genUid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2,8))
-      const user = {
+      const nextUser = {
         id: genUid(),
         name: 'VK User',
-        vkCode: code,
+        login: 'vkuser',
+        nickname: 'VK User',
+        vk: code,
         registeredAt: new Date().toISOString(),
       }
 
-      try { localStorage.setItem('sc_user', JSON.stringify(user)) } catch(e) { console.error('set sc_user failed', e) }
-      upsertIntoUsersTable(user)
-      setUser(user)
+      upsertUser(nextUser)
+      setSession(nextUser)
+      setUser(nextUser)
       window.history.replaceState({}, document.title, window.location.pathname)
-    }
-  }, [])
-
-  // При старте — восстанавливаем сессию из localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sc_user')
+    } else {
+      const saved = getSession()
       if (saved) {
-        const parsed = JSON.parse(saved)
-        setUser(parsed)
-        upsertIntoUsersTable(parsed) // подстраховка: чтобы старые сессии тоже попали в общий список
+        setUser(saved)
+        upsertUser(saved)
       }
-    } catch {
-      localStorage.removeItem('sc_user')
     }
+
     setHydrated(true)
   }, [])
 
+  useEffect(() => {
+    const syncRoute = () => {
+      const route = resolvePageFromPath(window.location.pathname)
+      setActivePage(route.page)
+      setPageNumber(route.pageNumber)
+    }
+
+    window.addEventListener('popstate', syncRoute)
+    return () => window.removeEventListener('popstate', syncRoute)
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    setPath(activePage, pageNumber)
+  }, [activePage, pageNumber, user])
+
   const handleLogout = () => {
-    localStorage.removeItem('sc_user')
+    clearSession()
     setUser(null)
   }
 
-  // Пока не прочитали localStorage — ничего не рендерим (нет мигания лендинга)
-  if (!hydrated) return null
-
-  // Не авторизован — показываем лендинг
-  if (!user) {
-    return <Landing onLogin={setUser} currentUser={null} onLogout={null} />
+  const handleSetActivePage = (page) => {
+    setActivePage(page)
+    setPageNumber(1)
   }
 
-  // Авторизован — обычный лейаут
+  if (!hydrated) return null
+
+  if (!user) {
+    return <Landing onLogin={(nextUser) => { setUser(nextUser); setSession(nextUser); setPath('dashboard', 1, 'replace') }} currentUser={null} onLogout={null} />
+  }
+
   return (
     <div className="bg-[#090D16] text-white min-h-screen flex">
-
       <Sidebar
         activePage={activePage}
-        setActivePage={setActivePage}
+        setActivePage={handleSetActivePage}
         user={user}
         setUser={setUser}
         mobileOpen={mobileOpen}
@@ -123,51 +144,22 @@ export default function App() {
       />
 
       <main className="flex-1 overflow-y-auto">
-
         <div className="max-w-9xl w-full mx-auto px-0">
-
           <MobileHeader
             onMenu={() => setMobileOpen((v) => !v)}
-            title={
-              activePage === 'dashboard'
-                ? 'Мониторинг системы'
-                : activePage === 'organizations'
-                ? 'Организации'
-                : activePage === 'blacklist'
-                ? 'Запреты'
-                : 'Логи'
-            }
+            title={PAGE_TITLES[activePage] || 'Мониторинг системы'}
             user={user}
           />
 
-          {activePage === 'dashboard' && (
-            <Dashboard user={user} onLogout={handleLogout} />
-          )}
-
-          {activePage === 'organizations' && (
-            <Organizations user={user} />
-          )}
-
-          {activePage === 'blacklist' && (
-            <Blacklist />
-          )}
-
-          {activePage === 'logs' && (
-            <Logs />
-          )}
-
-          {activePage === 'users' && (
-            <Users currentUser={user} />
-          )}
-
-          {activePage === 'profile' && (
-            <Profile user={user} />
-          )}
-
+          {activePage === 'dashboard' && <Dashboard user={user} onLogout={handleLogout} />}
+          {activePage === 'organizations' && <Organizations user={user} />}
+          {activePage === 'blacklist' && <Blacklist pageNumber={pageNumber} setPageNumber={setPageNumber} />}
+          {activePage === 'logs' && <Logs pageNumber={pageNumber} setPageNumber={setPageNumber} />}
+          {activePage === 'users' && <Users currentUser={user} />}
+          {activePage === 'profile' && <Profile user={user} />}
+          {activePage === 'faq' && <FAQ user={user} />}
         </div>
-
       </main>
-
     </div>
   )
 }

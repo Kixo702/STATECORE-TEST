@@ -1,3 +1,5 @@
+import { getSession, getUsers, saveUsers, setSession } from './userStore'
+
 // Заявки на смену никнейма — хранятся локально и рассматриваются модераторами
 const REQ_KEY = 'sc_nick_requests'
 
@@ -86,16 +88,16 @@ export function reviewNickRequest(id, decision, reviewer) {
 
   if (decision === 'approved') {
     try {
-      const users = readJSON('sc_users', [])
+      const users = getUsers()
       const uidx = users.findIndex((u) => u.id === req.userId)
       if (uidx !== -1) {
         users[uidx].nickname = req.requestedNickname
-        localStorage.setItem('sc_users', JSON.stringify(users))
+        saveUsers(users)
       }
-      const session = readJSON('sc_user', null)
+      const session = getSession()
       if (session && session.id === req.userId) {
-        session.nickname = req.requestedNickname
-        localStorage.setItem('sc_user', JSON.stringify(session))
+        const nextSession = { ...session, nickname: req.requestedNickname }
+        setSession(nextSession)
       }
       pushLog(req.userId, `Заявка на смену никнейма одобрена (${req.reviewedBy}): «${req.currentNickname}» → «${req.requestedNickname}»`)
     } catch (e) {

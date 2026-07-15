@@ -40,7 +40,7 @@ const isExpired = (endDate) => {
 }
 
 /* ───────── MAIN ───────── */
-export default function Blacklist() {
+export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [blacklist, setBlacklist] = useState([])
@@ -106,6 +106,26 @@ export default function Blacklist() {
     })
   }, [blacklist, search, filter])
 
+  const ITEMS_PER_PAGE = 9
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
+  const currentPage = Math.min(Math.max(pageNumber, 1), totalPages)
+  const pageItems = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+
+  const visiblePages = Array.from({ length: totalPages }, (_, index) => index + 1).filter((page) => {
+    if (page === 1 || page === totalPages) return true
+    return page >= currentPage - 1 && page <= currentPage + 1
+  })
+
+  useEffect(() => {
+    if (pageNumber !== currentPage) {
+      setPageNumber(currentPage)
+    }
+  }, [pageNumber, currentPage, setPageNumber])
+
+  useEffect(() => {
+    setPageNumber(1)
+  }, [search, filter, setPageNumber])
+
   const filterLabel =
     filter === 'ALL'
       ? 'Все'
@@ -166,7 +186,7 @@ export default function Blacklist() {
               />
             </div>
 
-            <div className="relative">
+            <div className="relative z-20">
               <button
                 onClick={() => setFilterOpen((v) => !v)}
                 className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
@@ -176,7 +196,7 @@ export default function Blacklist() {
               </button>
 
               {filterOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl">
+                <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
                   {[
                     { id: 'ALL', label: 'Все' },
                     { id: 'ACTIVE', label: 'Активные' },
@@ -209,7 +229,7 @@ export default function Blacklist() {
             ) : filtered.length === 0 ? (
               <div className="text-gray-500">Ничего не найдено</div>
             ) : (
-              filtered.map((p) => {
+              pageItems.map((p) => {
                 const expired = isExpired(p.endDate)
 
                 return (
@@ -283,6 +303,40 @@ export default function Blacklist() {
               })
             )}
           </div>
+
+          {!loading && filtered.length > ITEMS_PER_PAGE && (
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => setPageNumber(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
+              >
+                ←
+              </button>
+
+              {visiblePages.map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setPageNumber(page)}
+                  className={`min-w-10 px-3 py-2 rounded-xl border text-sm transition ${
+                    page === currentPage
+                      ? 'border-orange-500/40 bg-orange-500/15 text-orange-200'
+                      : 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setPageNumber(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
+              >
+                →
+              </button>
+            </div>
+          )}
 
           <style>{`
             @keyframes moveGlow {

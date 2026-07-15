@@ -47,7 +47,7 @@ const TYPE_CONFIG = {
   default: { label: 'Другое', icon: <IconFileText size={16} />, main: '#60a5fa', bg: 'rgba(96,165,250,.06)', border: 'rgba(96,165,250,.15)', glow: 'rgba(96,165,250,.15)' }
 }
 
-export default function Logs() {
+export default function Logs({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState('all') // Основной тип ('all', 'remove', 'warn'...)
   const [reasonFilter, setReasonFilter] = useState('all') // Фильтр конкретно по причинам снятия
@@ -206,6 +206,26 @@ export default function Logs() {
     })
   }, [logs, search, activeFilter, reasonFilter])
 
+  const ITEMS_PER_PAGE = 8
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / ITEMS_PER_PAGE))
+  const currentPage = Math.min(Math.max(pageNumber, 1), totalPages)
+  const pageItems = filteredLogs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+
+  const visiblePages = Array.from({ length: totalPages }, (_, index) => index + 1).filter((page) => {
+    if (page === 1 || page === totalPages) return true
+    return page >= currentPage - 1 && page <= currentPage + 1
+  })
+
+  useEffect(() => {
+    if (pageNumber !== currentPage) {
+      setPageNumber(currentPage)
+    }
+  }, [pageNumber, currentPage, setPageNumber])
+
+  useEffect(() => {
+    setPageNumber(1)
+  }, [search, activeFilter, reasonFilter, setPageNumber])
+
   const getCfg = (type) => TYPE_CONFIG[type] || TYPE_CONFIG.default
 
   return (
@@ -239,13 +259,27 @@ export default function Logs() {
 
         /* Кнопки причин снятия */
         .reason-grid {
-          display: grid; gridTemplateColumns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 32px;
+          display: flex;
+          gap: 10px;
+          overflow-x: auto;
+          padding-bottom: 6px;
+          margin-bottom: 24px;
+          white-space: nowrap;
+        }
+        .reason-grid::-webkit-scrollbar {
+          height: 6px;
+        }
+        .reason-grid::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.12);
+          border-radius: 999px;
         }
         .reason-card-btn {
           background: linear-gradient(160deg, rgba(255,255,255,.01) 0%, rgba(8,10,18,.3) 100%);
           border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 14px;
-          padding: 16px; cursor: pointer; text-align: left; display: flex; flex-direction: column;
+          padding: 12px 14px; cursor: pointer; text-align: left; display: inline-flex; flex-direction: column;
           justify-content: space-between; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          min-width: 170px;
+          flex: 0 0 auto;
         }
         .reason-card-btn:hover {
           background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); transform: translateY(-2px);
@@ -384,7 +418,7 @@ export default function Logs() {
                 <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.6 }}>Попробуйте сбросить фильтры причин снятия</div>
               </div>
             ) : (
-              filteredLogs.map((log, index) => {
+              pageItems.map((log, index) => {
                 const cfg = getCfg(log.type)
                 const isRemoveLog = log.type === 'remove'
 
@@ -460,6 +494,44 @@ export default function Logs() {
               })
             )}
           </div>
+
+          {!loading && filteredLogs.length > ITEMS_PER_PAGE && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setPageNumber(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                style={{ padding: '10px 12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#fff', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.4 : 1 }}
+              >
+                ←
+              </button>
+
+              {visiblePages.map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setPageNumber(page)}
+                  style={{
+                    minWidth: '40px',
+                    padding: '10px 12px',
+                    borderRadius: '12px',
+                    border: page === currentPage ? '1px solid rgba(96,165,250,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                    background: page === currentPage ? 'rgba(96,165,250,0.14)' : 'rgba(255,255,255,0.04)',
+                    color: page === currentPage ? '#60a5fa' : '#fff',
+                    fontWeight: 700,
+                  }}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setPageNumber(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                style={{ padding: '10px 12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#fff', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.4 : 1 }}
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
