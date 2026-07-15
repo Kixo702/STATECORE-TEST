@@ -11,7 +11,7 @@ import Sidebar from './components/Sidebar'
 import MobileHeader from './components/MobileHeader'
 import Profile from './components/Profile'
 import Users from './components/Users'
-import FAQ from './components/FAQ'
+import FAQ from './components/Faq'
 
 const PAGE_TITLES = {
   dashboard: 'Мониторинг системы',
