@@ -939,7 +939,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                 <div style={{ width:32, height:32, borderRadius:10, background:hexToRgba(T.orange,.16), display:'flex', alignItems:'center', justifyContent:'center', color:T.orange }}>
                   {IC.shield(15)}
                 </div>
-                <span style={{ fontSize:14.5, fontWeight:700 }}>ГС <span style={{ color:T.orange }}>Портал</span></span>
+                <span style={{ fontSize:14.5, fontWeight:700 }}>STATE <span style={{ color:T.orange }}>CORE</span></span>
               </div>
               <p style={{ fontSize:13, color:T.ink3, lineHeight:1.65, maxWidth:280, marginBottom:18 }}>
                 Единая система мониторинга и управления государственными структурами. Разработано для Следящей Администрации.
