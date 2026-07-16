@@ -7,10 +7,28 @@ import { db, publicUser } from './db.js'
 const app = express()
 const PORT = process.env.PORT || 4000
 
-// В проде укажи ORIGIN=https://твой-фронтенд-домен в переменных окружения.
-// Пока стоит "*" — разрешены запросы с любого адреса (ок для старта, но не идеал для продакшена).
-const ORIGIN = process.env.ORIGIN || '*'
-app.use(cors({ origin: ORIGIN }))
+// В ORIGIN можно перечислить несколько адресов через запятую, например:
+// ORIGIN=https://kixo702.github.io,http://localhost:5173
+const ALLOWED_ORIGINS = (process.env.ORIGIN || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean)
+
+// localhost всегда разрешён — удобно для локальной разработки
+const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173']
+
+app.use(cors({
+  origin(origin, callback) {
+    // запросы без origin (curl/Postman/серверные вызовы) — разрешаем
+    if (!origin) return callback(null, true)
+    // если ORIGIN не задан вообще — разрешаем всё (ок для старта)
+    if (ALLOWED_ORIGINS.length === 0) return callback(null, true)
+    if (ALLOWED_ORIGINS.includes(origin) || DEV_ORIGINS.includes(origin)) {
+      return callback(null, true)
+    }
+    return callback(new Error('Not allowed by CORS: ' + origin))
+  }
+}))
 app.use(express.json())
 
 const ok = (res, data) => res.json(data)
