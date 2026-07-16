@@ -1,0 +1,4 @@
+node_modules
+statecore.db
+statecore.db-*
+.env
