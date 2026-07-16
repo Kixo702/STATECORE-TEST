@@ -201,6 +201,45 @@ app.post('/api/sync-local-users', (req, res) => {
   }
 })
 
+// Временный служебный роут для ручного управления — защищён секретным ключом.
+// Не забудь удалить или закрыть после использования, это не для постоянной эксплуатации.
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'change-me'
+
+app.post('/api/admin/set-role', (req, res) => {
+  const { secret, login, roleName } = req.body || {}
+  if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
+  if (!login || !roleName) return bad(res, 400, 'Не хватает данных')
+
+  const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login.trim().toLowerCase())
+  if (!user) return bad(res, 404, 'Пользователь не найден')
+
+  db.prepare('UPDATE users SET roleName = ? WHERE id = ?').run(roleName, user.id)
+  ok(res, { success: true, user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)) })
+})
+
+app.post('/api/admin/reset-password', async (req, res) => {
+  const { secret, login, newPassword } = req.body || {}
+  if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
+  if (!login || !newPassword) return bad(res, 400, 'Не хватает данных')
+
+  const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login.trim().toLowerCase())
+  if (!user) return bad(res, 404, 'Пользователь не найден')
+
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+  db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(passwordHash, user.id)
+  ok(res, { success: true })
+})
+
+app.delete('/api/admin/users/:login', (req, res) => {
+  const { secret } = req.query
+  if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
+
+  const login = req.params.login.trim().toLowerCase()
+  const result = db.prepare('DELETE FROM users WHERE login = ?').run(login)
+  ok(res, { deleted: result.changes })
+})
+
+
 app.listen(PORT, () => {
   console.log(`StateCore API запущен на порту ${PORT}`)
 })
