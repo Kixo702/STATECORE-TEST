@@ -24,6 +24,23 @@ const IconFilter = () => (
   </svg>
 )
 
+const IconPlus = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+  </svg>
+)
+
+const IconX = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+  </svg>
+)
+
+/* ───────── GOOGLE APPS SCRIPT (запись новой строки в таблицу) ───────── */
+// Вставь сюда URL своего Web App после деплоя Apps Script (см. инструкцию ниже в чате).
+// Пока тут заглушка — запись будет добавляться только локально, без записи в саму таблицу.
+const BLACKLIST_APPEND_URL = 'https://script.google.com/macros/s/AKfycbz4n4FnWfwKJILMffhQ_ULfksPaLX7dbqZreMzaMfuBM7_AKhrTAqZzM2EXZvbQ4ZpEnw/exec'
+
 /* ───────── HELPERS ───────── */
 const clean = (v) => v?.replace(/"/g, '').trim() || ''
 
@@ -39,6 +56,209 @@ const isExpired = (endDate) => {
   return d ? d < new Date() : false
 }
 
+const todayDMY = () => {
+  const d = new Date()
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  return `${dd}.${mm}.${yyyy}`
+}
+
+const addDaysDMY = (dmy, days) => {
+  const d = parseDate(dmy) || new Date()
+  const n = Number(days)
+  if (Number.isFinite(n) && n > 0) d.setDate(d.getDate() + n)
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  return `${dd}.${mm}.${yyyy}`
+}
+
+/* ───────── ADD MODAL ───────── */
+function AddBlacklistModal({ onClose, onSubmit }) {
+  const [visible, setVisible] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const [nickname, setNickname] = useState('')
+  const [reason, setReason] = useState('')
+  const [days, setDays] = useState('')
+  const [decisionDate, setDecisionDate] = useState(todayDMY())
+  const [startDate, setStartDate] = useState(todayDMY())
+  const [endDate, setEndDate] = useState(addDaysDMY(todayDMY(), ''))
+  const [admin, setAdmin] = useState('')
+  const [proofs, setProofs] = useState('')
+
+  useEffect(() => { setTimeout(() => setVisible(true), 10) }, [])
+  useEffect(() => { setEndDate(addDaysDMY(startDate, days)) }, [startDate, days])
+
+  const handleClose = () => {
+    setVisible(false)
+    setTimeout(onClose, 220)
+  }
+
+  const handleSubmit = async () => {
+    if (!nickname.trim()) { setError('Укажите никнейм'); return }
+    if (!reason.trim()) { setError('Укажите причину запрета'); return }
+    setError('')
+    setSaving(true)
+
+    const entry = {
+      id: `bl_${Date.now()}`,
+      nickname: nickname.trim(),
+      decisionDate: decisionDate.trim() || todayDMY(),
+      startDate: startDate.trim() || todayDMY(),
+      endDate: endDate.trim(),
+      reason: reason.trim(),
+      days: days.trim(),
+      admin: admin.trim() || '—',
+      proofs: proofs.trim(),
+      status: '',
+      passport: '',
+    }
+
+    try {
+      // Пишем строку в саму Google-таблицу через Apps Script (если URL настроен)
+      if (BLACKLIST_APPEND_URL && !BLACKLIST_APPEND_URL.includes('ВСТАВЬТЕ')) {
+        await fetch(BLACKLIST_APPEND_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Apps Script не отдаёт CORS-заголовки, поэтому ответ будет "непрозрачным"
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(entry),
+        })
+      }
+
+      onSubmit(entry)
+      setSaving(false)
+      handleClose()
+    } catch (e) {
+      console.error(e)
+      setSaving(false)
+      setError('Не удалось сохранить в таблицу. Попробуйте ещё раз.')
+    }
+  }
+
+  return (
+    <div
+      onClick={e => e.target === e.currentTarget && handleClose()}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: visible ? 'rgba(0,0,0,.72)' : 'rgba(0,0,0,0)',
+        backdropFilter: visible ? 'blur(10px)' : 'blur(0px)',
+        transition: 'all .25s ease',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 460,
+          background: 'linear-gradient(160deg, #141019 0%, #0d0a12 100%)',
+          border: '1px solid rgba(255,255,255,.1)',
+          borderRadius: 24,
+          boxShadow: '0 40px 100px rgba(0,0,0,.7)',
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'scale(1) translateY(0)' : 'scale(.95) translateY(16px)',
+          transition: 'all .25s cubic-bezier(.34,1.2,.64,1)',
+          padding: '26px 26px 24px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase', color: '#f87171', marginBottom: 8 }}>
+              Реестр запретов
+            </div>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#fff' }}>Добавить запрет гос</h2>
+          </div>
+          <button
+            onClick={handleClose}
+            style={{ width: 32, height: 32, borderRadius: 10, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            <IconX />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Field label="Никнейм *">
+            <input autoFocus value={nickname} onChange={e => setNickname(e.target.value)} placeholder="Ник игрока" style={inputStyle} />
+          </Field>
+
+          <Field label="Причина запрета *">
+            <textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Опишите причину" rows={3} style={{ ...inputStyle, resize: 'none' }} />
+          </Field>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Field label="Срок (дней)">
+              <input type="number" min="0" value={days} onChange={e => setDays(e.target.value)} placeholder="Напр. 14" style={inputStyle} />
+            </Field>
+            <Field label="Дата решения">
+              <input value={decisionDate} onChange={e => setDecisionDate(e.target.value)} placeholder="дд.мм.гггг" style={inputStyle} />
+            </Field>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Field label="Дата начала">
+              <input value={startDate} onChange={e => setStartDate(e.target.value)} placeholder="дд.мм.гггг" style={inputStyle} />
+            </Field>
+            <Field label="Дата окончания">
+              <input value={endDate} onChange={e => setEndDate(e.target.value)} placeholder="дд.мм.гггг" style={inputStyle} />
+            </Field>
+          </div>
+
+          <Field label="Внёс (администратор)">
+            <input value={admin} onChange={e => setAdmin(e.target.value)} placeholder="Ваш ник" style={inputStyle} />
+          </Field>
+
+          <Field label="Пруфы (ссылка)">
+            <input value={proofs} onChange={e => setProofs(e.target.value)} placeholder="https://..." style={inputStyle} />
+          </Field>
+        </div>
+
+        {error && (
+          <div style={{ marginTop: 14, fontSize: 12.5, color: '#f87171', background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.25)', borderRadius: 10, padding: '9px 12px' }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          style={{
+            width: '100%', marginTop: 18, padding: '13px', borderRadius: 14, border: 'none',
+            background: saving ? 'rgba(255,255,255,.08)' : 'linear-gradient(135deg, #ef4444, #b91c1c)',
+            color: saving ? 'rgba(255,255,255,.4)' : '#fff',
+            fontSize: 13.5, fontWeight: 800, letterSpacing: '.3px', cursor: saving ? 'default' : 'pointer',
+            boxShadow: saving ? 'none' : '0 8px 24px rgba(239,68,68,.3)',
+          }}
+        >
+          {saving ? 'Сохранение…' : 'Добавить в реестр'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const inputStyle = {
+  width: '100%', boxSizing: 'border-box',
+  background: 'rgba(255,255,255,.05)',
+  border: '1px solid rgba(255,255,255,.1)',
+  borderRadius: 12, padding: '10px 12px',
+  fontSize: 13.5, color: '#eef2f8', fontFamily: 'inherit',
+  outline: 'none',
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.4)', marginBottom: 6, letterSpacing: '.4px' }}>{label}</div>
+      {children}
+    </div>
+  )
+}
+
 /* ───────── MAIN ───────── */
 export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
@@ -47,6 +267,7 @@ export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) 
 
   const [filterOpen, setFilterOpen] = useState(false)
   const [filter, setFilter] = useState('ALL')
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const BLACKLIST_URL =
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vScK5HNQA_dCCQcgADjGHhxAmDJQo3rcIHtoFWPNTyhQWJvoEO-uzPVfYFRnEOjtJqcIVovmSzFaNRp/pub?gid=1376095683&single=true&output=csv'
@@ -87,6 +308,12 @@ export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) 
     } finally {
       setLoading(false)
     }
+  }
+
+  // Добавление новой записи в таблицу (локально, сразу видно в списке)
+  const handleAddEntry = (entry) => {
+    setBlacklist((prev) => [entry, ...prev])
+    setPageNumber(1)
   }
 
   const filtered = useMemo(() => {
@@ -165,13 +392,22 @@ export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) 
         {/* CONTENT */}
         <div className="p-4 sm:p-6 md:p-10 relative z-10">
           {/* HEADER */}
-          <div className="mb-8">
-            <h1 className="text-2xl sm:text-3xl font-black">
-              Запреты на вступление в гос.организации
-            </h1>
-            <p className="text-gray-400 mt-1">
-              Система запретов на вступление
-            </p>
+          <div className="mb-8 flex items-start justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black">
+                Запреты на вступление в гос.организации
+              </h1>
+              <p className="text-gray-400 mt-1">
+                Система запретов на вступление
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 hover:bg-red-500 hover:text-white hover:border-red-500/50 transition font-bold text-sm"
+            >
+              <IconPlus /> Добавить запрет гос
+            </button>
           </div>
 
           {/* SEARCH + FILTER */}
@@ -346,6 +582,13 @@ export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) 
           `}</style>
         </div>
       </div>
+
+      {showAddModal && (
+        <AddBlacklistModal
+          onClose={() => setShowAddModal(false)}
+          onSubmit={handleAddEntry}
+        />
+      )}
     </>
   )
 }

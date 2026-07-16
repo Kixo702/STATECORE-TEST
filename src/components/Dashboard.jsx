@@ -4,6 +4,41 @@ import { useState, useEffect } from 'react'
 const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKkpW841ffumVxopzGxtECxH9-4yp-mbQa_8L4_uMrAKVsl3-yrso54sjYQrbo2Ym1/exec'
 
+// Список доступных серверов
+const SERVERS = ['Texas', 'Florida', 'Nevada', 'Hawaii', 'Indiana']
+
+// Узлы фракций для фильтра статистики над дешбордом
+const FRACTION_NODES = [
+  { id: 'gov',      label: 'Государственные организации' },
+  { id: 'business', label: 'Бизнес организации' },
+  { id: 'syndicate', label: 'Преступные синдикаты' },
+  { id: 'bikers',   label: 'Байкерские клубы' },
+  { id: 'street',   label: 'Уличные группировки' },
+]
+
+// Словарь для правильного склонения ГС и ЗГС в родительном падеже
+const LEADERSHIP_NAMES = {
+  gov: { gs: 'Главный Следящий гос', zgs: 'Зам. Главного следящего гос' },
+  business: { gs: 'Главный Следящий радио', zgs: 'Зам. Главного следящего радио' },
+  syndicate: { gs: 'Главный Следящий мафий', zgs: 'Зам. Главного следящего мафий' },
+  bikers: { gs: 'Главный Следящий байкеров', zgs: 'Зам. Главного следящего байкеров' },
+  street: { gs: 'Главный Следящий гетто', zgs: 'Зам. Главного следящего гетто' },
+}
+
+// Статус для узлов, где статистика ещё не подключена.
+const FRACTION_STATUS = 'development' // 'development' | 'negotiation'
+
+const FRACTION_STATUS_TEXT = {
+  development: 'Сфера фракций находится в разработке',
+  negotiation: 'В данный момент идут переговоры с Главной следящей администрацией за сферой',
+}
+
+// ГС гос / ЗГС гос — заполняется вручную
+const GOS_LEADERSHIP = {
+  gs:  { nickname: 'Robert_Kamiya',  vk: 'vk.com/robertkamiya', forum: 'forum.gta-mobile.ru/members/171464/' },
+  zgs: { nickname: 'Minato_Ramirez', vk: 'vk.com/minatoramirez', forum: 'forum.gta-mobile.ru/vaxi/' },
+}
+
 const todayISO = () => new Date().toISOString().split('T')[0]
 const addDays  = (iso, n) => { const d = new Date(iso); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0] }
 const fmtDate  = iso => { if (!iso) return ''; const [y,m,day] = iso.split('-'); return `${day}.${m}.${y}` }
@@ -22,9 +57,6 @@ const IC = {
   check:   <svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   shield:  <svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   spin:    <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeDasharray="56" strokeDashoffset="14" strokeLinecap="round"/></svg>,
-  flag:    <svg viewBox="0 0 24 24" fill="none"><path d="M5 3v18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><path d="M5 4h11l-2.2 4L16 12H5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>,
-  seal:    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 1.9 3-.5 1 2.9 2.9 1-.5 3L23 12l-1.9 2.4.5 3-2.9 1-1 2.9-3-.5L12 23l-2.4-1.9-3 .5-1-2.9-2.9-1 .5-3L1 12l1.9-2.4-.5-3 2.9-1 1-2.9 3 .5L12 2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M9 12.3l2 2 4-4.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  arrow:   <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 }
 
 // ── Assign Leader Modal ───────────────────────────────────────
@@ -337,7 +369,7 @@ function AssignLeaderModal({ onClose }) {
                 onClick={handleSubmit}
                 disabled={!canSubmit || busy}
                 style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  width: '100%', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: 10,
                   padding: '14px 20px', borderRadius: 14, border: 'none',
                   background: canSubmit && !busy
                     ? 'linear-gradient(135deg, #ff8c00 0%, #e05a00 100%)'
@@ -380,32 +412,48 @@ function AssignLeaderModal({ onClose }) {
 // ── Dashboard ─────────────────────────────────────────────────
 export default function Dashboard({ user, onLogout }) {
   const [stats] = useState({
-    organizations: 12, leaders: 9, vacancies: 3,
-    strictWarns: 7, oralWarns: 14, blacklist: 28
+    organizations: 12, leaders: 9, vacancies: 3, blacklist: 28
   })
 
+  const [activeNode, setActiveNode] = useState('gov')
+  const [activeServer, setActiveServer] = useState('Texas') // Выбранный сервер по умолчанию
   const [showAssign, setShowAssign] = useState(false)
   const [now, setNow] = useState(new Date())
+
+  // Логика имитации загрузки руководства
+  const [loadingLeadership, setLoadingLeadership] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(t)
   }, [])
 
+  // При смене сферы или сервера, если это не ГОС — показываем «долгую» красивую загрузку
+  useEffect(() => {
+    if (activeNode !== 'gov') {
+      setLoadingLeadership(true)
+      const timer = setTimeout(() => {
+        setLoadingLeadership(false)
+      }, 2000) // Имитируем 2 секунды долгой загрузки данных
+      return () => clearTimeout(timer)
+    }
+  }, [activeNode, activeServer])
+
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
   const dateStr = now.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' })
 
   const orgGroup = [
-    { title: 'Организаций',      value: stats.organizations, icon: IC.org,   ring: 'from-sky-500/35 to-sky-500/0',     iconColor: 'text-sky-300'    },
-    { title: 'Активных лидеров', value: stats.leaders,       icon: IC.crown, ring: 'from-orange-500/35 to-orange-500/0', iconColor: 'text-orange-300' },
-    { title: 'Вакансий',         value: stats.vacancies,     icon: IC.cross, ring: 'from-rose-500/35 to-rose-500/0',   iconColor: 'text-rose-300'   },
+    { title: 'Организаций',      value: stats.organizations, icon: IC.org,   accent: '56,189,248'  },
+    { title: 'Активных лидеров', value: stats.leaders,       icon: IC.crown, accent: '251,146,60'  },
+    { title: 'Вакансий',         value: stats.vacancies,     icon: IC.cross, accent: '251,113,133' },
   ]
 
   const disciplineGroup = [
-    { title: 'Строгих выговоров', value: stats.strictWarns, icon: IC.warning, ring: 'from-amber-500/35 to-amber-500/0', iconColor: 'text-amber-300' },
-    { title: 'Устных выговоров',  value: stats.oralWarns,   icon: IC.warning, ring: 'from-slate-400/30 to-slate-400/0', iconColor: 'text-slate-300' },
-    { title: 'В реестре запретов', value: stats.blacklist,  icon: IC.cross,   ring: 'from-red-500/35 to-red-500/0',    iconColor: 'text-red-300'   },
+    { title: 'Активных запретов',  value: stats.blacklist,  icon: IC.cross,   accent: '248,113,113' },
   ]
+
+  // Получаем правильно склоненные названия ролей руководства на основе текущей сферы
+  const { gs: gsLabel, zgs: zgsLabel } = LEADERSHIP_NAMES[activeNode] || { gs: 'ГС', zgs: 'ЗГС' }
 
   return (
     <div className="text-white min-h-screen" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
@@ -415,16 +463,19 @@ export default function Dashboard({ user, onLogout }) {
         @keyframes db-fadeUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
         @keyframes db-pulse    { 0%,100%{opacity:.3} 50%{opacity:.8} }
         @keyframes db-success  { 0%{transform:scale(0);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
-        @keyframes db-spinSlow { to{transform:rotate(360deg)} }
-        @keyframes db-glow     { 0%,100%{opacity:.5} 50%{opacity:1} }
-        @keyframes db-marquee  { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        
+        /* Стилизация скелетон-эффекта и пульсации для заглушки */
+        .skeleton-text {
+          background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.04) 75%);
+          background-size: 200% 100%;
+          animation: db-shimmer 1.6s infinite linear;
+          border-radius: 6px;
+        }
       `}</style>
 
       {/* ── STATUS STRIP ───────────────────────────────── */}
       <div className="border-b border-white/5">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 h-10 flex items-center justify-between text-[11px] font-semibold tracking-wide text-white/35">
-          <div className="flex items-center gap-2">
-          </div>
           <div className="uppercase">{dateStr}, {timeStr}</div>
         </div>
       </div>
@@ -435,7 +486,7 @@ export default function Dashboard({ user, onLogout }) {
         <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
           <div>
             <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Мониторинг системы</div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">Государственные структуры</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">STATECORE</h1>
             <p className="text-slate-400 max-w-lg">Актуальная статистика по организациям, лидерам и дисциплинарным взысканиям</p>
           </div>
           <button
@@ -456,132 +507,245 @@ export default function Dashboard({ user, onLogout }) {
           </button>
         </div>
 
-        {/* ── PARTIES ANNOUNCEMENT — hero banner ─────────── */}
-        <div
-          className="relative overflow-hidden mb-6"
-          style={{
-            borderRadius: 28,
-            border: '1px solid rgba(167,139,250,.35)',
-            background: 'linear-gradient(135deg, #1f1745 0%, #140f2e 55%, #0f0c22 100%)',
-            boxShadow: '0 30px 90px rgba(90,40,180,.35)',
-          }}
-        >
-          {/* ambient glows */}
-          <div style={{ position: 'absolute', top: -100, right: -60, width: 320, height: 320, background: 'radial-gradient(circle, rgba(167,139,250,.42) 0%, transparent 70%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: -120, left: 60, width: 260, height: 260, background: 'radial-gradient(circle, rgba(255,201,51,.16) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
-          {/* diagonal ribbon */}
-          <div style={{
-            position: 'absolute', top: 18, right: -46, width: 200, textAlign: 'center',
-            transform: 'rotate(40deg)', background: 'linear-gradient(90deg, #A78BFA, #7C3AED)',
-            color: '#fff', fontSize: 11, fontWeight: 900, letterSpacing: '2px',
-            padding: '5px 0', boxShadow: '0 6px 20px rgba(124,58,237,.65)',
-          }}>
-            СКОРО
+        {/* ── FILTERS (SERVER & FRACTION NODE) ────────────── */}
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-8 bg-white/[0.02] border border-white/5 rounded-2xl p-4 sm:p-5">
+          {/* Серверный дропдаун */}
+          <div className="flex flex-col gap-2 min-w-[200px]">
+            <span className="text-[11px] font-extrabold tracking-[2px] uppercase text-white/35">Сервер</span>
+            <div className="relative">
+              <select
+                value={activeServer}
+                onChange={e => setActiveServer(e.target.value)}
+                className="w-full appearance-none bg-white/5 text-slate-200 border border-white/10 hover:border-white/20 px-4 py-2.5 pr-10 rounded-xl text-xs font-bold transition-all duration-150 outline-none cursor-pointer focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                style={{ colorScheme: 'dark' }}
+              >
+                {SERVERS.map(srv => (
+                  <option key={srv} value={srv} className="bg-[#0d1120] text-slate-200 py-2">
+                    {srv} {srv === 'Texas'}
+                  </option>
+                ))}
+              </select>
+              {/* Кастомная стрелочка для Select */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
           </div>
 
-          <div className="relative flex flex-col md:flex-row items-center gap-6 md:gap-10 p-6 sm:p-8 md:p-10">
-            {/* seal badge */}
-            <div className="shrink-0 relative w-[92px] h-[92px] sm:w-[104px] sm:h-[104px]">
-              <div
-                className="absolute inset-0 rounded-full"
-                style={{
-                  border: '1.5px dashed rgba(255,201,51,.6)',
-                  animation: 'db-spinSlow 18s linear infinite',
-                }}
-              />
-              <div
-                className="absolute inset-[8px] rounded-full flex items-center justify-center"
-                style={{
-                  background: 'linear-gradient(155deg, #A78BFA, #6D28D9)',
-                  boxShadow: '0 10px 30px rgba(167,139,250,.6), inset 0 1px 0 rgba(255,255,255,.2)',
-                }}
-              >
-                <span style={{ width: 34, height: 34, color: '#FFC933' }}>{IC.seal}</span>
-              </div>
-            </div>
-
-            <div className="flex-1 text-center md:text-left">
-              <div className="inline-flex items-center gap-2 text-[11px] font-extrabold tracking-[2.5px] uppercase mb-3" style={{ color: '#D8B4FE' }}>
-                <span style={{ width: 14, height: 14 }}>{IC.flag}</span>
-                Новая система
-              </div>
-              <h2 className="text-xl sm:text-2xl md:text-[28px] font-black leading-snug mb-2 text-white">
-                Система партий уже в разработке
-              </h2>
-              <p className="text-[13px] sm:text-sm max-w-xl mx-auto md:mx-0" style={{ color: 'rgba(230,225,255,.55)' }}>
-                Регистрация политических объединений, внутренние рейтинги и собственные структуры руководства —
-                появится в одном из ближайших обновлений.
-              </p>
-            </div>
-
-            <div className="shrink-0">
-              <div
-                className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold select-none"
-                style={{
-                  background: 'rgba(167,139,250,.18)',
-                  border: '1px solid rgba(167,139,250,.45)',
-                  color: '#D8B4FE',
-                }}
-              >
-                В разработке
-                <span className="flex gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-300" style={{ animation: 'db-pulse 1.2s ease infinite' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-300" style={{ animation: 'db-pulse 1.2s ease infinite .2s' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-300" style={{ animation: 'db-pulse 1.2s ease infinite .4s' }} />
-                </span>
-              </div>
+          {/* Фильтр сфер */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-extrabold tracking-[2px] uppercase text-white/35">Сфера фракций</span>
+            <div className="flex flex-wrap gap-2">
+              {FRACTION_NODES.map(node => {
+                const active = activeNode === node.id
+                return (
+                  <button
+                    key={node.id}
+                    onClick={() => setActiveNode(node.id)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 ${
+                      active
+                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
+                        : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {node.label}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
 
-        {/* ── ORGANIZATIONS ──────────────────────────────── */}
-        <div className="flex items-center gap-3 mb-4 mt-10">
-          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Организации</span>
-          <div className="flex-1 h-px bg-white/5" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
-          {orgGroup.map(card => (
-            <div
-              key={card.title}
-              className={`relative overflow-hidden rounded-3xl p-6 border border-white/5 bg-gradient-to-br ${card.ring} bg-[#111827] hover:border-white/10 hover:-translate-y-0.5 transition-all duration-300`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">{card.title}</p>
-                  <h2 className="text-4xl font-black mt-2 tabular-nums">{card.value}</h2>
-                </div>
-                <div className={`p-3 rounded-xl bg-white/5 ${card.iconColor}`}>{card.icon}</div>
-              </div>
+        {activeNode === 'gov' ? (
+          <>
+            {/* ── ORGANIZATIONS ──────────────────────────────── */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Организации ({activeServer})</span>
+              <div className="flex-1 h-px bg-white/5" />
             </div>
-          ))}
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
+              {orgGroup.map(card => (
+                <div
+                  key={card.title}
+                  className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${card.accent})` }} />
+                  <div className="flex items-center justify-between pl-5 pr-5 py-5">
+                    <div>
+                      <p className="text-slate-400 text-sm">{card.title}</p>
+                      <h2 className="text-3xl font-black mt-1.5 tabular-nums">{card.value}</h2>
+                    </div>
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: `rgba(${card.accent},.12)`, color: `rgb(${card.accent})` }}
+                    >
+                      {card.icon}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-        {/* ── DISCIPLINE ──────────────────────────────────── */}
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Дисциплина</span>
-          <div className="flex-1 h-px bg-white/5" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
-          {disciplineGroup.map(card => (
-            <div
-              key={card.title}
-              className={`relative overflow-hidden rounded-3xl p-6 border border-white/5 bg-gradient-to-br ${card.ring} bg-[#111827] hover:border-white/10 hover:-translate-y-0.5 transition-all duration-300`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">{card.title}</p>
-                  <h2 className="text-4xl font-black mt-2 tabular-nums">{card.value}</h2>
+            {/* ── DISCIPLINE ──────────────────────────────────── */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Дисциплина</span>
+              <div className="flex-1 h-px bg-white/5" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
+              {disciplineGroup.map(card => (
+                <div
+                  key={card.title}
+                  className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${card.accent})` }} />
+                  <div className="flex items-center justify-between pl-5 pr-5 py-5">
+                    <div>
+                      <p className="text-slate-400 text-sm">{card.title}</p>
+                      <h2 className="text-3xl font-black mt-1.5 tabular-nums">{card.value}</h2>
+                    </div>
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: `rgba(${card.accent},.12)`, color: `rgb(${card.accent})` }}
+                    >
+                      {card.icon}
+                    </div>
+                  </div>
                 </div>
-                <div className={`p-3 rounded-xl bg-white/5 ${card.iconColor}`}>{card.icon}</div>
+              ))}
+            </div>
+
+            {/* ── GOS LEADERSHIP (ГС / ЗГС) ───────────────────── */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Руководство гос. ({activeServer})</span>
+              <div className="flex-1 h-px bg-white/5" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+              {[
+                { role: 'Главный Следящий гос.структур', data: GOS_LEADERSHIP.gs, accent: '251,146,60' },
+                { role: 'Зам. Главного следящего гос.структур', data: GOS_LEADERSHIP.zgs, accent: '56,189,248' },
+              ].map(person => (
+                <div
+                  key={person.role}
+                  className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${person.accent})` }} />
+                  <div className="flex items-start gap-4 pl-5 pr-5 py-5">
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: `rgba(${person.accent},.12)`, color: `rgb(${person.accent})` }}
+                    >
+                      {IC.crown}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-extrabold tracking-[1.5px] uppercase" style={{ color: `rgb(${person.accent})` }}>{person.role}</p>
+                      <h3 className="text-lg font-black mt-0.5 truncate">{person.data.nickname}</h3>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
+                        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5">{IC.link}</span>{person.data.vk}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5">{IC.link}</span>{person.data.forum}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          /* ── OTHER FRACTION NODES — placeholder + LEADERSHIP ── */
+          <>
+            {/* Отрисовка заблокированной статистики */}
+            <div
+              className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] mb-6"
+              style={{ minHeight: 220 }}
+            >
+              <div className="flex flex-col items-center justify-center text-center px-6 py-16">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/5 text-orange-300/80">
+                  {IC.shield}
+                </div>
+                <h3 className="text-xl font-black text-white mb-2">
+                  {FRACTION_NODES.find(n => n.id === activeNode)?.label} ({activeServer})
+                </h3>
+                <p className="text-sm text-slate-400 max-w-md">
+                  {FRACTION_STATUS_TEXT[FRACTION_STATUS]}
+                </p>
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* Новая секция руководства для сторонней сферы */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Руководство сферы ({activeServer})</span>
+              <div className="flex-1 h-px bg-white/5" />
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+              {[
+                { role: gsLabel, accent: '251,146,60' },
+                { role: zgsLabel, accent: '56,189,248' },
+              ].map((person, index) => (
+                <div
+                  key={index}
+                  className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] transition-all duration-300"
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: loadingLeadership ? '#94a3b8' : 'rgb(239, 68, 68)' }} />
+                  <div className="flex items-start gap-4 pl-5 pr-5 py-5">
+                    
+                    {/* Аватарка-корона / спиннер */}
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ 
+                        background: loadingLeadership ? 'rgba(255,255,255,.05)' : 'rgba(239,68,68,.12)', 
+                        color: loadingLeadership ? '#94a3b8' : 'rgb(239, 68, 68)' 
+                      }}
+                    >
+                      {loadingLeadership ? (
+                        <span className="animation-spin w-5 h-5 flex items-center justify-center" style={{ animation: 'db-spin .8s linear infinite' }}>{IC.spin}</span>
+                      ) : (
+                        IC.crown
+                      )}
+                    </div>
+
+                    <div className="min-w-0 w-full">
+                      {/* Роль (например: ГС байкеров) */}
+                      <p 
+                        className="text-[11px] font-extrabold tracking-[1.5px] uppercase transition-all duration-300" 
+                        style={{ color: loadingLeadership ? '#94a3b8' : 'rgb(239,68,68)' }}
+                      >
+                        {person.role}
+                      </p>
+
+                      {/* Состояние загрузки / Заглушка */}
+                      {loadingLeadership ? (
+                        <div className="space-y-2 mt-2.5">
+                          {/* Плейсхолдер для Ника */}
+                          <div className="skeleton-text h-5 w-40" />
+                          {/* Плейсхолдеры для соц. сетей */}
+                          <div className="flex gap-4 pt-1">
+                            <div className="skeleton-text h-3.5 w-24" />
+                            <div className="skeleton-text h-3.5 w-24" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="animation-fadeUp" style={{ animation: 'db-fadeUp .4s ease both' }}>
+                          <h3 className="text-lg font-black mt-0.5 text-slate-400/90 italic">Данные не найдены</h3>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
+                            <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 opacity-60">{IC.link}</span>нет данных</span>
+                            <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 opacity-60">{IC.link}</span>нет данных</span>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* ── QUICK ACTIONS ───────────────────────────────── */}
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Быстрые действия</span>
+          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Быстрые действия ({activeServer})</span>
           <div className="flex-1 h-px bg-white/5" />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-10">
@@ -589,7 +753,7 @@ export default function Dashboard({ user, onLogout }) {
           {/* ASSIGN LEADER — opens modal */}
           <button
             onClick={() => setShowAssign(true)}
-            className="group relative overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 hover:scale-[1.015] shadow-lg shadow-orange-500/20"
+            className="group relative overflow-hidden rounded-xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 hover:scale-[1.01] shadow-lg shadow-orange-500/20"
           >
             <div className="text-orange-900 mb-3">{IC.crown}</div>
             <h3 className="font-black text-xl mb-1">Назначить лидера</h3>
@@ -597,36 +761,12 @@ export default function Dashboard({ user, onLogout }) {
           </button>
 
           {/* BLACKLIST */}
-          <button className="group relative overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent border border-red-500/20 hover:bg-gradient-to-br hover:from-red-500 hover:to-pink-600 hover:text-white hover:scale-[1.015]">
+          <button className="group relative overflow-hidden rounded-xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent border border-red-500/20 hover:bg-gradient-to-br hover:from-red-500 hover:to-pink-600 hover:text-white hover:scale-[1.01]">
             <div className="text-red-300 mb-3 transition group-hover:text-white">{IC.cross}</div>
             <h3 className="font-black text-xl mb-1">Внести в реестр запретов</h3>
             <p className="text-sm text-slate-300 group-hover:text-white/80">Запреты на вступление в гос.организации</p>
           </button>
 
-        </div>
-
-        {/* ── PARTIES ANNOUNCEMENT — compact strip ───────── */}
-        <div
-          className="relative overflow-hidden rounded-3xl mb-2"
-          style={{
-            border: '1px solid rgba(167,139,250,.3)',
-            background: 'linear-gradient(90deg, rgba(167,139,250,.16), rgba(255,201,51,.08))',
-          }}
-        >
-          <div className="flex flex-col sm:flex-row items-center gap-4 px-6 py-5">
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(167,139,250,.26)', color: '#D8B4FE' }}>
-                <span style={{ width: 18, height: 18 }}>{IC.flag}</span>
-              </div>
-              <span className="font-black text-sm sm:text-base whitespace-nowrap">Система партий</span>
-            </div>
-            <p className="text-sm text-white/45 flex-1 text-center sm:text-left">
-              Следите за обновлениями — запуск политических объединений уже на подходе
-            </p>
-            <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: 'rgba(167,139,250,.22)', color: '#D8B4FE' }}>
-              Скоро <span style={{ width: 13, height: 13 }}>{IC.arrow}</span>
-            </span>
-          </div>
         </div>
 
       </div>

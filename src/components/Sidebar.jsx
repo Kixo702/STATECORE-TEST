@@ -7,6 +7,22 @@ import { getPendingNickRequests } from '../lib/requests'
 const COLLAPSE_KEY = 'sc_sidebar_collapsed'
 const DROPDOWN_WIDTH = 300
 
+// Та же таблица, что использует страница "Запреты гос."
+const BLACKLIST_URL =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vScK5HNQA_dCCQcgADjGHhxAmDJQo3rcIHtoFWPNTyhQWJvoEO-uzPVfYFRnEOjtJqcIVovmSzFaNRp/pub?gid=1376095683&single=true&output=csv'
+
+const parseDMY = (d) => {
+  if (!d) return null
+  const [day, month, year] = d.split('.')
+  if (!day || !month || !year) return null
+  return new Date(`${year}-${month}-${day}`)
+}
+
+const isExpired = (endDate) => {
+  const d = parseDMY(endDate)
+  return d ? d < new Date() : false
+}
+
 const IconBell = () => (
   <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -39,6 +55,7 @@ export default function Sidebar({
   const [notifOpen, setNotifOpen] = useState(false)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
   const [pendingRequests, setPendingRequests] = useState(() => getPendingNickRequests())
+  const [activeBansCount, setActiveBansCount] = useState(0)
   const bellWrapRef = useRef(null)
   const dropdownRef = useRef(null)
 
@@ -48,6 +65,41 @@ export default function Sidebar({
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
+  }, [])
+
+  // Подсчёт актуальных (не истёкших) запретов гос. для бейджа
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchActiveBansCount = async () => {
+      try {
+        const res = await fetch(`${BLACKLIST_URL}&cacheBust=${Date.now()}`)
+        const csv = await res.text()
+
+        const rows = csv.split('\n').map((r) =>
+          r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+        )
+
+        const count = rows
+          .slice(1)
+          .map((r) => ({
+            nickname: r[1]?.replace(/"/g, '').trim() || '',
+            endDate: r[4]?.replace(/"/g, '').trim() || '',
+          }))
+          .filter((x) => x.nickname && !isExpired(x.endDate)).length
+
+        if (!cancelled) setActiveBansCount(count)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    fetchActiveBansCount()
+    const poll = setInterval(fetchActiveBansCount, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(poll)
+    }
   }, [])
 
   // Опрос заявок на смену ника для колокольчика уведомлений
@@ -157,8 +209,8 @@ export default function Sidebar({
         },
         {
           id: 'blacklist',
-          title: 'Запреты гос.',
-          badge: 3, // Пример бейджа с количеством
+          title: 'Запрет госструктур',
+          badge: activeBansCount > 0 ? activeBansCount : undefined,
           icon: (
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
               <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -166,9 +218,20 @@ export default function Sidebar({
           )
         },
         {
+          id: 'chsgos',
+          title: 'Черный Список',
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <rect x="4" y="11" width="16" height="9" rx="2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9.5 14.5l5 4M14.5 14.5l-5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )
+        },
+        {
           id: 'logs',
-          title: 'Логи',
-          badge: 'Новые', // Пример текстового бейджа
+          title: 'Логи лидеров',
+          badge: '', // Пример текстового бейджа
           icon: (
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
               <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>

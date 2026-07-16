@@ -6,6 +6,7 @@ import Landing from './components/Landing'
 import Dashboard from './components/Dashboard'
 import Organizations from './components/Organizations'
 import Blacklist from './components/Blacklist'
+import ChsGos from './components/ChsGos'
 import Logs from './components/Logs'
 import Sidebar from './components/Sidebar'
 import MobileHeader from './components/MobileHeader'
@@ -17,6 +18,7 @@ const PAGE_TITLES = {
   dashboard: 'Мониторинг системы',
   organizations: 'Организации',
   blacklist: 'Запреты',
+  chsgos: 'ЧС гос',
   logs: 'Логи',
   users: 'Пользователи',
   profile: 'Профиль',
@@ -154,6 +156,7 @@ export default function App() {
           {activePage === 'dashboard' && <Dashboard user={user} onLogout={handleLogout} />}
           {activePage === 'organizations' && <Organizations user={user} />}
           {activePage === 'blacklist' && <Blacklist pageNumber={pageNumber} setPageNumber={setPageNumber} />}
+          {activePage === 'chsgos' && <ChsGos pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'logs' && <Logs pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'users' && <Users currentUser={user} />}
           {activePage === 'profile' && <Profile user={user} />}
