@@ -8,6 +8,7 @@ import Organizations from './components/Organizations'
 import Blacklist from './components/Blacklist'
 import ChsGos from './components/ChsGos'
 import Logs from './components/Logs'
+import LeaderActivity from './components/LeaderActivity'
 import Sidebar from './components/Sidebar'
 import MobileHeader from './components/MobileHeader'
 import Profile from './components/Profile'
@@ -20,6 +21,7 @@ const PAGE_TITLES = {
   blacklist: 'Запреты',
   chsgos: 'ЧС гос',
   logs: 'Логи',
+  activity: 'Активность лидеров',
   users: 'Пользователи',
   profile: 'Профиль',
   faq: 'FAQ и помощь',
@@ -158,6 +160,7 @@ export default function App() {
           {activePage === 'blacklist' && <Blacklist pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'chsgos' && <ChsGos pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'logs' && <Logs pageNumber={pageNumber} setPageNumber={setPageNumber} />}
+          {activePage === 'activity' && <LeaderActivity user={user} />}
           {activePage === 'users' && <Users currentUser={user} />}
           {activePage === 'profile' && <Profile user={user} />}
           {activePage === 'faq' && <FAQ user={user} />}
