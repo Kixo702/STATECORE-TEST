@@ -1,13 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useEffect } from 'react'
 import logo from '../assets/vite.svg'
-import { canViewMenu, canReviewNickRequests } from '../lib/roles'
-import { getPendingNickRequests } from '../lib/requests'
+import { canViewMenu } from '../lib/roles'
 
 const COLLAPSE_KEY = 'sc_sidebar_collapsed'
-const DROPDOWN_WIDTH = 300
 
-// Та же таблица, что использует страница "Запреты гос."
 const BLACKLIST_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vScK5HNQA_dCCQcgADjGHhxAmDJQo3rcIHtoFWPNTyhQWJvoEO-uzPVfYFRnEOjtJqcIVovmSzFaNRp/pub?gid=1376095683&single=true&output=csv'
 
@@ -23,18 +19,10 @@ const isExpired = (endDate) => {
   return d ? d < new Date() : false
 }
 
-const IconBell = () => (
-  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
-
-// Двойной шеврон: указывает в сторону, куда «уедет» контент при сворачивании
 const IconPanelToggle = ({ collapsed }) => (
-  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
-    <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M9.5 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform .28s cubic-bezier(.34,1.56,.64,1)' }}>
+    <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9.5 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.4"/>
   </svg>
 )
 
@@ -48,38 +36,23 @@ export default function Sidebar({
   onLogout,
 }) {
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [copied, setCopied] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
   })
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
-  const [pendingRequests, setPendingRequests] = useState(() => getPendingNickRequests())
   const [activeBansCount, setActiveBansCount] = useState(0)
-  const bellWrapRef = useRef(null)
-  const dropdownRef = useRef(null)
 
-  const canSeeModerationNotifs = canReviewNickRequests(user)
-
-  // Обновление времени каждую секунду
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // Подсчёт актуальных (не истёкших) запретов гос. для бейджа
   useEffect(() => {
     let cancelled = false
-
     const fetchActiveBansCount = async () => {
       try {
         const res = await fetch(`${BLACKLIST_URL}&cacheBust=${Date.now()}`)
         const csv = await res.text()
-
-        const rows = csv.split('\n').map((r) =>
-          r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-        )
-
+        const rows = csv.split('\n').map((r) => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
         const count = rows
           .slice(1)
           .map((r) => ({
@@ -102,67 +75,12 @@ export default function Sidebar({
     }
   }, [])
 
-  // Опрос заявок на смену ника для колокольчика уведомлений
-  useEffect(() => {
-    const refresh = () => setPendingRequests(getPendingNickRequests())
-    refresh()
-    const poll = setInterval(refresh, 5000)
-    window.addEventListener('sc:nick-requests-updated', refresh)
-    window.addEventListener('storage', refresh)
-    return () => {
-      clearInterval(poll)
-      window.removeEventListener('sc:nick-requests-updated', refresh)
-      window.removeEventListener('storage', refresh)
-    }
-  }, [])
-
-  // Закрытие панели уведомлений по клику вне неё (кнопка + портал — разные поддеревья DOM)
-  useEffect(() => {
-    if (!notifOpen) return
-    const onClick = (e) => {
-      if (bellWrapRef.current?.contains(e.target)) return
-      if (dropdownRef.current?.contains(e.target)) return
-      setNotifOpen(false)
-    }
-    const onScroll = () => setNotifOpen(false)
-    document.addEventListener('mousedown', onClick)
-    window.addEventListener('resize', onScroll)
-    return () => {
-      document.removeEventListener('mousedown', onClick)
-      window.removeEventListener('resize', onScroll)
-    }
-  }, [notifOpen])
-
-  const toggleNotif = () => {
-    if (!notifOpen && bellWrapRef.current) {
-      const rect = bellWrapRef.current.getBoundingClientRect()
-      let left = rect.right - DROPDOWN_WIDTH
-      left = Math.max(12, Math.min(left, window.innerWidth - DROPDOWN_WIDTH - 12))
-      setDropdownPos({ top: rect.bottom + 10, left })
-    }
-    setNotifOpen((v) => !v)
-  }
-
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       const next = !prev
       try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch {}
       return next
     })
-  }
-
-  const copyNickname = (e) => {
-    e.stopPropagation();
-    const name = user?.nickname || user?.username || user?.login || 'Гость'
-    navigator.clipboard.writeText(name)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const goToRequests = () => {
-    setNotifOpen(false)
-    setActivePage('users')
-    if (typeof setMobileOpen === 'function') setMobileOpen(false)
   }
 
   const menuGroups = [
@@ -246,10 +164,33 @@ export default function Sidebar({
         {
           id: 'logs',
           title: 'Логи лидеров',
-          badge: '', // Пример текстового бейджа
           icon: (
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
               <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )
+        },
+        {
+          id: 'leaderAnalytics',
+          title: 'Аналитика лидеров',
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <path d="M4 19V9m6 10V4m6 15v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )
+        }
+      ]
+    },
+    {
+      label: 'Для лидеров',
+      items: [
+        {
+          id: 'interview',
+          title: 'Собеседования',
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              <path d="M21 12c0 4.97-4.03 9-9 9-1.5 0-2.9-.37-4.14-1.02L3 21l1.1-3.9A8.96 8.96 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           )
         }
@@ -274,111 +215,45 @@ export default function Sidebar({
     }
   ]
 
-  const notifDropdown = notifOpen ? createPortal(
-    <div
-      ref={dropdownRef}
-      style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: DROPDOWN_WIDTH }}
-      className="bg-[#0d1422] border border-white/10 rounded-2xl shadow-2xl z-[9999] overflow-hidden"
-    >
-      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Уведомления</span>
-        {canSeeModerationNotifs && pendingRequests.length > 0 && (
-          <span className="text-[10px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-full px-2 py-0.5">
-            {pendingRequests.length} новых
-          </span>
-        )}
-      </div>
-
-      <div className="max-h-[280px] overflow-y-auto scrollbar-hide">
-        {!canSeeModerationNotifs ? (
-          <div className="px-4 py-8 text-center text-slate-500 text-xs">
-            Нет новых уведомлений
-          </div>
-        ) : pendingRequests.length === 0 ? (
-          <div className="px-4 py-8 text-center text-slate-500 text-xs">
-            Заявок на рассмотрении нет
-          </div>
-        ) : (
-          pendingRequests.slice(0, 6).map((r) => (
-            <div key={r.id} className="px-4 py-3 border-b border-white/[0.03] hover:bg-white/[0.03] transition-colors">
-              <div className="text-[11px] text-slate-500 mb-0.5">Смена никнейма</div>
-              <div className="text-xs text-slate-200 font-medium">
-                «{r.currentNickname}» → <span className="text-orange-400">«{r.requestedNickname}»</span>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {canSeeModerationNotifs && pendingRequests.length > 0 && (
-        <button
-          onClick={goToRequests}
-          className="w-full py-2.5 text-xs font-bold text-orange-400 hover:bg-orange-500/10 transition-colors border-t border-white/5"
-        >
-          Перейти к заявкам →
-        </button>
-      )}
-    </div>,
-    document.body
-  ) : null
-
   return (
     <>
-      {/* Overlay для мобильных */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-[#0B1220]/80 backdrop-blur-sm z-30 md:hidden transition-opacity"
+          className="fixed inset-0 bg-[#0a0e18]/80 backdrop-blur-md z-30 md:hidden transition-opacity duration-300"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       <aside className={`
-        bg-[#0B1220] border-r border-white/5 flex flex-col justify-between
+        border-r border-white/[0.06] flex flex-col justify-between
         md:relative md:translate-x-0 md:flex
         fixed z-40 inset-y-0 left-0 transform transition-[width,transform] duration-300 ease-in-out
-        ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+        ${mobileOpen ? 'translate-x-0 shadow-2xl shadow-black/80' : '-translate-x-full'}
         md:translate-x-0 overflow-hidden
         ${collapsed ? 'w-[280px] md:w-[84px]' : 'w-[280px] md:w-[280px]'}
-      `}>
+      `} style={{ background: 'linear-gradient(180deg, #101626 0%, #070a12 100%)' }}>
 
-        {/* HEADER — вне скролл-контейнера, чтобы не клипать выпадающие панели */}
-        <div className={`border-b border-white/5 bg-[#0B1220] flex-shrink-0 ${collapsed ? 'md:py-6 md:px-2' : 'px-6 py-6'}`}>
+        <div className={`border-b border-white/[0.06] flex-shrink-0 ${collapsed ? 'md:py-5 md:px-2' : 'px-6 py-5'}`}>
           <div className={`flex items-center gap-3 ${collapsed ? 'md:flex-col' : 'justify-between'}`}>
             <div className={`flex items-center gap-3 min-w-0 ${collapsed ? 'md:justify-center' : ''}`}>
               <div className="relative flex-shrink-0">
-                <img src={logo} alt="Logo" className="h-10 w-auto relative z-10" />
-                <div className="absolute inset-0 bg-orange-500/20 blur-xl rounded-full z-0" />
+                <img src={logo} alt="Logo" className="h-9 w-auto relative z-10" />
+                <div className="absolute inset-0 bg-orange-500/20 blur-xl rounded-full z-0 scale-120 animate-pulse" />
               </div>
               <div className={`leading-tight min-w-0 ${collapsed ? 'md:hidden' : ''}`}>
-                <div className="text-xl font-bold text-white tracking-wide truncate">
-                  State<span className="text-orange-400">Core</span>
+                <div className="text-xl font-black text-white tracking-tight truncate">
+                  State<span className="text-orange-500">Core</span>
                 </div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-0.5 font-medium truncate">
+                <div className="text-[10px] font-extrabold tracking-[1.5px] uppercase text-white/30 mt-0.5 truncate">
                   Управление структурой
                 </div>
               </div>
             </div>
 
-            {/* Колокольчик + сворачивание — единый кластер иконок */}
             <div className={`flex items-center gap-2 flex-shrink-0 ${collapsed ? 'md:flex-col md:mt-1' : ''}`}>
-              <div ref={bellWrapRef}>
-                <button
-                  onClick={toggleNotif}
-                  className="relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 transition-all"
-                  title="Уведомления"
-                >
-                  <IconBell />
-                  {canSeeModerationNotifs && pendingRequests.length > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center shadow-[0_0_8px_rgba(249,115,22,0.6)]">
-                      {pendingRequests.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-
               <button
                 onClick={toggleCollapsed}
-                className="hidden md:flex w-9 h-9 rounded-xl items-center justify-center text-slate-400 hover:text-white bg-white/[0.03] hover:bg-orange-500/15 hover:text-orange-400 border border-white/5 hover:border-orange-500/30 transition-all"
+                className="hidden md:flex w-8 h-8 rounded-xl items-center justify-center text-white/40 bg-white/[0.02] border border-white/[0.06] hover:bg-orange-500/10 hover:border-orange-500/30 hover:text-orange-500 transition-all duration-200"
                 title={collapsed ? 'Развернуть меню' : 'Свернуть меню'}
               >
                 <IconPanelToggle collapsed={collapsed} />
@@ -387,83 +262,21 @@ export default function Sidebar({
           </div>
         </div>
 
-        {notifDropdown}
-
-        {/* ОСНОВНОЙ КОНТЕНТ (Скроллируемый, если элементов много) */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
-
-          {/* USER CARD */}
-          <div className={`p-4 ${collapsed ? 'md:flex md:justify-center md:px-2' : ''}`}>
-            <div
-              className={`group relative bg-gradient-to-br from-white/[0.03] to-transparent border border-white/5 hover:border-orange-500/30 rounded-2xl cursor-pointer transition-all duration-300 overflow-hidden ${collapsed ? 'md:p-2' : 'p-4'}`}
-              title={collapsed ? (user?.nickname || user?.username || user?.login || 'Гость') : undefined}
-            >
-              <div
-                className="absolute inset-0 bg-gradient-to-r from-orange-500/0 via-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                onClick={() => { setActivePage('profile'); if (typeof setMobileOpen === 'function') setMobileOpen(false) }}
-              />
-
-              <div className={`flex items-center gap-4 relative z-10 ${collapsed ? 'md:justify-center md:gap-0' : ''}`}>
-                <div
-                  className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400/20 to-pink-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400 font-bold text-lg shadow-inner shadow-orange-500/20 flex-shrink-0 group-hover:scale-105 transition-transform overflow-hidden"
-                  onClick={copyNickname}
-                  title="Нажми, чтобы скопировать ник"
-                >
-                  {copied ? (
-                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-green-400" fill="none" stroke="currentColor">
-                      <path d="M5 13l4 4L19 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  ) : user?.avatar ? (
-                    <img src={user.avatar} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    (user?.nickname || user?.username || user?.login || 'Г')?.[0]?.toUpperCase()
-                  )}
-                </div>
-
-                <div className={`leading-tight truncate flex-1 ${collapsed ? 'md:hidden' : ''}`} onClick={() => { setActivePage('profile'); if (typeof setMobileOpen === 'function') setMobileOpen(false) }}>
-                  <div className="font-semibold text-white truncate text-[15px]">
-                    {user?.nickname || user?.username || user?.login || 'Гость'}
-                  </div>
-                  <div className="text-xs text-orange-400 font-medium mt-0.5">
-                    {user?.roleName || 'Игрок'}
-                  </div>
-                </div>
-              </div>
-
-              {!collapsed && (user?.vk || user?.forum) && (
-                <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-4 text-[12px] relative z-10">
-                  {user?.vk && (
-                    <a href={user.vk.startsWith('http') ? user.vk : `https://${user.vk}`} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-[#0077FF] transition-colors flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#0077FF]"></span> VK
-                    </a>
-                  )}
-                  {user?.forum && (
-                    <a href={user.forum.startsWith('http') ? user.forum : `https://${user.forum}`} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-orange-400 transition-colors flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span> Форум
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* MENU GROUPS */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pt-4">
           <div className={`px-4 pb-6 space-y-6 ${collapsed ? 'md:px-2' : ''}`}>
             {menuGroups.map((group, idx) => {
               const visibleItems = group.items.filter((item) => item.alwaysVisible || canViewMenu(user, item.id));
-
               if (visibleItems.length === 0) return null;
 
               return (
-                <div key={idx} className="space-y-2">
-                  <div className={`text-[11px] font-bold text-slate-500 uppercase tracking-wider px-3 mb-2 ${collapsed ? 'md:hidden' : ''}`}>
+                <div key={idx} className="space-y-1.5">
+                  <div className={`text-[10px] font-extrabold text-white/30 uppercase tracking-[2px] px-3 mb-2 ${collapsed ? 'md:hidden' : ''}`}>
                     {group.label}
                   </div>
 
                   <div className="space-y-1">
                     {visibleItems.map((item) => {
                       const active = activePage === item.id
-
                       return (
                         <button
                           key={item.id}
@@ -475,40 +288,32 @@ export default function Sidebar({
                           className={`
                             group relative w-full flex items-center gap-3
                             px-3 py-2.5 rounded-xl
-                            transition-all duration-200 outline-none
+                            transition-all duration-200 outline-none font-bold text-xs
                             ${collapsed ? 'md:justify-center md:px-0' : ''}
                             ${active
-                              ? 'bg-orange-500/10 text-white'
-                              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                              ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/20'
+                              : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
                             }
                           `}
                         >
-                          {/* Индикатор активации */}
-                          {active && (
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-orange-400 to-pink-500 rounded-r-md shadow-[0_0_12px_rgba(251,146,60,0.8)]" />
-                          )}
-
-                          {/* Иконка */}
                           <div className={`
-                            flex items-center justify-center p-1.5 rounded-lg transition-colors
-                            ${active ? 'text-orange-400 bg-orange-400/10' : 'text-slate-500 group-hover:text-slate-300 group-hover:bg-white/5'}
+                            flex items-center justify-center p-0.5 rounded-lg transition-colors
+                            ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}
                           `}>
                             {item.icon}
                           </div>
 
-                          {/* Текст */}
-                          <span className={`font-medium text-sm transition-colors whitespace-nowrap ${active ? 'text-white' : ''} ${collapsed ? 'md:hidden' : ''}`}>
+                          <span className={`transition-colors whitespace-nowrap ${collapsed ? 'md:hidden' : ''}`}>
                             {item.title}
                           </span>
 
-                          {/* Бейджи (если есть) */}
-                          {item.badge && (
-                            <div className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${collapsed ? 'md:hidden' : ''} ${
+                          {item.badge !== undefined && (
+                            <div className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold transition-all ${collapsed ? 'md:hidden' : ''} ${
                               active
-                                ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]'
-                                : 'bg-white/10 text-slate-300'
+                                ? 'bg-white text-orange-600'
+                                : 'bg-red-500/10 text-red-400 border border-red-500/20 shadow-[0_0_12px_rgba(239,68,68,0.1)]'
                             }`}>
-                              {item.badge}
+                              {item.badge || '0'}
                             </div>
                           )}
                         </button>
@@ -521,54 +326,47 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* BOTTOM SECTION */}
-        <div className="border-t border-white/5 bg-[#0B1220] z-20">
-
-          {/* Виджет времени */}
-          <div className={`px-6 py-3 flex items-center justify-between border-b border-white/5 ${collapsed ? 'md:hidden' : ''}`}>
-            <div className="text-xs text-slate-500 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></div>
+        <div className="border-t border-white/[0.06] bg-[#070a12]/40 backdrop-blur-md z-20">
+          <div className={`px-6 py-3 flex items-center justify-between border-b border-white/[0.06] ${collapsed ? 'md:hidden' : ''}`}>
+            <div className="text-[10px] font-extrabold tracking-[1px] uppercase text-white/30 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] animate-pulse" />
               Серверное время
             </div>
-            <div className="text-sm font-medium text-slate-300 tabular-nums">
+            <div className="text-xs font-bold text-slate-300 tabular-nums tracking-wide">
               {currentTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
           </div>
 
-          <div className={`p-4 flex gap-2 ${collapsed ? 'md:flex-col md:p-2' : ''}`}>
-            {/* Кнопка настроек */}
+          <div className={`p-3 flex gap-2 ${collapsed ? 'md:flex-col md:p-2' : ''}`}>
             <button
               onClick={() => {
                 setActivePage('settings')
                 if (typeof setMobileOpen === 'function') setMobileOpen(false)
               }}
-              className="flex-1 flex justify-center items-center py-2.5 rounded-xl border border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/10 transition-all"
+              className="flex-1 flex justify-center items-center py-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-slate-400 hover:text-white hover:bg-white/[0.06] hover:border-white/[0.12] transition-all duration-150"
               title="Настройки"
             >
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
                 <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
 
-            {/* Кнопка выхода */}
             <button
               onClick={() => {
                 if (onLogout) onLogout()
                 else { setUser(null); window.location.reload() }
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all font-medium group ${collapsed ? 'md:flex-1' : 'flex-[3]'}`}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-500/15 bg-red-500/5 text-red-400/90 hover:bg-red-500 hover:text-white transition-all duration-200 text-xs font-bold group ${collapsed ? 'md:flex-1' : 'flex-[3]'}`}
               title="Выйти"
             >
               <span className={collapsed ? 'md:hidden' : ''}>Выйти</span>
-              <svg viewBox="0 0 24 24" className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none">
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none">
                 <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
           </div>
-
         </div>
-
       </aside>
     </>
   )

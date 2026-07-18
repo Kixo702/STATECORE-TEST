@@ -9,11 +9,14 @@ import Blacklist from './components/Blacklist'
 import ChsGos from './components/ChsGos'
 import Logs from './components/Logs'
 import LeaderActivity from './components/LeaderActivity'
+import LeaderAnalytics from './components/LeaderAnalytics'
 import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
 import MobileHeader from './components/MobileHeader'
 import Profile from './components/Profile'
 import Users from './components/Users'
 import FAQ from './components/faq'
+import InterviewGenerator from './components/InterviewGenerator'
 
 const PAGE_TITLES = {
   dashboard: 'Мониторинг системы',
@@ -22,9 +25,11 @@ const PAGE_TITLES = {
   chsgos: 'ЧС гос',
   logs: 'Логи',
   activity: 'Активность лидеров',
+  leaderAnalytics: 'Аналитика и рейтинг лидеров',
   users: 'Пользователи',
   profile: 'Профиль',
   faq: 'FAQ и помощь',
+  interview: 'Генератор собеседований',
 }
 
 function resolvePageFromPath(pathname) {
@@ -148,6 +153,14 @@ export default function App() {
       />
 
       <main className="flex-1 overflow-y-auto">
+        <div className="hidden md:block">
+          <Topbar
+            activePage={activePage}
+            setActivePage={handleSetActivePage}
+            user={user}
+          />
+        </div>
+
         <div className="max-w-9xl w-full mx-auto px-0">
           <MobileHeader
             onMenu={() => setMobileOpen((v) => !v)}
@@ -161,6 +174,8 @@ export default function App() {
           {activePage === 'chsgos' && <ChsGos pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'logs' && <Logs pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'activity' && <LeaderActivity user={user} />}
+          {activePage === 'leaderAnalytics' && <LeaderAnalytics />}
+          {activePage === 'interview' && <InterviewGenerator />}
           {activePage === 'users' && <Users currentUser={user} />}
           {activePage === 'profile' && <Profile user={user} />}
           {activePage === 'faq' && <FAQ user={user} />}
