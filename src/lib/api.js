@@ -26,6 +26,16 @@ export async function getUser(id) {
   return api(`/users/${id}`)
 }
 
+// Частичное обновление пользователя (роль, бан, выговоры, ник и т.п.)
+export async function updateUser(id, patch) {
+  return api(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
+}
+
+// Полное удаление аккаунта из БД (необратимо)
+export async function deleteUser(id) {
+  return api(`/users/${id}`, { method: 'DELETE' })
+}
+
 export async function sendFriendRequest(payload) {
   return api('/friends/request', { method: 'POST', body: JSON.stringify(payload) })
 }

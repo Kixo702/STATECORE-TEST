@@ -1,6 +1,10 @@
-import { getSession, getUsers, saveUsers, setSession } from './userStore'
+import { getSession, setSession } from './userStore'
+import { updateUser } from './api'
 
-// Заявки на смену никнейма — хранятся локально и рассматриваются модераторами
+// Заявки на смену никнейма — сам список заявок хранится локально в этом
+// браузере (под них нет отдельной таблицы на бэкенде), но факт одобрения
+// применяется к пользователю через бэкенд (updateUser), чтобы новый ник
+// увидели все, а не только это устройство.
 const REQ_KEY = 'sc_nick_requests'
 
 function readAll() {
@@ -74,7 +78,8 @@ export function createNickRequest({ userId, login, currentNickname, requestedNic
   return entry
 }
 
-export function reviewNickRequest(id, decision, reviewer) {
+// Теперь асинхронная: одобрение пишет новый ник в БД через бэкенд.
+export async function reviewNickRequest(id, decision, reviewer) {
   const list = readAll()
   const idx = list.findIndex((r) => r.id === id)
   if (idx === -1) return null
@@ -88,12 +93,9 @@ export function reviewNickRequest(id, decision, reviewer) {
 
   if (decision === 'approved') {
     try {
-      const users = getUsers()
-      const uidx = users.findIndex((u) => u.id === req.userId)
-      if (uidx !== -1) {
-        users[uidx].nickname = req.requestedNickname
-        saveUsers(users)
-      }
+      await updateUser(req.userId, { nickname: req.requestedNickname })
+
+      // если менял ник сам себе (или это текущая локальная сессия) — обновим и сессию
       const session = getSession()
       if (session && session.id === req.userId) {
         const nextSession = { ...session, nickname: req.requestedNickname }
@@ -102,6 +104,13 @@ export function reviewNickRequest(id, decision, reviewer) {
       pushLog(req.userId, `Заявка на смену никнейма одобрена (${req.reviewedBy}): «${req.currentNickname}» → «${req.requestedNickname}»`)
     } catch (e) {
       console.error(e)
+      // откатываем статус заявки, раз обновление на сервере не удалось
+      req.status = 'pending'
+      req.reviewedBy = null
+      req.reviewedAt = null
+      list[idx] = req
+      writeAll(list)
+      throw e
     }
   } else if (decision === 'rejected') {
     pushLog(req.userId, `Заявка на смену никнейма отклонена (${req.reviewedBy}): «${req.currentNickname}» → «${req.requestedNickname}»`)

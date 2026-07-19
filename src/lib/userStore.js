@@ -121,6 +121,19 @@ export function upsertUser(user) {
   return nextUsers
 }
 
+// Удаляет пользователя из локального кэша (localStorage), которым пользуются
+// логин/регистрация как фолбэком поверх бэкенда. Вызывать вместе с deleteUser
+// из api.js, чтобы аккаунт не "воскрес" из локального кэша на этом устройстве.
+export function removeUser(id) {
+  if (!id) return getUsers()
+  const users = getUsers().filter((u) => u.id !== id)
+  const currentSession = getSession()
+  const nextSession = currentSession && currentSession.id === id ? null : currentSession
+  const store = buildStore(users, nextSession)
+  persistStore(store)
+  return store.users
+}
+
 export function ensureUserStoreSeeded() {
   return hydrateUserStore()
 }

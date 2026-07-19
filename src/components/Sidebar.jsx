@@ -185,6 +185,17 @@ export default function Sidebar({
       label: 'Для лидеров',
       items: [
         {
+          id: 'eventPlanner',
+          title: 'Планировщик РП',
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8 14.5l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )
+        },
+        {
           id: 'interview',
           title: 'Собеседования',
           icon: (

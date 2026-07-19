@@ -124,6 +124,19 @@ app.patch('/api/users/:id', (req, res) => {
   ok(res, publicUser(updated))
 })
 
+// Полное удаление пользователя из БД — используется админкой (кнопка "Удалить аккаунт")
+app.delete('/api/users/:id', (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+  if (!user) return bad(res, 404, 'Пользователь не найден')
+
+  // чистим связанные записи, чтобы не оставалось "хвостов" в других таблицах
+  db.prepare('DELETE FROM friend_requests WHERE fromUserId = ? OR toUserId = ?').run(req.params.id, req.params.id)
+  db.prepare('DELETE FROM friends WHERE userId = ? OR friendId = ?').run(req.params.id, req.params.id)
+  db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
+
+  ok(res, { success: true, deletedId: req.params.id })
+})
+
 // ── friend requests ───────────────────────────────────────────
 app.post('/api/friends/request', (req, res) => {
   const { fromUserId, toUserId } = req.body || {}

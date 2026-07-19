@@ -17,6 +17,7 @@ import Profile from './components/Profile'
 import Users from './components/Users'
 import FAQ from './components/faq'
 import InterviewGenerator from './components/InterviewGenerator'
+import EventPlanner from './components/EventPlanner'
 
 const PAGE_TITLES = {
   dashboard: 'Мониторинг системы',
@@ -26,6 +27,7 @@ const PAGE_TITLES = {
   logs: 'Логи',
   activity: 'Активность лидеров',
   leaderAnalytics: 'Аналитика и рейтинг лидеров',
+  eventPlanner: 'Планировщик РП',
   users: 'Пользователи',
   profile: 'Профиль',
   faq: 'FAQ и помощь',
@@ -175,6 +177,7 @@ export default function App() {
           {activePage === 'logs' && <Logs pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'activity' && <LeaderActivity user={user} />}
           {activePage === 'leaderAnalytics' && <LeaderAnalytics />}
+          {activePage === 'eventPlanner' && <EventPlanner user={user} />}
           {activePage === 'interview' && <InterviewGenerator />}
           {activePage === 'users' && <Users currentUser={user} />}
           {activePage === 'profile' && <Profile user={user} />}
