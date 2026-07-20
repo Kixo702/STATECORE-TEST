@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import banner from '../assets/banner.png'
+// ⚠️ Проверь путь до roles.js в своём проекте — поправь при необходимости
+import { isPlayer } from '../roles'
 
 /* ───────── ICONS ───────── */
 const IconSearch = () => (
@@ -259,8 +261,78 @@ function Field({ label, children }) {
   )
 }
 
+/* ───────── NO ACCESS MODAL ───────── */
+function NoAccessModal({ onClose }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => { setTimeout(() => setVisible(true), 10) }, [])
+
+  const handleClose = () => {
+    setVisible(false)
+    setTimeout(onClose, 220)
+  }
+
+  return (
+    <div
+      onClick={e => e.target === e.currentTarget && handleClose()}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: visible ? 'rgba(0,0,0,.72)' : 'rgba(0,0,0,0)',
+        backdropFilter: visible ? 'blur(10px)' : 'blur(0px)',
+        transition: 'all .25s ease',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 380,
+          background: 'linear-gradient(160deg, #141019 0%, #0d0a12 100%)',
+          border: '1px solid rgba(255,255,255,.1)',
+          borderRadius: 24,
+          boxShadow: '0 40px 100px rgba(0,0,0,.7)',
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'scale(1) translateY(0)' : 'scale(.95) translateY(16px)',
+          transition: 'all .25s cubic-bezier(.34,1.2,.64,1)',
+          padding: '26px',
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: 52, height: 52, borderRadius: 16, margin: '0 auto 16px',
+            background: 'rgba(248,113,113,.12)', border: '1px solid rgba(248,113,113,.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171',
+          }}
+        >
+          <IconX />
+        </div>
+
+        <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 900, color: '#fff' }}>
+          Действие недоступно
+        </h2>
+        <p style={{ margin: '0 0 22px', fontSize: 13.5, color: 'rgba(255,255,255,.5)', lineHeight: 1.5 }}>
+          У вас недостаточно прав для добавления запрета. Обратитесь к следящему или выше.
+        </p>
+
+        <button
+          onClick={handleClose}
+          style={{
+            width: '100%', padding: '12px', borderRadius: 14, border: 'none',
+            background: 'rgba(255,255,255,.08)', color: '#fff',
+            fontSize: 13.5, fontWeight: 800, cursor: 'pointer',
+          }}
+        >
+          Понятно
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ───────── MAIN ───────── */
-export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) {
+export default function Blacklist({ user, pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [blacklist, setBlacklist] = useState([])
@@ -268,6 +340,7 @@ export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) 
   const [filterOpen, setFilterOpen] = useState(false)
   const [filter, setFilter] = useState('ALL')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showNoAccessModal, setShowNoAccessModal] = useState(false)
 
   const BLACKLIST_URL =
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vScK5HNQA_dCCQcgADjGHhxAmDJQo3rcIHtoFWPNTyhQWJvoEO-uzPVfYFRnEOjtJqcIVovmSzFaNRp/pub?gid=1376095683&single=true&output=csv'
@@ -308,6 +381,14 @@ export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) 
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleAddClick = () => {
+    if (isPlayer(user)) {
+      setShowNoAccessModal(true)
+      return
+    }
+    setShowAddModal(true)
   }
 
   // Добавление новой записи в таблицу (локально, сразу видно в списке)
@@ -403,7 +484,7 @@ export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) 
             </div>
 
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={handleAddClick}
               className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 hover:bg-red-500 hover:text-white hover:border-red-500/50 transition font-bold text-sm"
             >
               <IconPlus /> Добавить запрет гос
@@ -588,6 +669,10 @@ export default function Blacklist({ pageNumber = 1, setPageNumber = () => {} }) 
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAddEntry}
         />
+      )}
+
+      {showNoAccessModal && (
+        <NoAccessModal onClose={() => setShowNoAccessModal(false)} />
       )}
     </>
   )
