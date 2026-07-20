@@ -7,20 +7,38 @@ import {
   canRemoveLeader,
   canReviewNickRequests,
   isLeader,
+  getAllLeaderRoles,
 } from '../lib/roles'
 import { getNickRequests, reviewNickRequest } from '../lib/requests'
 import { setSession, removeUser } from '../lib/userStore'
 import { getUsers, updateUser, deleteUser } from '../lib/api'
 
+// Оформление групп фракций в выпадающих списках ролей
+const FACTION_CATEGORY_META = {
+  gov:    { group: 'Госструктуры', color: '#3b82f6' },
+  mafia:  { group: 'Мафия',        color: '#dc2626' },
+  ghetto: { group: 'Гетто',        color: '#84cc16' },
+  bikers: { group: 'Байкеры',      color: '#eab308' },
+  radio:  { group: 'Радио',        color: '#06b6d4' },
+}
+
+// Роли-лидеры генерируются по всем фракциям из lib/roles.js —
+// добавление новой фракции туда автоматически добавит роль и сюда
+const LEADER_ROLES = getAllLeaderRoles().map((f) => ({
+  value: f.roleName,
+  color: FACTION_CATEGORY_META[f.category]?.color || '#06b6d4',
+  group: FACTION_CATEGORY_META[f.category]?.group || 'Лидеры',
+}))
+
 const ROLES = [
-  { value: 'Игрок', color: '#6b7280' },
-  { value: 'Лидер', color: '#06b6d4' },
-  { value: 'Следящий', color: '#8b5cf6' },
-  { value: 'Заместитель Главного Следящего', color: '#f59e0b' },
-  { value: 'Главный Следящий', color: '#f59e0b' },
-  { value: 'Разработчик', color: '#22c55e' },
-  { value: 'PR-Assistent', color: '#ec4899' },
-  { value: 'Главный Разработчик', color: '#ff8c00' },
+  { value: 'Игрок', color: '#6b7280', group: 'Роли' },
+  ...LEADER_ROLES,
+  { value: 'Следящий', color: '#8b5cf6', group: 'Роли' },
+  { value: 'Заместитель Главного Следящего', color: '#f59e0b', group: 'Роли' },
+  { value: 'Главный Следящий', color: '#f59e0b', group: 'Роли' },
+  { value: 'Разработчик', color: '#22c55e', group: 'Роли' },
+  { value: 'PR-Assistent', color: '#ec4899', group: 'Роли' },
+  { value: 'Главный Разработчик', color: '#ff8c00', group: 'Роли' },
 ]
 
 function roleColor(r) {
@@ -41,6 +59,75 @@ function fmtDate(iso) {
       hour: '2-digit', minute: '2-digit',
     })
   } catch { return iso }
+}
+
+// Группирует список ролей по полю group, сохраняя порядок первого появления группы
+function groupRoles(roles, query = '') {
+  const filtered = query.trim()
+    ? roles.filter(r => r.value.toLowerCase().includes(query.trim().toLowerCase()))
+    : roles
+
+  const grouped = []
+  const groupIndex = new Map()
+  for (const r of filtered) {
+    const g = r.group || 'Роли'
+    if (!groupIndex.has(g)) {
+      groupIndex.set(g, grouped.length)
+      grouped.push([g, []])
+    }
+    grouped[groupIndex.get(g)][1].push(r)
+  }
+  return { filtered, grouped }
+}
+
+// Список ролей для выпадающих меню: группировка по фракциям + поиск,
+// если ролей много (актуально после разбивки "Лидер" по фракциям)
+function RoleOptionsList({ roles, onPick, activeValue, showAllOption, onPickAll }) {
+  const [q, setQ] = useState('')
+  const showSearch = roles.length > 10
+  const { filtered, grouped } = groupRoles(roles, q)
+
+  return (
+    <>
+      {showSearch && (
+        <input
+          autoFocus
+          className="u-role-search"
+          placeholder="Поиск роли…"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onClick={e => e.stopPropagation()}
+        />
+      )}
+      {showAllOption && !q.trim() && (
+        <button className="u-role-option" onClick={onPickAll}>
+          <span>Все роли</span>
+          <span style={{ color: '#ff8c00' }}>●</span>
+        </button>
+      )}
+      {grouped.map(([group, items]) => (
+        <div key={group}>
+          {showSearch && <div className="u-role-group-label">{group}</div>}
+          {items.map(r => (
+            <button
+              key={r.value}
+              className="u-role-option"
+              onClick={() => onPick(r.value)}
+              style={activeValue === r.value ? { background: 'rgba(255,255,255,.09)', borderColor: `${r.color}55` } : undefined}
+            >
+              <span>{r.value}</span>
+              <span style={{ color: r.color }}>●</span>
+            </button>
+          ))}
+        </div>
+      ))}
+      {filtered.length === 0 && (
+        <div style={{ padding: '10px 8px', fontSize: 12, color: 'rgba(255,255,255,.3)', textAlign: 'center' }}>
+          Ничего не найдено
+        </div>
+      )}
+    </>
+  )
 }
 
 function getPlayerUid(id) {
@@ -357,6 +444,7 @@ export default function Users({ currentUser }) {
       background: linear-gradient(180deg, #121b2d 0%, #0d1424 100%);
       border: 1px solid rgba(255,255,255,.16);
       border-radius: 12px; padding: 8px; min-width: 186px;
+      max-height: 360px; overflow-y: auto;
       box-shadow: 0 18px 42px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
       animation: u-fadeUp .12s ease both;
     }
@@ -365,6 +453,23 @@ export default function Users({ currentUser }) {
     }
     .u-filter-wrap {
       position: relative; overflow: visible;
+    }
+
+    .u-role-search {
+      width: 100%; box-sizing: border-box;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      color: #e8edf3; padding: 7px 10px;
+      border-radius: 8px; font-size: 12px;
+      font-family: inherit; outline: none;
+      margin-bottom: 6px;
+    }
+    .u-role-search:focus { border-color: rgba(255,140,0,.4); }
+
+    .u-role-group-label {
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1.2px; color: rgba(255,255,255,.3);
+      padding: 8px 10px 4px;
     }
 
     .u-role-option {
@@ -616,16 +721,13 @@ export default function Users({ currentUser }) {
                   className="u-role-menu"
                   style={{ position: 'fixed', top: filterMenuPos.top, left: filterMenuPos.left, minWidth: Math.max(200, filterMenuPos.width) }}
                 >
-                  <button className="u-role-option" onClick={() => { setFilterRole('Все'); setFilterRoleOpen(false) }}>
-                    <span>Все роли</span>
-                    <span style={{ color: '#ff8c00' }}>●</span>
-                  </button>
-                  {ROLES.map(r => (
-                    <button key={r.value} className="u-role-option" onClick={() => { setFilterRole(r.value); setFilterRoleOpen(false) }}>
-                      <span>{r.value}</span>
-                      <span style={{ color: r.color }}>●</span>
-                    </button>
-                  ))}
+                  <RoleOptionsList
+                    roles={ROLES}
+                    activeValue={filterRole}
+                    showAllOption
+                    onPickAll={() => { setFilterRole('Все'); setFilterRoleOpen(false) }}
+                    onPick={(v) => { setFilterRole(v); setFilterRoleOpen(false) }}
+                  />
                 </div>
               </>,
               document.body
@@ -759,16 +861,11 @@ export default function Users({ currentUser }) {
                             className="u-role-menu"
                             style={{ position: 'fixed', top: roleMenuPos.top, left: roleMenuPos.left - Math.max(186, roleMenuPos.width) }}
                           >
-                            {ROLES.map(r => (
-                              <button
-                                key={r.value}
-                                className="u-role-option"
-                                onClick={() => { handleRoleChange(u.id, r.value); setRoleMenuOpen(null) }}
-                              >
-                                <span>{r.value}</span>
-                                <span style={{ color: r.color }}>●</span>
-                              </button>
-                            ))}
+                            <RoleOptionsList
+                              roles={ROLES}
+                              activeValue={selected}
+                              onPick={(v) => { handleRoleChange(u.id, v); setRoleMenuOpen(null) }}
+                            />
                           </div>
                         </>,
                         document.body
@@ -935,9 +1032,11 @@ function ModeratorPanel({
   saving,
 }) {
   const [visible, setVisible] = useState(false)
+  const [roleQuery, setRoleQuery] = useState('')
   useEffect(() => { const t = setTimeout(() => setVisible(true), 10); return () => clearTimeout(t) }, [])
 
   const handleClose = () => { setVisible(false); setTimeout(onClose, 220) }
+  const { grouped: roleGroups } = groupRoles(ROLES, roleQuery)
 
   const isMe = user.id === currentUser?.id
   const targetIsLeader = isLeader(user)
@@ -1088,26 +1187,47 @@ function ModeratorPanel({
               {canEditRolesPerm && (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', marginBottom: 8 }}>Изменить роль</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {ROLES.map(r => {
-                      const active = selectedRole === r.value
-                      return (
-                        <button
-                          key={r.value}
-                          onClick={() => onRoleChange(user.id, r.value)}
-                          style={{
-                            padding: '7px 14px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                            cursor: 'pointer', transition: 'all .18s cubic-bezier(.34,1.4,.64,1)',
-                            background: active ? 'linear-gradient(135deg, #ff8c00, #e06000)' : 'rgba(255,255,255,.05)',
-                            border: `1px solid ${active ? 'rgba(255,140,0,.5)' : 'rgba(255,255,255,.1)'}`,
-                            color: active ? '#fff' : 'rgba(255,255,255,.6)',
-                            boxShadow: active ? '0 4px 18px rgba(255,140,0,.3)' : 'none',
-                          }}
-                        >
-                          {r.value}
-                        </button>
-                      )
-                    })}
+                  <input
+                    className="u-role-search"
+                    placeholder="Поиск роли (например «LSPD» или «Yakuza»)…"
+                    value={roleQuery}
+                    onChange={e => setRoleQuery(e.target.value)}
+                    style={{ marginBottom: 10 }}
+                  />
+                  <div style={{ maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
+                    {roleGroups.map(([group, items]) => (
+                      <div key={group} style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'rgba(255,255,255,.3)', marginBottom: 6 }}>
+                          {group}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {items.map(r => {
+                            const active = selectedRole === r.value
+                            return (
+                              <button
+                                key={r.value}
+                                onClick={() => onRoleChange(user.id, r.value)}
+                                style={{
+                                  padding: '7px 14px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                                  cursor: 'pointer', transition: 'all .18s cubic-bezier(.34,1.4,.64,1)',
+                                  background: active ? 'linear-gradient(135deg, #ff8c00, #e06000)' : 'rgba(255,255,255,.05)',
+                                  border: `1px solid ${active ? 'rgba(255,140,0,.5)' : 'rgba(255,255,255,.1)'}`,
+                                  color: active ? '#fff' : 'rgba(255,255,255,.6)',
+                                  boxShadow: active ? '0 4px 18px rgba(255,140,0,.3)' : 'none',
+                                }}
+                              >
+                                {r.value}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    {roleGroups.length === 0 && (
+                      <div style={{ padding: '10px 0', fontSize: 12, color: 'rgba(255,255,255,.3)', textAlign: 'center' }}>
+                        Ничего не найдено
+                      </div>
+                    )}
                   </div>
                   {roleChanged && (
                     <button

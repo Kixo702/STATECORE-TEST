@@ -34,6 +34,7 @@ export default function Sidebar({
   mobileOpen,
   setMobileOpen,
   onLogout,
+  onGoHome,
 }) {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [collapsed, setCollapsed] = useState(() => {
@@ -87,6 +88,17 @@ export default function Sidebar({
     {
       label: 'Основное',
       items: [
+        {
+          id: 'home',
+          title: 'Главная',
+          alwaysVisible: true,
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <path d="M4 11l8-7 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6 9.5V20a1 1 0 001 1h3v-6h4v6h3a1 1 0 001-1V9.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )
+        },
         {
           id: 'dashboard',
           title: 'Мониторинг',
@@ -184,6 +196,16 @@ export default function Sidebar({
     {
       label: 'Для лидеров',
       items: [
+        {
+          id: 'inactive',
+          title: 'Неактивы',
+          alwaysVisible: true,
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )
+        },
         {
           id: 'eventPlanner',
           title: 'Планировщик РП',
@@ -292,7 +314,11 @@ export default function Sidebar({
                         <button
                           key={item.id}
                           onClick={() => {
-                            setActivePage(item.id)
+                            if (item.id === 'home') {
+                              if (typeof onGoHome === 'function') onGoHome()
+                            } else {
+                              setActivePage(item.id)
+                            }
                             if (typeof setMobileOpen === 'function') setMobileOpen(false)
                           }}
                           title={collapsed ? item.title : undefined}

@@ -10,6 +10,7 @@ import ChsGos from './components/ChsGos'
 import Logs from './components/Logs'
 import LeaderActivity from './components/LeaderActivity'
 import LeaderAnalytics from './components/LeaderAnalytics'
+import Inactive from './components/Inactive'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
 import MobileHeader from './components/MobileHeader'
@@ -27,6 +28,7 @@ const PAGE_TITLES = {
   logs: 'Логи',
   activity: 'Активность лидеров',
   leaderAnalytics: 'Аналитика и рейтинг лидеров',
+  inactive: 'Неактивы',
   eventPlanner: 'Планировщик РП',
   users: 'Пользователи',
   profile: 'Профиль',
@@ -64,6 +66,8 @@ function setPath(page, pageNumber = 1, mode = 'push') {
 export default function App() {
   const initialRoute = resolvePageFromPath(window.location.pathname)
   const [user, setUser] = useState(null)
+  // 'app' — рабочая панель (сайдбар + страницы), 'landing' — лендинг StateCore
+  const [view, setView] = useState('app')
   const [activePage, setActivePage] = useState(initialRoute.page)
   const [pageNumber, setPageNumber] = useState(initialRoute.pageNumber)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -122,13 +126,14 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || view !== 'app') return
     setPath(activePage, pageNumber)
-  }, [activePage, pageNumber, user])
+  }, [activePage, pageNumber, user, view])
 
   const handleLogout = () => {
     clearSession()
     setUser(null)
+    setView('app')
   }
 
   const handleSetActivePage = (page) => {
@@ -139,7 +144,18 @@ export default function App() {
   if (!hydrated) return null
 
   if (!user) {
-    return <Landing onLogin={(nextUser) => { setUser(nextUser); setSession(nextUser); setPath('dashboard', 1, 'replace') }} currentUser={null} onLogout={null} />
+    return <Landing onLogin={(nextUser) => { setUser(nextUser); setSession(nextUser); setView('app'); setPath('dashboard', 1, 'replace') }} currentUser={null} onLogout={null} />
+  }
+
+  if (view === 'landing') {
+    return (
+      <Landing
+        onLogin={(nextUser) => { setUser(nextUser); setSession(nextUser); setView('app') }}
+        currentUser={user}
+        onLogout={handleLogout}
+        onOpenApp={() => setView('app')}
+      />
+    )
   }
 
   return (
@@ -152,6 +168,7 @@ export default function App() {
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
         onLogout={handleLogout}
+        onGoHome={() => setView('landing')}
       />
 
       <main className="flex-1 overflow-y-auto">
@@ -177,6 +194,7 @@ export default function App() {
           {activePage === 'logs' && <Logs pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'activity' && <LeaderActivity user={user} />}
           {activePage === 'leaderAnalytics' && <LeaderAnalytics />}
+          {activePage === 'inactive' && <Inactive user={user} />}
           {activePage === 'eventPlanner' && <EventPlanner user={user} />}
           {activePage === 'interview' && <InterviewGenerator />}
           {activePage === 'users' && <Users currentUser={user} />}

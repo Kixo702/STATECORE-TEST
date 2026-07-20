@@ -1,35 +1,42 @@
 ﻿import { useState, useEffect, useRef } from 'react'
-import banner from '../assets/banner.png'
-import viteLogo from '../assets/vite.svg';
 import { upsertUser, setSession, getUsers } from '../lib/userStore'
 import { registerUser, loginUser } from '../lib/api'
+import logoUrl from '../assets/vite.svg'
 
 // ── Design tokens ─────────────────────────────────────────────
-// Apple-inspired palette: near-black canvas, frosted glass surfaces,
-// iOS system accent colors. Orange stays the brand accent (it already
-// carries through the Dashboard), everything else borrows the
-// restrained iOS system-color set instead of arbitrary hexes.
+// Reworked per reference: indigo/purple canvas, a single blue signal
+// color for primary actions, warm colors kept only where they carry
+// real meaning (red = sanction, green = active/live).
 const T = {
-  bg: '#060608',
-  bg2: '#0a0a0d',
-  ink: '#f5f5f7',
-  ink2: 'rgba(245,245,247,.62)',
-  ink3: 'rgba(245,245,247,.38)',
-  glass: 'rgba(255,255,255,.055)',
-  glassBorder: 'rgba(255,255,255,.09)',
-  orange: '#FF9F0A',
-  orangeDeep: '#FF7A00',
-  blue: '#0A84FF',
-  green: '#30D158',
-  red: '#FF453A',
-  purple: '#BF5AF2',
-  teal: '#5AC8E8',
-  indigo: '#5E5CE6',
-  yellow: '#FFD60A',
-  pink: '#FF375F',
-  gray: '#8E8E93',
+  bg: '#07080f',
+  bg2: '#0b0d18',
+  bgTop: '#241a45',
+  bgTop2: '#151233',
+  ink: '#f2f4fb',
+  ink2: 'rgba(242,244,251,.62)',
+  ink3: 'rgba(242,244,251,.40)',
+  glass: 'rgba(255,255,255,.05)',
+  glassBorder: 'rgba(255,255,255,.10)',
+  primary: '#4f6cf7',
+  primaryDeep: '#3b53df',
+  primarySoft: '#8298ff',
+  orange: '#ff8c00',
+  orangeDeep: '#ff5500',
+  blue: '#38bdf8',
+  green: '#22c55e',
+  greenDeep: '#16a34a',
+  red: '#fb7185',
+  redDeep: '#ef4444',
+  purple: '#a78bfa',
+  teal: '#38bdf8',
+  indigo: '#60a5fa',
+  yellow: '#facc15',
+  pink: '#fb7185',
+  gray: '#94a3b8',
 }
-const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif"
+const FONT = "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif"
+const FONT_DISPLAY = "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif"
+const FONT_MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 const hexToRgba = (hex, a) => {
   const h = hex.replace('#', '')
   const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16)
@@ -53,10 +60,9 @@ const IC = {
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
     </svg>
   ),
-  users: (s=20) => (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  logIn: (s=18) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
     </svg>
   ),
   lock: (s=13) => (
@@ -72,6 +78,11 @@ const IC = {
   arrow: (s=16) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+    </svg>
+  ),
+  download: (s=16) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
     </svg>
   ),
   chevLeft: (s=15) => (
@@ -97,6 +108,11 @@ const IC = {
   bolt: (s=22) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+  ),
+  heart: (s=14) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.6z"/>
     </svg>
   ),
   eye: (s=22) => (
@@ -128,19 +144,9 @@ const IC = {
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
     </svg>
   ),
-  star: (s=16) => (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" stroke="none">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-    </svg>
-  ),
   plus: (s=16) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-    </svg>
-  ),
-  minus: (s=16) => (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <line x1="5" y1="12" x2="19" y2="12"/>
     </svg>
   ),
   mail: (s=16) => (
@@ -153,35 +159,35 @@ const IC = {
       <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057.1 18.08.113 18.1.133 18.114a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
     </svg>
   ),
-  seal: (s=16) => (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="6"/><path d="M9 13.5 7 22l5-3 5 3-2-8.5"/>
+  terminal: (s=16) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
     </svg>
   ),
 }
 
-// ── Ambient aurora backdrop (replaces the old particle canvas) ──
-// A slow, quiet drift of soft color fields — closer to an iOS
-// wallpaper than a data-viz effect. One ambient layer, not six.
+// ── Ambient backdrop ──────────────────────────────────────────
+// Indigo/purple glow top-left fading into near-black, per reference.
 function Aurora() {
   return (
     <div aria-hidden style={{ position:'fixed', inset:0, zIndex:0, overflow:'hidden', pointerEvents:'none' }}>
+      {/* Glowing drifting orbs — orange + primary signal colors */}
       <div style={{
-        position:'absolute', top:'-20%', left:'8%', width:620, height:620, borderRadius:'50%',
-        background:`radial-gradient(circle, ${hexToRgba(T.orange,.16)} 0%, transparent 70%)`,
-        filter:'blur(10px)', animation:'land-drift1 22s ease-in-out infinite',
+        position:'absolute', top:'-12%', left:'-8%', width:560, height:560, borderRadius:'50%',
+        background:`radial-gradient(circle, ${hexToRgba(T.orange,.22)} 0%, transparent 68%)`,
+        filter:'blur(10px)', animation:'land-drift1 16s ease-in-out infinite',
       }}/>
       <div style={{
-        position:'absolute', top:'10%', right:'-10%', width:560, height:560, borderRadius:'50%',
-        background:`radial-gradient(circle, ${hexToRgba(T.indigo,.14)} 0%, transparent 70%)`,
-        filter:'blur(10px)', animation:'land-drift2 26s ease-in-out infinite',
+        position:'absolute', top:'8%', right:'-10%', width:620, height:620, borderRadius:'50%',
+        background:`radial-gradient(circle, ${hexToRgba(T.primary,.18)} 0%, transparent 70%)`,
+        filter:'blur(10px)', animation:'land-drift2 20s ease-in-out infinite',
       }}/>
       <div style={{
-        position:'absolute', bottom:'-15%', left:'30%', width:520, height:520, borderRadius:'50%',
-        background:`radial-gradient(circle, ${hexToRgba(T.teal,.10)} 0%, transparent 70%)`,
-        filter:'blur(10px)', animation:'land-drift1 30s ease-in-out infinite reverse',
+        position:'absolute', bottom:'-14%', left:'22%', width:520, height:520, borderRadius:'50%',
+        background:`radial-gradient(circle, ${hexToRgba(T.blue,.12)} 0%, transparent 70%)`,
+        filter:'blur(10px)', animation:'land-drift1 24s ease-in-out infinite 3s',
       }}/>
-      <div style={{ position:'absolute', inset:0, backdropFilter:'blur(90px)' }}/>
+      <div style={{ position:'absolute', inset:0, opacity:.02, backgroundImage:`linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`, backgroundSize:'64px 64px' }}/>
     </div>
   )
 }
@@ -211,8 +217,85 @@ function Counter({ to, duration = 1800 }) {
   return <span ref={ref}>{val}</span>
 }
 
-// ── FAQ item (iOS Settings-style grouped row) ───────────────────
-function FaqItem({ q, a }) {
+// ── SURVEILLANCE.LOG — live console, kept as a supporting section  ──
+const LOG_FEED = [
+  { tag:'OK',   color:T.green,  text:'LSPD — смена лидера подтверждена' },
+  { tag:'WARN', color:T.red,    text:'FBI — выдан строгий выговор' },
+  { tag:'INFO', color:T.blue,   text:'GOV — запрос на вступление обработан' },
+  { tag:'OK',   color:T.green,  text:'MCLS — состав синхронизирован' },
+  { tag:'INFO', color:T.primary,text:'Реестр запретов — запись обновлена' },
+  { tag:'OK',   color:T.green,  text:'LVmPD — проверка структуры завершена' },
+  { tag:'WARN', color:T.red,    text:'SFPD — устный выговор зафиксирован' },
+  { tag:'INFO', color:T.blue,   text:'Следящая Администрация — снапшот сохранён' },
+]
+
+function SystemConsole() {
+  const [lines, setLines] = useState([])
+  const idx = useRef(0)
+  const boxRef = useRef(null)
+
+  useEffect(() => {
+    const now = () => new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    const push = () => {
+      const entry = LOG_FEED[idx.current % LOG_FEED.length]
+      idx.current += 1
+      setLines(prev => {
+        const next = [...prev, { ...entry, time: now(), key: idx.current }]
+        return next.length > 6 ? next.slice(next.length - 6) : next
+      })
+    }
+    push()
+    const t = setInterval(push, 1900)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight
+  }, [lines])
+
+  return (
+    <div className="land-widget" style={{
+      position:'relative', overflow:'hidden',
+      background:'rgba(255,255,255,.015)',
+      borderRadius:16, border:'1px solid rgba(255,255,255,.08)',
+    }}>
+      <div aria-hidden style={{ position:'absolute', left:0, right:0, height:60, background:`linear-gradient(180deg, transparent, ${hexToRgba(T.orange,.06)}, transparent)`, animation:'land-scan 5s linear infinite', pointerEvents:'none' }}/>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 18px', borderBottom:'1px solid rgba(255,255,255,.08)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+          <span style={{ color:T.orange, display:'flex' }}>{IC.terminal(14)}</span>
+          <span style={{ fontFamily:FONT_MONO, fontSize:11.5, fontWeight:600, letterSpacing:'1.5px', color:T.ink2, textTransform:'uppercase' }}>
+            surveillance.log
+          </span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:6, fontFamily:FONT_MONO, fontSize:10, fontWeight:600, letterSpacing:'.5px', color:T.green }}>
+          <span style={{ width:6, height:6, borderRadius:'50%', background:T.green, boxShadow:`0 0 6px ${T.green}`, animation:'land-pulse-dot 2s ease infinite' }}/>
+          LIVE
+        </div>
+      </div>
+      <div ref={boxRef} style={{ height:198, overflow:'hidden', padding:'14px 18px', display:'flex', flexDirection:'column', gap:2 }}>
+        {lines.map((l, i) => (
+          <div key={l.key} style={{
+            display:'flex', alignItems:'baseline', gap:10,
+            fontFamily:FONT_MONO, fontSize:12, lineHeight:'26px',
+            animation:'land-logIn .35s ease both',
+            opacity: 0.35 + (i / Math.max(lines.length - 1, 1)) * 0.65,
+          }}>
+            <span style={{ color:T.ink3, flexShrink:0 }}>{l.time}</span>
+            <span style={{ color:l.color, fontWeight:700, flexShrink:0, width:44 }}>[{l.tag}]</span>
+            <span style={{ color:T.ink2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.text}</span>
+          </div>
+        ))}
+        <div style={{ display:'flex', alignItems:'center', gap:6, fontFamily:FONT_MONO, fontSize:12, color:T.ink3, marginTop:2 }}>
+          <span>&gt;</span>
+          <span style={{ width:7, height:14, background:T.primary, animation:'land-blink 1s step-end infinite' }}/>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── FAQ item ─────────────────────────────────────────────────
+function FaqItem({ q, a, n }) {
   const [open, setOpen] = useState(false)
   return (
     <div
@@ -220,46 +303,73 @@ function FaqItem({ q, a }) {
       onClick={() => setOpen(o => !o)}
     >
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:16 }}>
-        <p style={{ margin:0, fontSize:15, fontWeight:600, color: open ? T.orange : T.ink, transition:'color .2s' }}>
-          {q}
-        </p>
+        <div style={{ display:'flex', alignItems:'baseline', gap:12, minWidth:0 }}>
+          <span style={{ fontFamily:FONT_MONO, fontSize:11, color: open ? T.primarySoft : T.ink3, flexShrink:0, transition:'color .2s' }}>{n}</span>
+          <p style={{ margin:0, fontSize:15, fontWeight:600, color: open ? T.primarySoft : T.ink, transition:'color .2s' }}>
+            {q}
+          </p>
+        </div>
         <div style={{
           flexShrink:0, width:26, height:26, borderRadius:'50%',
-          background: open ? hexToRgba(T.orange,.18) : 'rgba(255,255,255,.06)',
+          background: open ? hexToRgba(T.primary,.18) : 'rgba(255,255,255,.06)',
           display:'flex', alignItems:'center', justifyContent:'center',
-          color: open ? T.orange : T.ink3, transition:'all .2s', transform: open ? 'rotate(45deg)' : 'none',
+          color: open ? T.primarySoft : T.ink3, transition:'all .2s', transform: open ? 'rotate(45deg)' : 'none',
         }}>
           {IC.plus(13)}
         </div>
       </div>
       {open && (
-        <p style={{ margin:'10px 0 0', fontSize:13.5, color:T.ink2, lineHeight:1.7, maxWidth:'92%', animation:'land-fadeUp .2s ease both' }}>{a}</p>
+        <p style={{ margin:'10px 0 0', fontSize:13.5, color:T.ink2, lineHeight:1.7, maxWidth:'92%', paddingLeft:32, animation:'land-fadeUp .2s ease both' }}>{a}</p>
       )}
     </div>
   )
 }
 
-// ── Small reusable pill button ───────────────────────────────────
+// ── Buttons ──────────────────────────────────────────────────
 function Pill({ children, onClick, variant = 'primary', style, ...rest }) {
   const base = {
     display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8,
-    borderRadius:999, fontSize:14, fontWeight:600, letterSpacing:'-0.1px',
+    borderRadius:14, fontSize:14, fontWeight:800, letterSpacing:'-0.1px',
     cursor:'pointer', border:'none', fontFamily:FONT, whiteSpace:'nowrap',
   }
   const variants = {
-    primary: { background:`linear-gradient(180deg, ${T.orange} 0%, ${T.orangeDeep} 100%)`, color:'#fff', boxShadow:`0 1px 1px rgba(0,0,0,.2), 0 8px 22px ${hexToRgba(T.orange,.28)}` },
-    glass: { background:'rgba(255,255,255,.08)', border:`1px solid ${T.glassBorder}`, color:T.ink },
+    primary: { background:`linear-gradient(135deg, ${T.orange} 0%, ${T.orange} 55%, ${T.orangeDeep} 100%)`, color:'#fff', boxShadow:`0 8px 20px ${hexToRgba(T.orange,.2)}` },
+    glass: { background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`, color:T.ink },
+    dark: { background:'rgba(255,255,255,.045)', border:`1px solid ${T.glassBorder}`, color:T.ink },
     ghost: { background:'transparent', border:`1px solid rgba(255,255,255,.14)`, color:T.ink2 },
   }
   return (
-    <button className="land-btn" onClick={onClick} style={{ ...base, ...variants[variant], ...style }} {...rest}>
+    <button className={`land-btn${variant === 'primary' ? ' land-btn-primary' : ''}`} onClick={onClick} style={{ ...base, ...variants[variant], ...style }} {...rest}>
+      {children}
+    </button>
+  )
+}
+
+// ── Header nav button — detached pill, per reference ────────────
+function NavButton({ icon, children, onClick, highlight, style }) {
+  return (
+    <button
+      className="land-nav-btn land-btn"
+      onClick={onClick}
+      style={{
+        display:'flex', alignItems:'center', gap:9,
+        padding:'10px 18px 10px 14px', borderRadius:14,
+        background: highlight ? hexToRgba(T.primary,.14) : 'rgba(255,255,255,.04)',
+        border:`1px solid ${highlight ? hexToRgba(T.primary,.35) : T.glassBorder}`,
+        color: highlight ? T.primarySoft : T.ink2,
+        fontSize:13.5, fontWeight:600, fontFamily:FONT, cursor:'pointer',
+        boxShadow: highlight ? `0 0 18px ${hexToRgba(T.primary,.25)}` : 'none',
+        ...style,
+      }}
+    >
+      <span style={{ display:'flex', color: highlight ? T.primarySoft : T.ink3 }}>{icon}</span>
       {children}
     </button>
   )
 }
 
 // ── Main ─────────────────────────────────────────────────────
-export default function Landing({ onLogin, currentUser, onLogout }) {
+export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
   const [step, setStep] = useState('hero')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
@@ -382,12 +492,12 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
   }
 
   const features = [
-    { icon: IC.eye(22), color:T.teal, title:'Мониторинг структур', desc:'Отслеживание всех государственных организаций в режиме реального времени. Полная история изменений и событий.' },
-    { icon: IC.crown(22), color:T.orange, title:'Назначение лидеров', desc:'Управление должностями лидеров и заместителей. Быстрое назначение и снятие с должности одним действием.' },
+    { icon: IC.eye(22), color:T.blue, title:'Мониторинг структур', desc:'Отслеживание всех государственных организаций в режиме реального времени. Полная история изменений и событий.' },
+    { icon: IC.crown(22), color:T.primary, title:'Назначение лидеров', desc:'Управление должностями лидеров и заместителей. Быстрое назначение и снятие с должности одним действием.' },
     { icon: IC.warning(22), color:T.red, title:'Система выговоров', desc:'Ведение реестра устных и строгих выговоров. Автоматическая история санкций для каждой структуры.' },
     { icon: IC.list(22), color:T.purple, title:'Реестр запретов', desc:'Чёрный список лиц с запретом на вступление в государственные организации. Полная актуальность данных.' },
     { icon: IC.chart(22), color:T.blue, title:'Статистика и отчёты', desc:'Сводная аналитика по всем структурам. Графики, тренды и сводки в удобном формате для руководства.' },
-    { icon: IC.clock(22), color:T.green, title:'Логи действий', desc:'Полная история всех административных действий с временными метками. Прозрачность и подотчётность.' },
+    { icon: IC.clock(22), color:T.primary, title:'Логи действий', desc:'Полная история всех административных действий с временными метками. Прозрачность и подотчётность.' },
   ]
 
   const orgs = [
@@ -415,32 +525,44 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
     { q:'Как часто обновляются данные в системе?', a:'Данные обновляются в режиме реального времени. Все действия администраторов немедленно отражаются в логах и статистике.' },
   ]
 
-  const recentActivity = [
-    { admin:'Robert_Kamiya', action:'Выдал строгий выговор', target:'LSPD', time:'13:42', color:T.red },
-    { admin:'Robert_Kamiya', action:'Назначил лидера', target:'FBI', time:'12:17', color:T.purple },
-    { admin:'Robert_Kamiya', action:'Добавил запрет', target:'Nick_Ross', time:'11:05', color:T.gray },
-  ]
-
   return (
-    <div style={{ position:'relative', minHeight:'100vh', background:T.bg, fontFamily:FONT, color:T.ink, overflowX:'hidden' }}>
+    <div style={{ position:'relative', minHeight:'100vh', background:'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)', fontFamily:FONT, color:T.ink, overflowX:'hidden' }}>
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
         @keyframes land-fadeUp   { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
         @keyframes land-fadeIn   { from{opacity:0} to{opacity:1} }
         @keyframes land-scaleIn  { from{opacity:0;transform:scale(.94)} to{opacity:1;transform:scale(1)} }
         @keyframes land-spin     { to{transform:rotate(360deg)} }
-        @keyframes land-drift1   { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(40px,30px) scale(1.08)} }
-        @keyframes land-drift2   { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-50px,20px) scale(1.05)} }
+        @keyframes land-drift1   { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(30px,26px) scale(1.06)} }
+        @keyframes land-drift2   { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-40px,18px) scale(1.04)} }
         @keyframes land-success  { 0%{transform:scale(0);opacity:0} 60%{transform:scale(1.2)} 100%{transform:scale(1);opacity:1} }
         @keyframes land-pulse-dot{ 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.8);opacity:0} }
         @keyframes land-ticker   { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+        @keyframes land-float      { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+        @keyframes land-scan       { 0%{top:-60px} 100%{top:220px} }
+        @keyframes land-blink      { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+        @keyframes land-logIn      { from{opacity:0;transform:translateY(6px)} }
+        @keyframes land-glow-pulse { 0%,100%{opacity:.55} 50%{opacity:1} }
+        @keyframes land-shimmer    { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes land-logo-glow  { 0%,100%{filter:drop-shadow(0 0 6px ${hexToRgba(T.orange,.5)})} 50%{filter:drop-shadow(0 0 14px ${hexToRgba(T.orange,.9)})} }
+
+        .land-logo-badge img { animation: land-logo-glow 3s ease-in-out infinite; }
+        .land-logo-badge { transition: box-shadow .25s, border-color .25s; }
+        .land-logo-badge:hover { box-shadow: 0 0 22px ${hexToRgba(T.orange,.35)}; border-color: ${hexToRgba(T.orange,.4)} !important; }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
 
-        .land-btn { transition: transform .15s cubic-bezier(.2,.8,.2,1), box-shadow .15s, opacity .15s; }
+        .land-btn { transition: transform .15s cubic-bezier(.2,.8,.2,1), box-shadow .15s, opacity .15s, background .15s, border-color .15s; }
         .land-btn:hover { transform: translateY(-1px); }
-        .land-btn:active { transform: scale(.96); opacity: .9; }
+        .land-btn:active { transform: scale(.97); opacity: .92; }
+        .land-btn:focus-visible { outline: 2px solid ${T.primary}; outline-offset: 2px; }
+        .land-btn-primary { box-shadow: 0 8px 20px ${hexToRgba(T.orange,.2)}, 0 0 0px ${hexToRgba(T.orange,0)}; }
+        .land-btn-primary:hover { transform: scale(1.012); box-shadow: 0 10px 26px ${hexToRgba(T.orange,.3)}, 0 0 28px ${hexToRgba(T.orange,.35)}; }
+
+        .land-nav-btn:hover { background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.2) !important; color: ${T.ink} !important; }
 
         .land-widget { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
         .land-widget:hover { transform: translateY(-3px); }
@@ -448,9 +570,9 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
         .land-input { transition: border-color .15s, box-shadow .15s, background .15s; }
         .land-input:focus {
           outline: none;
-          border-color: ${hexToRgba(T.orange,.55)} !important;
+          border-color: ${hexToRgba(T.primary,.55)} !important;
           background: rgba(255,255,255,.08) !important;
-          box-shadow: 0 0 0 4px ${hexToRgba(T.orange,.12)} !important;
+          box-shadow: 0 0 0 4px ${hexToRgba(T.primary,.14)} !important;
         }
         .land-input::placeholder { color: rgba(255,255,255,.28); }
 
@@ -459,10 +581,11 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
           border-color: rgba(255,255,255,.16) !important;
           background: rgba(255,255,255,.07) !important;
           transform: translateY(-3px);
+          box-shadow: 0 16px 40px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.04);
         }
 
-        .land-org-chip { transition: transform .18s cubic-bezier(.2,.8,.2,1), border-color .18s; }
-        .land-org-chip:hover { transform: translateY(-2px); }
+        .land-org-chip { transition: transform .18s cubic-bezier(.2,.8,.2,1), border-color .18s, box-shadow .18s; }
+        .land-org-chip:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.2) !important; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
 
         .land-ticker-wrap { overflow: hidden; width: 100%; }
         .land-ticker-inner { display: flex; gap: 0; width: max-content; animation: land-ticker 32s linear infinite; }
@@ -473,9 +596,13 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
 
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: ${T.bg}; }
-        ::-webkit-scrollbar-thumb { background: ${hexToRgba(T.orange,.3)}; border-radius:3px; }
+        ::-webkit-scrollbar-thumb { background: ${hexToRgba(T.primary,.35)}; border-radius:3px; }
 
         section[id] { scroll-margin-top: 96px; }
+
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+        }
 
         @media (max-width: 860px) {
           .land-hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; }
@@ -485,13 +612,10 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
           .land-nav-links { display: none !important; }
         }
 
-        /* ── Tablet / large phone ── */
         @media (max-width: 640px) {
           .land-container-pad { padding-left: 16px !important; padding-right: 16px !important; }
-          .land-banner-pad-top { padding-top: 84px !important; }
-          .land-banner-radius { border-radius: 20px !important; }
-          .land-hero-section { padding: 44px 16px 56px !important; }
-          .land-hero-title { font-size: clamp(32px, 9vw, 44px) !important; letter-spacing: -1px !important; }
+          .land-hero-section { padding: 128px 16px 40px !important; }
+          .land-hero-title { font-size: clamp(30px, 9vw, 42px) !important; }
           .land-section-pad { padding: 64px 16px !important; }
           .land-section-pad-b { padding: 56px 16px !important; }
           .land-faq-section { padding: 0 16px 64px !important; }
@@ -505,248 +629,178 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
           .land-modal-sheet { padding: 14px 18px 22px !important; border-radius: 26px !important; }
           .land-stats-grid { margin-top: 44px !important; gap: 10px !important; }
           .land-input, input.land-input { font-size: 16px !important; }
+          .land-header { flex-direction: column; align-items: flex-start !important; gap: 14px; }
+          .land-nav-actions { width: 100%; }
         }
 
-        /* ── Small phone ── */
         @media (max-width: 460px) {
-          .land-wordmark { display: none !important; }
-          .land-nav-cta { gap: 6px !important; }
-          .land-nav-cta .land-btn { padding: 8px 12px !important; font-size: 12px !important; }
+          .land-nav-btn-label { display: none !important; }
+          .land-nav-btn { padding: 10px !important; }
           .land-profile-role { display: none !important; }
           .land-footer-grid { grid-template-columns: 1fr !important; }
           .land-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
           .land-org-grid { grid-template-columns: 1fr !important; }
           .land-features-grid { gap: 10px !important; }
-          .land-hero-title { font-size: clamp(28px, 10vw, 36px) !important; }
+          .land-hero-title { font-size: clamp(26px, 10vw, 34px) !important; }
         }
       `}</style>
 
       <Aurora />
 
-      {/* subtle grain/grid, single layer only */}
-      <div style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none', backgroundImage:`linear-gradient(${hexToRgba('#ffffff',.02)} 1px, transparent 1px), linear-gradient(90deg, ${hexToRgba('#ffffff',.02)} 1px, transparent 1px)`, backgroundSize:'72px 72px' }}/>
+      {/* ── HEADER — flat, detached buttons, per reference ── */}
+      <div style={{
+        position:'fixed', top:0, left:0, right:0, zIndex:50,
+        padding: scrolled ? '14px 28px' : '26px 28px',
+        background: scrolled ? 'rgba(7,8,15,.55)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(18px)' : 'none', WebkitBackdropFilter: scrolled ? 'blur(18px)' : 'none',
+        borderBottom: scrolled ? `1px solid ${T.glassBorder}` : '1px solid transparent',
+        transition:'all .35s cubic-bezier(.2,.8,.2,1)',
+      }}>
+        <div className="land-header" style={{ maxWidth:1280, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:20 }}>
 
-      {/* ── FLOATING ISLAND NAVBAR ── */}
-      <div style={{ position:'fixed', top:0, left:0, right:0, zIndex:50, display:'flex', justifyContent:'center', padding: scrolled ? '14px 16px' : '22px 16px', transition:'padding .4s cubic-bezier(.2,.8,.2,1)' }}>
-        <nav className="land-navbar" style={{
-          width:'100%', maxWidth: scrolled ? 940 : 1180,
-          display:'flex', alignItems:'center', justifyContent:'space-between', gap:24,
-          padding: '9px 10px 9px 16px',
-          borderRadius:999,
-          background: 'rgba(18,18,22,.62)',
-          backdropFilter:'blur(28px) saturate(180%)', WebkitBackdropFilter:'blur(28px) saturate(180%)',
-          border:`1px solid ${T.glassBorder}`,
-          boxShadow: scrolled ? '0 10px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)' : 'inset 0 1px 0 rgba(255,255,255,.05)',
-          transition:'max-width .4s cubic-bezier(.2,.8,.2,1), box-shadow .4s ease',
-        }}>
-          {/* Logo */}
-          <div style={{ display:'flex', alignItems:'center', gap:9, flexShrink:0 }}>
-            <div style={{ width:30, height:30, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
-              <img src={viteLogo} alt="logo" style={{ width:30, height:30, objectFit:'contain' }} />
+          {/* Logo — vite.svg mark in a glowing badge */}
+          <div style={{ display:'flex', alignItems:'center', gap:10, color:T.ink, flexShrink:0 }}>
+            <div className="land-logo-badge" style={{
+              width:34, height:34, borderRadius:11, flexShrink:0,
+              background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+            }}>
+              <img src={logoUrl} alt="StateCore" width={20} height={20} style={{ display:'block', filter:`drop-shadow(0 0 8px ${hexToRgba(T.orange,.65)})` }}/>
             </div>
-            <span className="land-wordmark" style={{ fontSize:14.5, fontWeight:700, letterSpacing:'-0.3px' }}>
-              STATE <span style={{ color:T.orange }}>CORE</span>
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:800, letterSpacing:'-0.2px' }}>
+              STATE<span style={{ color:T.orange }}>CORE</span>
             </span>
           </div>
 
-          {/* Nav Links */}
-          <div className="land-nav-links" style={{ display:'flex', gap:28, fontSize:13, color:T.ink2, fontWeight:500 }}>
-            {['Возможности','Организации','FAQ'].map(l => (
-              <a key={l} href={`#${l.toLowerCase()}`} className="land-nav-link" style={{ color:T.ink2, textDecoration:'none' }}>{l}</a>
-            ))}
-          </div>
-
-          {/* CTA / Profile */}
+          {/* Right-side actions — detached pill buttons */}
           {currentUser ? (
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:9, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`, borderRadius:999, padding:'5px 12px 5px 5px' }}>
+            <div className="land-nav-actions" style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <button
+                onClick={() => onOpenApp && onOpenApp()}
+                title="Перейти в кабинет"
+                style={{
+                  display:'flex', alignItems:'center', gap:9, background:'rgba(255,255,255,.05)',
+                  border:`1px solid ${T.glassBorder}`, borderRadius:14, padding:'6px 14px 6px 6px',
+                  cursor:'pointer', transition:'all .2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor=hexToRgba(T.primary,.4); e.currentTarget.style.background='rgba(255,255,255,.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor=T.glassBorder; e.currentTarget.style.background='rgba(255,255,255,.05)' }}
+              >
                 <div style={{
                   width:26, height:26, borderRadius:'50%', flexShrink:0,
-                  background:`linear-gradient(160deg, ${T.orange} 0%, ${T.orangeDeep} 100%)`,
+                  background:`linear-gradient(160deg, ${T.primary} 0%, ${T.primaryDeep} 100%)`,
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize:11, fontWeight:700, color:'#fff',
                 }}>
                   {(currentUser.nickname || currentUser.login || '?')[0].toUpperCase()}
                 </div>
-                <div>
+                <div style={{ textAlign:'left' }}>
                   <div style={{ fontSize:12, fontWeight:600, color:T.ink, lineHeight:1.1 }}>
                     {currentUser.nickname || currentUser.login}
                   </div>
-                  <div className="land-profile-role" style={{ fontSize:10, color:hexToRgba(T.orange,.85), fontWeight:600 }}>
+                  <div className="land-profile-role" style={{ fontSize:10, color:T.primarySoft, fontWeight:600 }}>
                     {currentUser.roleName}
                   </div>
                 </div>
-              </div>
+              </button>
               {onLogout && (
-                <button
-                  className="land-btn"
-                  onClick={onLogout}
-                  style={{ background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`, color:T.ink3, padding:'9px 14px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor=hexToRgba(T.red,.4); e.currentTarget.style.color=T.red }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor=T.glassBorder; e.currentTarget.style.color=T.ink3 }}
-                >
-                  Выйти
-                </button>
+                <NavButton icon={IC.x(14)} onClick={onLogout}>
+                  <span className="land-nav-btn-label">Выйти</span>
+                </NavButton>
               )}
             </div>
           ) : (
-            <div className="land-nav-cta" style={{ display:'flex', gap:8 }}>
-              <Pill variant="glass" onClick={() => openModal('register')} style={{ padding:'9px 16px', fontSize:12.5 }}>Регистрация</Pill>
-              <Pill variant="primary" onClick={() => openModal('login')} style={{ padding:'9px 18px', fontSize:12.5 }}>Войти {IC.arrow(12)}</Pill>
+            <div className="land-nav-actions" style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <NavButton icon={IC.user(16)} onClick={() => openModal('register')}>
+                <span className="land-nav-btn-label">Регистрация</span>
+              </NavButton>
+              <NavButton icon={IC.logIn(16)} onClick={() => openModal('login')} highlight>
+                <span className="land-nav-btn-label">Личный кабинет</span>
+              </NavButton>
             </div>
           )}
-        </nav>
-      </div>
-
-      {/* BANNER */}
-      <div className="land-banner-pad-top" style={{ position: 'relative', zIndex: 1, paddingTop: 108 }}>
-        <div className="land-container-pad" style={{ padding: '0 24px', maxWidth: 1280, margin: '0 auto' }}>
-          <div className="land-banner-radius" style={{ position: 'relative', borderRadius: 32, overflow: 'hidden', border:`1px solid ${T.glassBorder}` }}>
-            <img src={banner} alt="STATE CORE Banner" style={{ width: '100%', height: 'auto', display: 'block' }} />
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: `
-                radial-gradient(circle at center, transparent 58%, rgba(6,6,8,0.65) 98%),
-                linear-gradient(to right, rgba(6,6,8,0.85) 0%, transparent 20%, transparent 80%, rgba(6,6,8,0.85) 100%),
-                linear-gradient(to bottom, rgba(6,6,8,0.25) 0%, transparent 45%, transparent 70%, rgba(6,6,8,0.8) 100%)
-              `,
-              pointerEvents: 'none',
-            }}/>
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 130, background: `linear-gradient(to top, ${T.bg} 35%, transparent)` }}/>
-          </div>
         </div>
       </div>
 
-      {/* ── HERO ── */}
-      <section className="land-hero-section" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'72px 24px 96px' }}>
-        <div className="land-hero-grid" style={{ display:'grid', gridTemplateColumns:'1.05fr .95fr', gap:64, alignItems:'center' }}>
+      {/* ── HERO — centered, per reference ── */}
+      <section className="land-hero-section" style={{ position:'relative', zIndex:1, maxWidth:900, margin:'0 auto', padding:'180px 24px 40px', textAlign:'center' }}>
 
-          {/* LEFT */}
-          <div>
-            <div style={{
-              display:'inline-flex', alignItems:'center', gap:7,
-              background:'rgba(255,255,255,.06)', border:`1px solid ${T.glassBorder}`,
-              borderRadius:999, padding:'6px 13px 6px 6px', marginBottom:22,
-              fontSize:12, fontWeight:600, color:T.ink2,
-              animation:'land-fadeUp .6s cubic-bezier(.2,.8,.2,1) both',
-            }}>
-              <span style={{ width:20, height:20, borderRadius:'50%', background:hexToRgba(T.green,.18), color:T.green, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ width:6, height:6, borderRadius:'50%', background:T.green, boxShadow:`0 0 6px ${T.green}` }}/>
-              </span>
-              Система работает штатно
-            </div>
+        {/* Glow blob behind headline */}
+        <div aria-hidden style={{
+          position:'absolute', top:120, left:'50%', transform:'translateX(-50%)',
+          width:560, height:280, borderRadius:'50%',
+          background:`radial-gradient(ellipse, ${hexToRgba(T.orange,.16)} 0%, transparent 70%)`,
+          filter:'blur(20px)', zIndex:-1, animation:'land-glow-pulse 4.5s ease-in-out infinite',
+        }}/>
 
-            <h1 className="land-hero-title" style={{
-              fontSize:'clamp(38px, 4.6vw, 62px)', fontWeight:700,
-              letterSpacing:'-2px', lineHeight:1.06,
-              margin:'0 0 20px',
-              animation:'land-fadeUp .6s cubic-bezier(.2,.8,.2,1) .08s both',
-            }}>
-              Единая платформа<br/>
-              государственных<br/>
-              <span style={{ color:T.orange }}>структур</span>
-            </h1>
-
-            <p style={{
-              fontSize:16.5, color:T.ink2, lineHeight:1.65, maxWidth:460, margin:'0 0 36px',
-              animation:'land-fadeUp .6s cubic-bezier(.2,.8,.2,1) .16s both',
-            }}>
-              Мониторинг организаций, управление лидерами, система выговоров и реестр запретов — всё в одном месте для Следящей Администрации.
-            </p>
-
-            <div style={{ display:'flex', gap:12, flexWrap:'wrap', animation:'land-fadeUp .6s cubic-bezier(.2,.8,.2,1) .24s both' }}>
-              <Pill variant="primary" onClick={() => openModal('login')} style={{ padding:'15px 26px', fontSize:14.5 }}>
-                Войти в систему {IC.arrow(15)}
-              </Pill>
-              <a
-                href="#возможности"
-                style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`, color:T.ink2, padding:'15px 22px', borderRadius:999, fontSize:14.5, fontWeight:600, textDecoration:'none', transition:'all .2s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(255,255,255,.22)'; e.currentTarget.style.color=T.ink }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor=T.glassBorder; e.currentTarget.style.color=T.ink2 }}
-              >
-                Узнать больше
-              </a>
-            </div>
-          </div>
-
-          {/* RIGHT — iOS-style widget stack (signature element) */}
-          <div style={{ animation:'land-fadeUp .7s cubic-bezier(.2,.8,.2,1) .2s both' }}>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              {[
-                { label:'Организаций', val:12, color:T.blue, icon: IC.building(16) },
-                { label:'Активных лидеров', val:9, color:T.orange, icon: IC.crown(16) },
-                { label:'Выговоров', val:21, color:T.red, icon: IC.warning(16) },
-                { label:'В реестре', val:28, color:T.purple, icon: IC.list(16) },
-              ].map(s => (
-                <div key={s.label} className="land-widget" style={{
-                  background:'rgba(255,255,255,.055)',
-                  backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
-                  borderRadius:24, padding:'16px 18px',
-                  border:`1px solid ${T.glassBorder}`,
-                  boxShadow:'inset 0 1px 0 rgba(255,255,255,.08), 0 20px 40px rgba(0,0,0,.35)',
-                }}>
-                  <div style={{
-                    width:30, height:30, borderRadius:9, marginBottom:24,
-                    background:hexToRgba(s.color,.16), color:s.color,
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                  }}>
-                    {s.icon}
-                  </div>
-                  <div style={{ fontSize:26, fontWeight:700, color:T.ink, letterSpacing:'-0.5px', lineHeight:1 }}>{s.val}</div>
-                  <div style={{ fontSize:11.5, color:T.ink3, marginTop:5 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* wide activity widget */}
-            <div className="land-widget" style={{
-              marginTop:12,
-              background:'rgba(255,255,255,.055)',
-              backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
-              borderRadius:24, padding:'18px 20px 8px',
-              border:`1px solid ${T.glassBorder}`,
-              boxShadow:'inset 0 1px 0 rgba(255,255,255,.08), 0 20px 40px rgba(0,0,0,.35)',
-            }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                <span style={{ fontSize:12, fontWeight:600, color:T.ink2 }}>Последние действия</span>
-                <span style={{ fontSize:10, fontWeight:700, color:T.green, letterSpacing:'.5px', display:'flex', alignItems:'center', gap:5 }}>
-                  <span style={{ width:6, height:6, borderRadius:'50%', background:T.green, boxShadow:`0 0 6px ${T.green}`, animation:'land-pulse-dot 2s ease infinite' }}/>
-                  LIVE
-                </span>
-              </div>
-              {recentActivity.map((l, i) => (
-                <div key={i} style={{
-                  display:'flex', alignItems:'center', gap:10,
-                  padding:'10px 0', borderTop: i>0 ? '1px solid rgba(255,255,255,.06)' : 'none',
-                  fontSize:12.5,
-                }}>
-                  <div style={{ width:7, height:7, borderRadius:'50%', background:l.color, flexShrink:0 }}/>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:600, color:T.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.admin}</div>
-                    <div style={{ color:T.ink3, fontSize:11.5 }}>{l.action} · <span style={{ color:l.color, fontWeight:600 }}>{l.target}</span></div>
-                  </div>
-                  <div style={{ color:T.ink3, fontSize:11, flexShrink:0 }}>{l.time}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Eyebrow */}
+        <div style={{
+          fontSize:11, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase',
+          color:hexToRgba(T.orange,.8), marginBottom:18,
+          animation:'land-fadeUp .6s cubic-bezier(.2,.8,.2,1) both',
+        }}>
+          Выбор администраторов Online RP
         </div>
 
-        {/* STATS ROW — grouped list style */}
+        {/* Headline */}
+        <h1 className="land-hero-title" style={{
+          fontFamily:FONT_DISPLAY, fontSize:'clamp(36px, 5.6vw, 64px)', fontWeight:900,
+          letterSpacing:'-1.8px', lineHeight:1.1,
+          margin:'0 0 26px', color:T.ink,
+          animation:'land-fadeUp .7s cubic-bezier(.2,.8,.2,1) .08s both',
+        }}>
+          Добро пожаловать в<br/>
+          <span style={{ color:T.orange, textShadow:`0 0 40px ${hexToRgba(T.orange,.45)}` }}>STATECORE</span>
+        </h1>
+
+        <p style={{
+          fontSize:16.5, color:T.ink2, lineHeight:1.65, maxWidth:600, margin:'0 auto 40px',
+          animation:'land-fadeUp .7s cubic-bezier(.2,.8,.2,1) .16s both',
+        }}>
+          Один интерфейс вместо десятков вкладок: назначения, реестры и живой мониторинг фракций — на любом устройстве и в реальном времени.
+        </p>
+
+        <div style={{ display:'flex', gap:14, flexWrap:'wrap', justifyContent:'center', animation:'land-fadeUp .7s cubic-bezier(.2,.8,.2,1) .24s both' }}>
+          <Pill
+            variant="primary"
+            onClick={() => currentUser ? (onOpenApp && onOpenApp()) : openModal('login')}
+            style={{ padding:'15px 30px', fontSize:15 }}
+          >
+            {currentUser ? 'Перейти в кабинет' : 'Войти в аккаунт'}
+          </Pill>
+          <a
+            href="#возможности"
+            style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`, color:T.ink2, padding:'15px 26px', borderRadius:14, fontSize:15, fontWeight:600, textDecoration:'none', transition:'all .2s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(255,255,255,.22)'; e.currentTarget.style.color=T.ink; e.currentTarget.style.background='rgba(255,255,255,.08)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor=T.glassBorder; e.currentTarget.style.color=T.ink2; e.currentTarget.style.background='rgba(255,255,255,.05)' }}
+          >
+            Узнать больше
+          </a>
+        </div>
+
+        {/* scroll cue */}
+        <div style={{ display:'flex', justifyContent:'center', marginTop:76, animation:'land-fadeIn 1s ease .6s both' }}>
+          <div style={{ width:26, height:40, borderRadius:14, border:`1.5px solid ${T.glassBorder}`, display:'flex', justifyContent:'center', paddingTop:7 }}>
+            <div style={{ width:4, height:8, borderRadius:2, background:T.ink3, animation:'land-float 1.6s ease-in-out infinite' }}/>
+          </div>
+        </div>
+      </section>
+
+      {/* STATS ROW */}
+      <section style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'40px auto 0', padding:'0 24px' }}>
         <div className="land-stats-grid" style={{
           display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:12,
-          marginTop:72,
-          animation:'land-fadeUp .7s cubic-bezier(.2,.8,.2,1) .3s both',
+          animation:'land-fadeUp .7s cubic-bezier(.2,.8,.2,1) .1s both',
         }}>
           {stats.map((s) => (
             <div key={s.label} style={{
               padding:'26px 22px',
-              background:'rgba(255,255,255,.045)',
-              border:`1px solid ${T.glassBorder}`,
-              borderRadius:22,
+              background:'rgba(255,255,255,.015)',
+              border:`1px solid rgba(255,255,255,.08)`,
+              borderRadius:14,
               textAlign:'center',
             }}>
-              <div style={{ fontSize:'clamp(28px, 3.4vw, 40px)', fontWeight:700, color:T.orange, letterSpacing:'-1px', lineHeight:1 }}>
+              <div style={{ fontSize:'clamp(26px, 3.2vw, 36px)', fontWeight:800, color:T.orange, letterSpacing:'-1px', lineHeight:1 }}>
                 <Counter to={s.val} />{s.suffix}
               </div>
               <div style={{ fontSize:11.5, color:T.ink3, marginTop:8, lineHeight:1.4 }}>{s.label}</div>
@@ -756,14 +810,14 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       </section>
 
       {/* TICKER */}
-      <div style={{ position:'relative', zIndex:1, overflow:'hidden', padding:'18px 0', borderTop:'1px solid rgba(255,255,255,.06)', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
+      <div style={{ position:'relative', zIndex:1, overflow:'hidden', padding:'18px 0', marginTop:64, borderTop:'1px solid rgba(255,255,255,.06)', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
         <div className="land-ticker-inner">
           {[...Array(2)].map((_, ri) => (
             <div key={ri} style={{ display:'flex', gap:0 }}>
               {['LSPD','FBI','LSFD','GOV','LSMC','FIB','ARMY','COURT','LSPD','FBI','LSFD','GOV'].map((t, i) => (
                 <div key={`${ri}-${i}`} style={{ display:'flex', alignItems:'center', gap:14, padding:'0 36px', whiteSpace:'nowrap' }}>
-                  <span style={{ fontSize:12, fontWeight:700, letterSpacing:'1.5px', color:T.ink3, textTransform:'uppercase' }}>{t}</span>
-                  <span style={{ width:4, height:4, borderRadius:'50%', background:hexToRgba(T.orange,.3) }}/>
+                  <span style={{ fontFamily:FONT_MONO, fontSize:12, fontWeight:600, letterSpacing:'1.5px', color:T.ink3, textTransform:'uppercase' }}>{t}</span>
+                  <span style={{ width:4, height:4, borderRadius:'50%', background:hexToRgba(T.primary,.35) }}/>
                 </div>
               ))}
             </div>
@@ -771,14 +825,35 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
         </div>
       </div>
 
+      {/* ── LIVE MONITORING — signature console, now a supporting section ── */}
+      <section className="land-section-pad" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'88px 24px 0' }}>
+        <div className="land-hero-grid" style={{ display:'grid', gridTemplateColumns:'0.95fr 1.05fr', gap:56, alignItems:'center' }}>
+          <div style={{ position:'relative' }}>
+            <div style={{ position:'absolute', inset:-2, borderRadius:24, background:`linear-gradient(120deg, ${hexToRgba(T.primary,.18)}, transparent 45%, transparent 55%, ${hexToRgba(T.blue,.12)})`, filter:'blur(20px)', opacity:.5, zIndex:-1 }}/>
+            <SystemConsole />
+          </div>
+          <div>
+            <div style={{ fontSize:11, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase', color:hexToRgba(T.orange,.8), marginBottom:14 }}>
+              Реальное время
+            </div>
+            <h2 style={{ fontFamily:FONT_DISPLAY, fontSize:'clamp(24px, 3vw, 34px)', fontWeight:900, letterSpacing:'-0.9px', lineHeight:1.2, marginBottom:14 }}>
+              Каждое действие<br/><span style={{ color:T.orange }}>зафиксировано и учтено</span>
+            </h2>
+            <p style={{ fontSize:14.5, color:T.ink2, lineHeight:1.65, maxWidth:420 }}>
+              Все назначения, выговоры и изменения в реестрах попадают в единый журнал событий — с точным временем и исполнителем.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── FEATURES ── */}
       <section id="возможности" className="land-section-pad" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'96px 24px' }}>
 
         <div style={{ textAlign:'center', marginBottom:56 }}>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:7, background:hexToRgba(T.orange,.1), border:`1px solid ${hexToRgba(T.orange,.24)}`, borderRadius:999, padding:'6px 14px', marginBottom:20, fontSize:11.5, fontWeight:600, color:T.orange }}>
-            {IC.bolt(12)} Возможности
+          <div style={{ fontSize:11, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase', color:hexToRgba(T.orange,.8), marginBottom:14 }}>
+            Возможности
           </div>
-          <h2 style={{ fontSize:'clamp(26px, 3.6vw, 42px)', fontWeight:700, letterSpacing:'-1.2px', lineHeight:1.15, marginBottom:14 }}>
+          <h2 style={{ fontFamily:FONT_DISPLAY, fontSize:'clamp(26px, 3.4vw, 40px)', fontWeight:900, letterSpacing:'-1px', lineHeight:1.18, marginBottom:14 }}>
             Всё что нужно<br/>
             <span style={{ color:T.orange }}>следящему администратору</span>
           </h2>
@@ -793,20 +868,25 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
               key={f.title}
               className="land-feature-card"
               style={{
-                background:'rgba(255,255,255,.045)',
-                border:`1px solid ${T.glassBorder}`,
-                borderRadius:24, padding:'26px 24px',
+                position:'relative', overflow:'hidden',
+                background:'rgba(255,255,255,.015)',
+                border:`1px solid rgba(255,255,255,.08)`,
+                borderRadius:14, padding:'26px 24px 26px 27px',
               }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 16px 40px rgba(0,0,0,.35), 0 0 32px ${hexToRgba(f.color,.16)}` }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}
             >
+              <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:f.color, boxShadow:`0 0 12px ${f.color}` }}/>
               <div style={{
                 width:44, height:44, borderRadius:13, marginBottom:18,
-                background:hexToRgba(f.color,.15),
+                background:hexToRgba(f.color,.12),
                 display:'flex', alignItems:'center', justifyContent:'center',
                 color: f.color,
+                boxShadow:`0 0 20px ${hexToRgba(f.color,.25)}`,
               }}>
                 {f.icon}
               </div>
-              <h3 style={{ fontSize:16, fontWeight:600, marginBottom:8, color:T.ink }}>{f.title}</h3>
+              <h3 style={{ fontSize:16, fontWeight:800, marginBottom:8, color:T.ink, letterSpacing:'-0.2px' }}>{f.title}</h3>
               <p style={{ fontSize:13.5, color:T.ink2, lineHeight:1.6 }}>{f.desc}</p>
             </div>
           ))}
@@ -819,10 +899,10 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
 
           <div className="land-hero-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:64, alignItems:'center' }}>
             <div>
-              <div style={{ display:'inline-flex', alignItems:'center', gap:7, background:hexToRgba(T.blue,.1), border:`1px solid ${hexToRgba(T.blue,.24)}`, borderRadius:999, padding:'6px 14px', marginBottom:20, fontSize:11.5, fontWeight:600, color:T.blue }}>
-                {IC.building(12)} Организации
+              <div style={{ fontSize:11, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase', color:hexToRgba(T.blue,.8), marginBottom:14 }}>
+                Организации
               </div>
-              <h2 style={{ fontSize:'clamp(26px, 3.2vw, 38px)', fontWeight:700, letterSpacing:'-1.2px', lineHeight:1.15, marginBottom:14 }}>
+              <h2 style={{ fontFamily:FONT_DISPLAY, fontSize:'clamp(26px, 3.1vw, 36px)', fontWeight:900, letterSpacing:'-1px', lineHeight:1.18, marginBottom:14 }}>
                 Под контролем<br/>
                 <span style={{ color:T.orange }}>12 структур</span>
               </h2>
@@ -850,24 +930,27 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                   key={org.name}
                   className="land-org-chip"
                   style={{
-                    background: org.active ? hexToRgba(org.color,.09) : 'rgba(255,255,255,.03)',
-                    border: `1px solid ${org.active ? hexToRgba(org.color,.28) : T.glassBorder}`,
-                    borderRadius:18, padding:'15px 16px',
+                    position:'relative', overflow:'hidden',
+                    background: org.active ? 'rgba(255,255,255,.015)' : 'rgba(255,255,255,.01)',
+                    border: `1px solid rgba(255,255,255,.08)`,
+                    borderRadius:12, padding:'15px 16px 15px 19px',
                     display:'flex', alignItems:'center', gap:12,
                     opacity: org.active ? 1 : .5,
                   }}
                 >
+                  {org.active && <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:org.color, boxShadow:`0 0 10px ${org.color}` }}/>}
                   <div style={{
                     width:36, height:36, borderRadius:11, flexShrink:0,
-                    background: org.active ? hexToRgba(org.color,.16) : 'rgba(255,255,255,.05)',
+                    background: org.active ? hexToRgba(org.color,.12) : 'rgba(255,255,255,.05)',
                     display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:11, fontWeight:700, color: org.active ? org.color : T.ink3,
+                    fontSize:11, fontWeight:800, color: org.active ? org.color : T.ink3,
                     letterSpacing:'.3px',
+                    boxShadow: org.active ? `0 0 16px ${hexToRgba(org.color,.3)}` : 'none',
                   }}>
                     {org.name.slice(0,2)}
                   </div>
                   <div>
-                    <div style={{ fontSize:13.5, fontWeight:600, color: org.active ? T.ink : T.ink3, marginBottom:2 }}>{org.name}</div>
+                    <div style={{ fontSize:13.5, fontWeight:700, color: org.active ? T.ink : T.ink3, marginBottom:2 }}>{org.name}</div>
                     <div style={{ fontSize:11, color: org.active ? T.ink2 : T.ink3 }}>{org.label}</div>
                   </div>
                   {org.active && (
@@ -883,18 +966,22 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       {/* ── CTA BANNER ── */}
       <section className="land-cta-section" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'88px 24px' }}>
         <div className="land-cta-box" style={{
-          background:`linear-gradient(135deg, ${hexToRgba(T.orange,.14)} 0%, ${hexToRgba(T.orangeDeep,.06)} 50%, rgba(255,255,255,.02) 100%)`,
-          border:`1px solid ${hexToRgba(T.orange,.22)}`,
-          borderRadius:32, padding:'56px 48px',
+          background:'rgba(255,255,255,.015)',
+          border:`1px solid rgba(255,255,255,.08)`,
+          borderRadius:20, padding:'56px 48px',
           display:'flex', alignItems:'center', justifyContent:'space-between', gap:40, flexWrap:'wrap',
           position:'relative', overflow:'hidden',
         }}>
-          <div style={{ position:'absolute', top:-80, right:80, width:280, height:280, background:`radial-gradient(circle, ${hexToRgba(T.orange,.14)} 0%, transparent 70%)`, pointerEvents:'none' }}/>
+          <div aria-hidden style={{
+            position:'absolute', top:'-40%', right:'-10%', width:360, height:360, borderRadius:'50%',
+            background:`radial-gradient(circle, ${hexToRgba(T.orange,.18)} 0%, transparent 70%)`,
+            filter:'blur(10px)', animation:'land-glow-pulse 5s ease-in-out infinite', pointerEvents:'none',
+          }}/>
           <div style={{ position:'relative' }}>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:11, fontWeight:600, color:T.orange, marginBottom:14 }}>
-              {IC.lock(12)} Закрытый доступ
+            <div style={{ fontSize:11, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase', color:hexToRgba(T.orange,.8), marginBottom:14 }}>
+              Закрытый доступ
             </div>
-            <h2 style={{ fontSize:'clamp(22px, 2.8vw, 34px)', fontWeight:700, letterSpacing:'-0.8px', lineHeight:1.2, marginBottom:12 }}>
+            <h2 style={{ fontFamily:FONT_DISPLAY, fontSize:'clamp(22px, 2.6vw, 32px)', fontWeight:900, letterSpacing:'-0.6px', lineHeight:1.2, marginBottom:12 }}>
               Готовы войти в систему?
             </h2>
             <p style={{ fontSize:14, color:T.ink2, maxWidth:420, lineHeight:1.6 }}>
@@ -902,8 +989,12 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             </p>
           </div>
           <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:12, alignItems:'center' }}>
-            <Pill variant="primary" onClick={() => openModal('login')} style={{ padding:'16px 34px', fontSize:15 }}>
-              {IC.shield(16)} Войти в систему
+            <Pill
+              variant="primary"
+              onClick={() => currentUser ? (onOpenApp && onOpenApp()) : openModal('login')}
+              style={{ padding:'16px 34px', fontSize:15 }}
+            >
+              {IC.shield(16)} {currentUser ? 'Перейти в кабинет' : 'Войти в систему'}
             </Pill>
             <p style={{ fontSize:11, color:T.ink3, textAlign:'center' }}>
               Только для авторизованных сотрудников
@@ -915,15 +1006,15 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
       {/* ── FAQ ── */}
       <section id="faq" className="land-faq-section" style={{ position:'relative', zIndex:1, maxWidth:760, margin:'0 auto', padding:'0 24px 96px' }}>
         <div style={{ textAlign:'center', marginBottom:48 }}>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`, borderRadius:999, padding:'6px 14px', marginBottom:18, fontSize:11.5, fontWeight:600, color:T.ink2 }}>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`, borderRadius:999, padding:'6px 14px', marginBottom:18, fontSize:12, fontWeight:600, color:T.ink2 }}>
             Вопросы и ответы
           </div>
-          <h2 style={{ fontSize:'clamp(24px, 3.2vw, 38px)', fontWeight:700, letterSpacing:'-1.2px' }}>
+          <h2 style={{ fontFamily:FONT_DISPLAY, fontSize:'clamp(24px, 3vw, 36px)', fontWeight:800, letterSpacing:'-1px' }}>
             FAQ
           </h2>
         </div>
-        <div style={{ background:'rgba(255,255,255,.04)', border:`1px solid ${T.glassBorder}`, borderRadius:24, padding:'6px 24px' }}>
-          {faq.map((item, i) => <FaqItem key={i} {...item} />)}
+        <div style={{ background:'rgba(255,255,255,.035)', border:`1px solid ${T.glassBorder}`, borderRadius:20, padding:'6px 24px' }}>
+          {faq.map((item, i) => <FaqItem key={i} n={`0${i+1}`} {...item} />)}
         </div>
       </section>
 
@@ -936,10 +1027,8 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             {/* Brand */}
             <div>
               <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:14 }}>
-                <div style={{ width:32, height:32, borderRadius:10, background:hexToRgba(T.orange,.16), display:'flex', alignItems:'center', justifyContent:'center', color:T.orange }}>
-                  {IC.shield(15)}
-                </div>
-                <span style={{ fontSize:14.5, fontWeight:700 }}>STATE <span style={{ color:T.orange }}>CORE</span></span>
+                <img src={logoUrl} alt="StateCore" width={20} height={20} style={{ display:'block', filter:`drop-shadow(0 0 6px ${hexToRgba(T.primarySoft,.55)})` }}/>
+                <span style={{ fontFamily:FONT_DISPLAY, fontSize:14.5, fontWeight:800 }}>STATE<span style={{ color:T.primarySoft }}>CORE</span></span>
               </div>
               <p style={{ fontSize:13, color:T.ink3, lineHeight:1.65, maxWidth:280, marginBottom:18 }}>
                 Единая система мониторинга и управления государственными структурами. Разработано для Следящей Администрации.
@@ -950,7 +1039,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                     width:32, height:32, borderRadius:9, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`,
                     display:'flex', alignItems:'center', justifyContent:'center', color:T.ink3, cursor:'pointer', transition:'all .2s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor=hexToRgba(T.orange,.3); e.currentTarget.style.color=T.orange }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor=hexToRgba(T.primary,.35); e.currentTarget.style.color=T.primarySoft }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor=T.glassBorder; e.currentTarget.style.color=T.ink3 }}
                   >
                     {icon}
@@ -960,16 +1049,18 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             </div>
 
             {[
-              { title:'Система', items:['Мониторинг','Организации','Реестр запретов','Логи действий'] },
-              { title:'Роли', items:['Следящий Администратор','Главный Следящий','Лидер организации','Заместитель'] },
-              { title:'Информация', items:['FAQ','Правила системы','Контакты','Обратная связь'] },
+              { title:'Навигация', links:['Возможности','Организации','FAQ'] },
+              { title:'Система', links:['Мониторинг','Лидеры','Реестр запретов'] },
+              { title:'Доступ', links:['Войти','Регистрация','Поддержка'] },
             ].map(col => (
               <div key={col.title}>
-                <div style={{ fontSize:11, fontWeight:700, color:T.ink2, letterSpacing:'1px', textTransform:'uppercase', marginBottom:14 }}>{col.title}</div>
-                {col.items.map(l => (
-                  <div key={l} style={{ fontSize:13, color:T.ink3, marginBottom:9, cursor:'pointer', transition:'color .15s' }}
-                    onMouseEnter={e => e.currentTarget.style.color=T.ink2}
-                    onMouseLeave={e => e.currentTarget.style.color=T.ink3}
+                <div style={{ fontSize:11.5, fontWeight:600, textTransform:'uppercase', letterSpacing:'.4px', color:T.ink3, marginBottom:16 }}>{col.title}</div>
+                {col.links.map(l => (
+                  <div
+                    key={l}
+                    style={{ fontSize:13.5, color:T.ink2, marginBottom:12, cursor:'pointer', transition:'color .15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color=T.ink}
+                    onMouseLeave={e => e.currentTarget.style.color=T.ink2}
                   >{l}</div>
                 ))}
               </div>
@@ -1006,22 +1097,19 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             className="land-modal-sheet"
             style={{
               width:'100%', maxWidth:440,
-              background:'linear-gradient(180deg, rgba(32,32,37,.9) 0%, rgba(20,20,24,.9) 100%)',
+              background:'linear-gradient(160deg, #171a30 0%, #0b0d18 100%)',
               backdropFilter:'blur(34px) saturate(190%)', WebkitBackdropFilter:'blur(34px) saturate(190%)',
-              border:`1px solid rgba(255,255,255,.13)`, borderRadius:34, padding:'14px 28px 28px',
-              boxShadow:`0 40px 100px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.1), 0 0 80px ${hexToRgba(T.orange,.06)}`,
+              border:`1px solid rgba(255,255,255,.09)`, borderRadius:28, padding:'14px 28px 28px',
+              boxShadow:`0 40px 100px rgba(0,0,0,.75), 0 0 0 1px ${hexToRgba(T.primary,.08)}, inset 0 1px 0 rgba(255,255,255,.06)`,
               opacity: modalVisible ? 1 : 0,
               transform: modalVisible ? 'scale(1) translateY(0)' : 'scale(.94) translateY(20px)',
               transition:'all .32s cubic-bezier(.2,.9,.25,1)',
               position:'relative', overflow:'hidden',
             }}>
-            {/* ambient top glow, ties the sheet back to the brand accent */}
-            <div style={{ position:'absolute', top:-60, left:'50%', transform:'translateX(-50%)', width:260, height:160, background:`radial-gradient(ellipse, ${hexToRgba(T.orange,.16)} 0%, transparent 72%)`, pointerEvents:'none' }}/>
+            <div style={{ position:'absolute', top:-60, left:'50%', transform:'translateX(-50%)', width:260, height:160, background:`radial-gradient(ellipse, ${hexToRgba(T.primary,.18)} 0%, transparent 72%)`, pointerEvents:'none' }}/>
 
-            {/* drag handle */}
             <div style={{ width:38, height:5, borderRadius:3, background:'rgba(255,255,255,.22)', margin:'2px auto 20px', cursor:'grab', position:'relative' }}/>
 
-            {/* Close */}
             <button
               onClick={closeModal}
               style={{ position:'absolute', top:16, right:16, background:'rgba(255,255,255,.08)', border:`1px solid ${T.glassBorder}`, borderRadius:'50%', width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:T.ink2, cursor:'pointer', transition:'all .15s', zIndex:1 }}
@@ -1035,17 +1123,17 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
             {step === 'hero' && (
               <div style={{ animation:'land-scaleIn .28s ease both', position:'relative' }}>
                 <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
-                  <div style={{ width:52, height:52, borderRadius:16, background:hexToRgba(T.orange,.15), color:T.orange, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <div style={{ width:52, height:52, borderRadius:16, background:hexToRgba(T.primary,.15), color:T.primarySoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
                     {IC.shield(24)}
                   </div>
                 </div>
                 <div style={{ marginBottom:22, textAlign:'center' }}>
-                  <h2 style={{ margin:0, fontSize:21, fontWeight:700, letterSpacing:'-0.4px' }}>Войти или зарегистрироваться</h2>
+                  <h2 style={{ margin:0, fontFamily:FONT_DISPLAY, fontSize:21, fontWeight:800, letterSpacing:'-0.4px' }}>Войти или зарегистрироваться</h2>
                   <p style={{ margin:'6px 0 0', fontSize:13, color:T.ink2 }}>Выберите действие, чтобы продолжить</p>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                   {[
-                    { key:'login', icon:IC.arrow(16), color:T.orange, title:'Войти', desc:'У меня уже есть аккаунт' },
+                    { key:'login', icon:IC.arrow(16), color:T.primary, title:'Войти', desc:'У меня уже есть аккаунт' },
                     { key:'register', icon:IC.user(16), color:T.blue, desc:'Первый раз в системе', title:'Зарегистрироваться' },
                   ].map(opt => (
                     <button
@@ -1055,7 +1143,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                       style={{
                         display:'flex', alignItems:'center', gap:13, width:'100%', textAlign:'left',
                         background:'rgba(255,255,255,.055)', border:`1px solid ${T.glassBorder}`,
-                        borderRadius:18, padding:'13px 14px', cursor:'pointer', fontFamily:FONT,
+                        borderRadius:16, padding:'13px 14px', cursor:'pointer', fontFamily:FONT,
                       }}
                       onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.09)'; e.currentTarget.style.borderColor=hexToRgba(opt.color,.35) }}
                       onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.055)'; e.currentTarget.style.borderColor=T.glassBorder }}
@@ -1086,10 +1174,10 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                   {IC.chevLeft(15)} Назад
                 </button>
                 <div style={{ marginBottom:26 }}>
-                  <div style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:10, color:T.orange, letterSpacing:'2px', textTransform:'uppercase', marginBottom:8, fontWeight:700 }}>
+                  <div style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:10.5, color:T.primarySoft, letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:8, fontWeight:700 }}>
                     {IC.shield(14)} Следящая Администрация
                   </div>
-                  <h2 style={{ margin:0, fontSize:22, fontWeight:700, letterSpacing:'-0.4px' }}>Вход в систему</h2>
+                  <h2 style={{ margin:0, fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:800, letterSpacing:'-0.4px' }}>Вход в систему</h2>
                   <p style={{ margin:'6px 0 0', fontSize:13, color:T.ink2 }}>Введите данные, выданные Главным Следящим</p>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
@@ -1150,24 +1238,24 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                   {IC.chevLeft(15)} Назад
                 </button>
                 <div style={{ marginBottom:18 }}>
-                  <div style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:10, color:T.orange, letterSpacing:'2px', textTransform:'uppercase', marginBottom:8, fontWeight:700 }}>
+                  <div style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:10.5, color:T.primarySoft, letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:8, fontWeight:700 }}>
                     Регистрация
                   </div>
-                  <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Создать аккаунт</h2>
+                  <h2 style={{ margin:0, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:800 }}>Создать аккаунт</h2>
                   <p style={{ margin:'6px 0 0', fontSize:13, color:T.ink2 }}>Логин, никнейм, VK/Forum и пароль</p>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:8 }}>
                   <div>
-                    <div style={{ fontSize:12, color:T.ink2, marginBottom:6 }}>Логин <span style={{color:hexToRgba(T.orange,.8), fontSize:10}}>макс. 10 символов</span></div>
+                    <div style={{ fontSize:12, color:T.ink2, marginBottom:6 }}>Логин <span style={{color:hexToRgba(T.primarySoft,.9), fontSize:10}}>макс. 10 символов</span></div>
                     <input
                       placeholder="login"
                       value={regLogin}
                       maxLength={10}
                       onChange={e => setRegLogin(e.target.value.replace(/\s/g,''))}
                       className="land-input"
-                      style={{ width:'100%', padding:'12px 14px', borderRadius:14, background:'rgba(255,255,255,.06)', border:`1px solid ${regLogin.length===10?hexToRgba(T.orange,.5):T.glassBorder}`, color:T.ink, fontFamily:'monospace', letterSpacing:'0.5px' }}
+                      style={{ width:'100%', padding:'12px 14px', borderRadius:14, background:'rgba(255,255,255,.06)', border:`1px solid ${regLogin.length===10?hexToRgba(T.primary,.5):T.glassBorder}`, color:T.ink, fontFamily:FONT_MONO, letterSpacing:'0.5px' }}
                     />
-                    <div style={{ fontSize:10, color: regLogin.length===10?T.orange:'rgba(255,255,255,.25)', textAlign:'right', marginTop:4 }}>{regLogin.length}/10</div>
+                    <div style={{ fontFamily:FONT_MONO, fontSize:10, color: regLogin.length===10?T.primarySoft:'rgba(255,255,255,.25)', textAlign:'right', marginTop:4 }}>{regLogin.length}/10</div>
                   </div>
                   <div>
                     <div style={{ fontSize:12, color:T.ink2, marginBottom:6 }}>Никнейм</div>
@@ -1189,6 +1277,18 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                     <div style={{ fontSize:12, color:T.ink2, marginBottom:6 }}>Повтор пароля</div>
                     <input type="password" placeholder="Повторите пароль" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} className="land-input" style={{ width:'100%', padding:'12px 14px', borderRadius:14, background:'rgba(255,255,255,.06)', border:`1px solid ${T.glassBorder}`, color:T.ink }} />
                   </div>
+                </div>
+
+                {/* Security note — don't reuse real RP-account password */}
+                <div style={{
+                  display:'flex', alignItems:'flex-start', gap:10,
+                  background:hexToRgba(T.yellow,.08), border:`1px solid ${hexToRgba(T.yellow,.25)}`,
+                  borderRadius:12, padding:'11px 13px', marginTop:14, marginBottom:6,
+                }}>
+                  <span style={{ color:T.yellow, flexShrink:0, marginTop:1 }}>{IC.warning(15)}</span>
+                  <span style={{ fontSize:11.5, color:T.ink2, lineHeight:1.5 }}>
+                    Не используйте здесь пароль от вашего аккаунта Online RP — придумайте отдельный, новый пароль.
+                  </span>
                 </div>
                 {regError && (
                   <div style={{ display:'flex', alignItems:'center', gap:8, background:hexToRgba(T.red,.1), border:`1px solid ${hexToRgba(T.red,.3)}`, borderRadius:12, padding:'10px 13px', marginBottom:14, fontSize:12, color:T.red }}>
@@ -1215,7 +1315,7 @@ export default function Landing({ onLogin, currentUser, onLogout }) {
                 <div style={{ width:60, height:60, borderRadius:'50%', background:`linear-gradient(135deg, ${T.green}, #27a856)`, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:20, color:'#fff', boxShadow:`0 8px 32px ${hexToRgba(T.green,.4)}`, animation:'land-success .5s cubic-bezier(.34,1.56,.64,1) both' }}>
                   {IC.check(18)}
                 </div>
-                <h3 style={{ margin:'0 0 6px', fontSize:19, fontWeight:700 }}>Добро пожаловать!</h3>
+                <h3 style={{ margin:'0 0 6px', fontFamily:FONT_DISPLAY, fontSize:19, fontWeight:800 }}>Добро пожаловать!</h3>
                 <p style={{ margin:0, fontSize:13, color:T.ink2 }}>Перенаправляем в систему…</p>
               </div>
             )}
