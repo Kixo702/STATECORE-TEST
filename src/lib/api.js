@@ -1,4 +1,4 @@
-const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:4000/api').replace(/\/$/, '')
+const API_BASE = (import.meta.env.VITE_API_BASE || 'https://statecore-api.onrender.com/api').replace(/\/$/, '')
 
 export async function api(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
