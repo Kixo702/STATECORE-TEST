@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
+import { v4 as uuid } from 'uuid'
 import { db, initDatabase } from './db.js'
 
 const app = express()
@@ -35,15 +36,16 @@ function publicUser(row) {
   if (!row) return null
   return {
     id: row.id,
-    username: row.username,
+    login: row.login,
     nickname: row.nickname,
-    role: row.role || row.role_name || 'user',
-    roleName: row.role_name || row.role || 'Пользователь',
-    avatar: row.avatar,
+    roleName: row.role_name || 'Игрок',
+    vk: row.vk || '',
+    forum: row.forum || '',
+    avatar: row.avatar || null,
+    warnings: row.warnings || 0,
     isBanned: Boolean(row.is_banned),
     banReason: row.ban_reason || null,
-    warns: row.warns || 0,
-    createdAt: row.created_at,
+    registeredAt: row.registered_at,
   }
 }
 
@@ -74,30 +76,36 @@ function publicCadreAudit(row) {
 
 app.post('/api/register', async (req, res) => {
   try {
-    const { username, password, nickname } = req.body || {}
+    const { login, password, nickname, vk = '', forum = '' } = req.body || {}
 
-    if (!username || !password) {
+    if (!login || !password || !nickname) {
       return bad(res, 400, 'Заполните обязательные поля')
     }
 
-    const existing = await db.query('SELECT id FROM users WHERE username = $1', [username])
+    const cleanLogin = String(login).trim().toLowerCase()
+    if (cleanLogin.length > 10) {
+      return bad(res, 400, 'Логин не может быть длиннее 10 символов')
+    }
+
+    const existing = await db.query('SELECT id FROM users WHERE login = $1', [cleanLogin])
     if (existing.rows.length > 0) {
       return bad(res, 400, 'Пользователь с таким логином уже существует')
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+    const passwordHash = await bcrypt.hash(password, 10)
     const result = await db.query(
-      `INSERT INTO users (username, password, nickname, role, role_name)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users (id, login, password_hash, nickname, vk, forum)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [username, hashedPassword, nickname || username, 'user', 'Пользователь']
+      [uuid(), cleanLogin, passwordHash, nickname.trim(), vk, forum]
     )
 
     const user = publicUser(result.rows[0])
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' })
+    const token = jwt.sign({ id: user.id, login: user.login }, JWT_SECRET, { expiresIn: '7d' })
 
     return ok(res, { token, user })
   } catch (error) {
+    if (error.code === '23505') return bad(res, 400, 'Пользователь с таким логином уже существует')
     console.error('Ошибка регистрации:', error)
     return bad(res, 500, 'Ошибка при регистрации')
   }
@@ -105,26 +113,31 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   try {
-    const { username, password } = req.body || {}
+    const { login, password } = req.body || {}
 
-    if (!username || !password) {
+    if (!login || !password) {
       return bad(res, 400, 'Введите логин и пароль')
     }
 
-    const result = await db.query('SELECT * FROM users WHERE username = $1', [username])
+    const cleanLogin = String(login).trim().toLowerCase()
+    const result = await db.query('SELECT * FROM users WHERE login = $1', [cleanLogin])
     const rawUser = result.rows[0]
 
     if (!rawUser) {
       return bad(res, 400, 'Неверный логин или пароль')
     }
 
-    const isValidPassword = await bcrypt.compare(password, rawUser.password)
+    const isValidPassword = await bcrypt.compare(password, rawUser.password_hash)
     if (!isValidPassword) {
       return bad(res, 400, 'Неверный логин или пароль')
     }
 
+    if (rawUser.is_banned) {
+      return bad(res, 403, 'Аккаунт заблокирован: ' + (rawUser.ban_reason || 'без причины'))
+    }
+
     const user = publicUser(rawUser)
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' })
+    const token = jwt.sign({ id: user.id, login: user.login }, JWT_SECRET, { expiresIn: '7d' })
 
     return ok(res, { token, user })
   } catch (error) {
@@ -360,6 +373,53 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Ошибка удаления из друзей:', error)
     return bad(res, 500, 'Не удалось удалить друга')
+  }
+})
+
+/* ==========================================================================
+   ADMIN ENDPOINTS (защищены секретным ключом ADMIN_SECRET)
+   ========================================================================== */
+
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'change-me'
+
+// Сброс пароля пользователю по логину — на случай, если забыл свой пароль
+app.post('/api/admin/reset-password', async (req, res) => {
+  try {
+    const { secret, login, newPassword } = req.body || {}
+    if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
+    if (!login || !newPassword) return bad(res, 400, 'Не хватает данных')
+
+    const passwordHash = await bcrypt.hash(newPassword, 10)
+    const result = await db.query(
+      'UPDATE users SET password_hash = $1 WHERE login = $2 RETURNING id, login, nickname',
+      [passwordHash, String(login).trim().toLowerCase()]
+    )
+
+    if (result.rows.length === 0) return bad(res, 404, 'Пользователь не найден')
+    return ok(res, { success: true, user: result.rows[0] })
+  } catch (error) {
+    console.error('Ошибка сброса пароля:', error)
+    return bad(res, 500, 'Ошибка сервера при сбросе пароля')
+  }
+})
+
+// Ручное изменение роли пользователя (roleName)
+app.post('/api/admin/set-role', async (req, res) => {
+  try {
+    const { secret, login, roleName } = req.body || {}
+    if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
+    if (!login || !roleName) return bad(res, 400, 'Не хватает данных')
+
+    const result = await db.query(
+      'UPDATE users SET role_name = $1 WHERE login = $2 RETURNING id, login, nickname, role_name',
+      [roleName, String(login).trim().toLowerCase()]
+    )
+
+    if (result.rows.length === 0) return bad(res, 404, 'Пользователь не найден')
+    return ok(res, { success: true, user: result.rows[0] })
+  } catch (error) {
+    console.error('Ошибка изменения роли:', error)
+    return bad(res, 500, 'Ошибка сервера при изменении роли')
   }
 })
 
