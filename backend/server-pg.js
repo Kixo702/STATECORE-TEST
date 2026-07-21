@@ -3,10 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
-import dotenv from 'dotenv'
 import { db, initDatabase } from './db.js'
-
-dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000
