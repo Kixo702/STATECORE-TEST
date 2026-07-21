@@ -604,44 +604,63 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
           *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
         }
 
+        /* Universal mobile safety: nothing should force horizontal scroll */
+        html, body { overflow-x: hidden; max-width: 100%; }
+        img, svg { max-width: 100%; }
+
+        @media (max-width: 980px) {
+          .land-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
+        }
+
         @media (max-width: 860px) {
-          .land-hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; }
+          .land-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
           .land-org-grid { grid-template-columns: 1fr 1fr !important; }
-          .land-features-grid { grid-template-columns: 1fr !important; }
+          .land-features-grid { grid-template-columns: 1fr 1fr !important; }
           .land-stats-grid { grid-template-columns: 1fr 1fr !important; }
           .land-nav-links { display: none !important; }
+          .land-cta-box { padding: 44px 36px !important; }
         }
 
         @media (max-width: 640px) {
           .land-container-pad { padding-left: 16px !important; padding-right: 16px !important; }
-          .land-hero-section { padding: 128px 16px 40px !important; }
-          .land-hero-title { font-size: clamp(30px, 9vw, 42px) !important; }
-          .land-section-pad { padding: 64px 16px !important; }
-          .land-section-pad-b { padding: 56px 16px !important; }
-          .land-faq-section { padding: 0 16px 64px !important; }
-          .land-cta-section { padding: 56px 16px !important; }
-          .land-cta-box { flex-direction: column !important; align-items: flex-start !important; text-align: left !important; padding: 32px 24px !important; gap: 24px !important; }
+          .land-hero-section { padding: 116px 16px 36px !important; }
+          .land-hero-title { font-size: clamp(30px, 9vw, 42px) !important; letter-spacing: -1px !important; }
+          .land-section-pad { padding: 56px 16px !important; }
+          .land-section-pad-b { padding: 48px 16px !important; }
+          .land-faq-section { padding: 0 16px 56px !important; }
+          .land-cta-section { padding: 48px 16px !important; }
+          .land-cta-box { flex-direction: column !important; align-items: flex-start !important; text-align: left !important; padding: 28px 22px !important; gap: 22px !important; }
           .land-cta-box > div:last-child { align-items: stretch !important; width: 100%; }
-          .land-cta-box .land-btn { width: 100%; }
-          .land-footer { padding: 40px 16px 24px !important; }
-          .land-footer-grid { grid-template-columns: 1fr 1fr !important; gap: 28px !important; row-gap: 32px !important; }
+          .land-cta-box .land-btn { width: 100%; justify-content: center !important; }
+          .land-footer { padding: 36px 16px 20px !important; }
+          .land-footer-grid { grid-template-columns: 1fr 1fr !important; gap: 24px !important; row-gap: 28px !important; }
           .land-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
-          .land-modal-sheet { padding: 14px 18px 22px !important; border-radius: 26px !important; }
-          .land-stats-grid { margin-top: 44px !important; gap: 10px !important; }
+          .land-modal-sheet { padding: 14px 16px 20px !important; border-radius: 24px !important; max-height: 88vh !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
+          .land-stats-grid { margin-top: 36px !important; gap: 8px !important; }
+          .land-features-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+          .land-org-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
           .land-input, input.land-input { font-size: 16px !important; }
-          .land-header { flex-direction: column; align-items: flex-start !important; gap: 14px; }
-          .land-nav-actions { width: 100%; }
+          .land-header { flex-direction: row; align-items: center !important; gap: 10px; flex-wrap: nowrap !important; }
+          .land-nav-actions { display: flex; gap: 6px !important; }
+          .land-hero-glow { width: 320px !important; height: 200px !important; }
         }
 
         @media (max-width: 460px) {
           .land-nav-btn-label { display: none !important; }
           .land-nav-btn { padding: 10px !important; }
           .land-profile-role { display: none !important; }
-          .land-footer-grid { grid-template-columns: 1fr !important; }
+          .land-footer-grid { grid-template-columns: 1fr !important; gap: 26px !important; }
           .land-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
           .land-org-grid { grid-template-columns: 1fr !important; }
           .land-features-grid { gap: 10px !important; }
           .land-hero-title { font-size: clamp(26px, 10vw, 34px) !important; }
+          .land-hero-section { padding: 108px 14px 30px !important; }
+          .land-logo-badge { width: 30px !important; height: 30px !important; }
+        }
+
+        @media (max-width: 380px) {
+          .land-nav-actions .land-nav-btn { padding: 9px !important; }
+          .land-cta-box { padding: 22px 16px !important; }
         }
       `}</style>
 
@@ -726,9 +745,9 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
       <section className="land-hero-section" style={{ position:'relative', zIndex:1, maxWidth:900, margin:'0 auto', padding:'180px 24px 40px', textAlign:'center' }}>
 
         {/* Glow blob behind headline */}
-        <div aria-hidden style={{
+        <div aria-hidden className="land-hero-glow" style={{
           position:'absolute', top:120, left:'50%', transform:'translateX(-50%)',
-          width:560, height:280, borderRadius:'50%',
+          width:560, height:280, borderRadius:'50%', maxWidth:'90vw',
           background:`radial-gradient(ellipse, ${hexToRgba(T.orange,.16)} 0%, transparent 70%)`,
           filter:'blur(20px)', zIndex:-1, animation:'land-glow-pulse 4.5s ease-in-out infinite',
         }}/>
