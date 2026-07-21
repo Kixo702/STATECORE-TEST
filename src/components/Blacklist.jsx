@@ -481,14 +481,20 @@ export default function Blacklist({ user, pageNumber = 1, setPageNumber = () => 
               <p className="text-gray-400 mt-1">
                 Система запретов на вступление
               </p>
+              {/* TODO: убери эту строку после проверки, что роль определяется верно */}
+              <p className="text-xs text-yellow-400 mt-1">
+                debug: user.roleName = "{user?.roleName ?? 'нет user / undefined'}"
+              </p>
             </div>
 
-            <button
-              onClick={handleAddClick}
-              className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 hover:bg-red-500 hover:text-white hover:border-red-500/50 transition font-bold text-sm"
-            >
-              <IconPlus /> Добавить запрет гос
-            </button>
+            {!isPlayer(user) && (
+              <button
+                onClick={handleAddClick}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 hover:bg-red-500 hover:text-white hover:border-red-500/50 transition font-bold text-sm"
+              >
+                <IconPlus /> Добавить запрет гос
+              </button>
+            )}
           </div>
 
           {/* SEARCH + FILTER */}
