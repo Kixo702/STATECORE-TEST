@@ -4,7 +4,7 @@ import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import dotenv from 'dotenv'
-import db from './db.js'
+import { db, initDatabase } from './db.js'
 
 dotenv.config()
 
@@ -47,6 +47,27 @@ function publicUser(row) {
     banReason: row.ban_reason || null,
     warns: row.warns || 0,
     createdAt: row.created_at,
+  }
+}
+
+// Форматирование заявки кадрового аудита под фронтенд (snake_case -> camelCase)
+function publicCadreAudit(row) {
+  if (!row) return null
+  return {
+    id: String(row.id),
+    candidateNick: row.candidate_nick,
+    faction: row.faction,
+    currentRank: row.current_rank,
+    targetRank: row.target_rank,
+    reason: row.reason,
+    proofUrl: row.proof_url,
+    vkUrl: row.vk_url,
+    status: row.status,
+    submittedBy: row.submitted_by,
+    submittedAt: row.submitted_at,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
+    rejectReason: row.reject_reason,
   }
 }
 
@@ -346,9 +367,165 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req, res) => {
 })
 
 /* ==========================================================================
+   CADRE AUDIT ENDPOINTS (Кадровый аудит / Антиблат)
+   ========================================================================== */
+
+// Список заявок. Можно отфильтровать по статусу: /api/cadre-audits?status=PENDING
+app.get('/api/cadre-audits', authenticateToken, async (req, res) => {
+  try {
+    const { status } = req.query
+    const params = []
+    let where = ''
+    if (status) {
+      params.push(status)
+      where = `WHERE status = $${params.length}`
+    }
+    const result = await db.query(
+      `SELECT * FROM cadre_audits ${where} ORDER BY submitted_at DESC`,
+      params
+    )
+    return ok(res, { audits: result.rows.map(publicCadreAudit) })
+  } catch (error) {
+    console.error('Ошибка получения заявок кадрового аудита:', error)
+    return bad(res, 500, 'Не удалось получить заявки')
+  }
+})
+
+// Создание новой заявки
+app.post('/api/cadre-audits', authenticateToken, async (req, res) => {
+  try {
+    const {
+      candidateNick,
+      faction,
+      currentRank,
+      targetRank,
+      reason,
+      proofUrl,
+      vkUrl,
+    } = req.body || {}
+
+    if (!candidateNick || !faction || !proofUrl || !vkUrl) {
+      return bad(res, 400, 'Заполните обязательные поля заявки')
+    }
+
+    // Имя подавшего заявку берём из его аккаунта на сервере, а не из тела запроса,
+    // чтобы нельзя было подделать поле submittedBy
+    const submitterRes = await db.query('SELECT nickname, login FROM users WHERE id = $1', [req.user.id])
+    const submitter = submitterRes.rows[0]
+    const submittedByName = submitter?.nickname || submitter?.login || 'Лидер'
+
+    const result = await db.query(
+      `INSERT INTO cadre_audits
+         (candidate_nick, faction, current_rank, target_rank, reason, proof_url, vk_url, status, submitted_by_id, submitted_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9)
+       RETURNING *`,
+      [
+        candidateNick,
+        faction,
+        Number(currentRank) || 0,
+        Number(targetRank) || 9,
+        reason || 'Доверенное лицо',
+        proofUrl,
+        vkUrl,
+        req.user.id,
+        submittedByName,
+      ]
+    )
+
+    return ok(res, { audit: publicCadreAudit(result.rows[0]) }, 201)
+  } catch (error) {
+    console.error('Ошибка создания заявки кадрового аудита:', error)
+    return bad(res, 500, 'Не удалось создать заявку')
+  }
+})
+
+// Одобрение заявки
+app.patch('/api/cadre-audits/:id/approve', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const reviewerRes = await db.query('SELECT nickname, login FROM users WHERE id = $1', [req.user.id])
+    const reviewer = reviewerRes.rows[0]
+    const reviewedByName = reviewer?.nickname || reviewer?.login || 'Следящий'
+
+    const result = await db.query(
+      `UPDATE cadre_audits
+         SET status = 'APPROVED', reviewed_by_id = $1, reviewed_by = $2, reviewed_at = now()
+       WHERE id = $3 AND status = 'PENDING'
+       RETURNING *`,
+      [req.user.id, reviewedByName, id]
+    )
+
+    if (result.rows.length === 0) {
+      return bad(res, 404, 'Заявка не найдена или уже обработана')
+    }
+
+    return ok(res, { audit: publicCadreAudit(result.rows[0]) })
+  } catch (error) {
+    console.error('Ошибка одобрения заявки кадрового аудита:', error)
+    return bad(res, 500, 'Не удалось одобрить заявку')
+  }
+})
+
+// Отклонение заявки
+app.patch('/api/cadre-audits/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { rejectReason } = req.body || {}
+
+    if (!rejectReason || !rejectReason.trim()) {
+      return bad(res, 400, 'Укажите причину отказа')
+    }
+
+    const reviewerRes = await db.query('SELECT nickname, login FROM users WHERE id = $1', [req.user.id])
+    const reviewer = reviewerRes.rows[0]
+    const reviewedByName = reviewer?.nickname || reviewer?.login || 'Следящий'
+
+    const result = await db.query(
+      `UPDATE cadre_audits
+         SET status = 'REJECTED', reviewed_by_id = $1, reviewed_by = $2, reviewed_at = now(), reject_reason = $3
+       WHERE id = $4 AND status = 'PENDING'
+       RETURNING *`,
+      [req.user.id, reviewedByName, rejectReason.trim(), id]
+    )
+
+    if (result.rows.length === 0) {
+      return bad(res, 404, 'Заявка не найдена или уже обработана')
+    }
+
+    return ok(res, { audit: publicCadreAudit(result.rows[0]) })
+  } catch (error) {
+    console.error('Ошибка отклонения заявки кадрового аудита:', error)
+    return bad(res, 500, 'Не удалось отклонить заявку')
+  }
+})
+
+// Удаление заявки (например, ошибочно созданной)
+app.delete('/api/cadre-audits/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await db.query('DELETE FROM cadre_audits WHERE id = $1 RETURNING id', [id])
+    if (result.rows.length === 0) {
+      return bad(res, 404, 'Заявка не найдена')
+    }
+    return ok(res, { success: true, deletedId: id })
+  } catch (error) {
+    console.error('Ошибка удаления заявки кадрового аудита:', error)
+    return bad(res, 500, 'Не удалось удалить заявку')
+  }
+})
+
+/* ==========================================================================
    START SERVER
    ========================================================================== */
 
-app.listen(PORT, () => {
-  console.log(`[StateCore API] Server running on port ${PORT}`)
-})
+initDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`[StateCore API] Server running on port ${PORT}`)
+    })
+  })
+  .catch((err) => {
+    console.error('Не удалось инициализировать базу данных:', err)
+    process.exit(1)
+  })

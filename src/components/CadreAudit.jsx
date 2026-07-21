@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   UserPlus,
   CheckCircle2,
@@ -8,42 +8,21 @@ import {
   ExternalLink,
   ShieldAlert,
   Send,
-  FileText
+  FileText,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react'
+import { getCadreAudits, createCadreAudit, approveCadreAudit, rejectCadreAudit } from '../lib/api'
 
-// Моковые данные для стартовой демонстрации
-const INITIAL_AUDITS = [
-  {
-    id: 'cadre-1',
-    candidateNick: 'Miyamoto_Musashi',
-    faction: 'LSPD',
-    currentRank: 8,
-    targetRank: 9,
-    reason: 'Доверенное лицо',
-    proofUrl: 'https://forum.gta-mobile.ru/threads/123456/',
-    vkUrl: 'https://vk.com/id1',
-    status: 'PENDING', // PENDING | APPROVED | REJECTED
-    submittedBy: 'Danila_Leader',
-    submittedAt: '2026-07-21 14:30',
-    reviewedBy: null,
-    rejectReason: null,
-  },
-  {
-    id: 'cadre-2',
-    candidateNick: 'John_Dillinger',
-    faction: 'FBI',
-    currentRank: 6,
-    targetRank: 7,
-    reason: 'Отчёт',
-    proofUrl: 'https://forum.gta-mobile.ru/threads/654321/',
-    vkUrl: 'https://vk.com/id2',
-    status: 'APPROVED',
-    submittedBy: 'Agent_Smith',
-    submittedAt: '2026-07-20 18:15',
-    reviewedBy: 'Glavny_Sledyaschiy',
-    rejectReason: null,
+// Приводим дату из бэкенда (ISO-строка) к читаемому виду
+function formatDate(value) {
+  if (!value) return ''
+  try {
+    return new Date(value).toLocaleString('ru-RU', { hour12: false }).slice(0, 16)
+  } catch {
+    return value
   }
-]
+}
 
 const FACTIONS = [
   'Правительство', 'FBI', 'LSPD', 'SFPD', 'LVPD',
@@ -59,9 +38,18 @@ const STATUS_ACCENT = {
 
 export default function CadreAudit({ user }) {
   const [activeTab, setActiveTab] = useState('pending') // 'pending' | 'history' | 'create'
-  const [audits, setAudits] = useState(INITIAL_AUDITS)
+  const [audits, setAudits] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedFaction, setSelectedFaction] = useState('ALL')
+
+  // Состояние загрузки списка из БД
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+
+  // Состояние отправки формы / одобрения / отказа (чтобы блокировать повторные клики)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
+  const [pendingActionId, setPendingActionId] = useState(null)
 
   // Модальное окно для отказа
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
@@ -79,44 +67,64 @@ export default function CadreAudit({ user }) {
     vkUrl: '',
   })
 
-  // Обработка подачи заявки
-  const handleSubmitNewAudit = (e) => {
-    e.preventDefault()
-    const newEntry = {
-      id: `cadre-${Date.now()}`,
-      ...formData,
-      status: 'PENDING',
-      submittedBy: user?.nickname || user?.name || 'Лидер',
-      submittedAt: new Date().toLocaleString('ru-RU', { hour12: false }).slice(0, 16),
-      reviewedBy: null,
-      rejectReason: null,
+  // Загрузка заявок из БД
+  const loadAudits = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const data = await getCadreAudits()
+      setAudits(data)
+    } catch (err) {
+      console.error('Не удалось загрузить заявки кадрового аудита:', err)
+      setLoadError(err.message || 'Не удалось загрузить заявки')
+    } finally {
+      setLoading(false)
     }
+  }, [])
 
-    setAudits([newEntry, ...audits])
-    setActiveTab('pending')
-    setFormData({
-      candidateNick: '',
-      faction: FACTIONS[0],
-      currentRank: 0,
-      targetRank: 9,
-      reason: 'Доверенное лицо',
-      proofUrl: '',
-      vkUrl: '',
-    })
+  useEffect(() => {
+    loadAudits()
+  }, [loadAudits])
+
+  // Обработка подачи заявки
+  const handleSubmitNewAudit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const created = await createCadreAudit(formData)
+      setAudits(prev => [created, ...prev])
+      setActiveTab('pending')
+      setFormData({
+        candidateNick: '',
+        faction: FACTIONS[0],
+        currentRank: 0,
+        targetRank: 9,
+        reason: 'Доверенное лицо',
+        proofUrl: '',
+        vkUrl: '',
+      })
+    } catch (err) {
+      console.error('Не удалось создать заявку кадрового аудита:', err)
+      setSubmitError(err.message || 'Не удалось отправить заявку')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   // Одобрение заявки
-  const handleApprove = (id) => {
-    setAudits(prev => prev.map(item => {
-      if (item.id === id) {
-        return {
-          ...item,
-          status: 'APPROVED',
-          reviewedBy: user?.nickname || user?.name || 'Следящий'
-        }
-      }
-      return item
-    }))
+  const handleApprove = async (id) => {
+    setPendingActionId(id)
+    setSubmitError(null)
+    try {
+      const updated = await approveCadreAudit(id)
+      setAudits(prev => prev.map(item => (item.id === id ? updated : item)))
+    } catch (err) {
+      console.error('Не удалось одобрить заявку:', err)
+      setSubmitError(err.message || 'Не удалось одобрить заявку')
+    } finally {
+      setPendingActionId(null)
+    }
   }
 
   // Открытие модалки отказа
@@ -127,21 +135,21 @@ export default function CadreAudit({ user }) {
   }
 
   // Подтверждение отказа
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (!rejectReasonText.trim()) return
-    setAudits(prev => prev.map(item => {
-      if (item.id === rejectAuditId) {
-        return {
-          ...item,
-          status: 'REJECTED',
-          reviewedBy: user?.nickname || user?.name || 'Следящий',
-          rejectReason: rejectReasonText
-        }
-      }
-      return item
-    }))
-    setRejectModalOpen(false)
-    setRejectAuditId(null)
+    setPendingActionId(rejectAuditId)
+    setSubmitError(null)
+    try {
+      const updated = await rejectCadreAudit(rejectAuditId, rejectReasonText.trim())
+      setAudits(prev => prev.map(item => (item.id === rejectAuditId ? updated : item)))
+      setRejectModalOpen(false)
+      setRejectAuditId(null)
+    } catch (err) {
+      console.error('Не удалось отклонить заявку:', err)
+      setSubmitError(err.message || 'Не удалось отклонить заявку')
+    } finally {
+      setPendingActionId(null)
+    }
   }
 
   // Фильтрация
@@ -255,6 +263,13 @@ export default function CadreAudit({ user }) {
           </div>
         )}
 
+        {/* ── ОШИБКА ДЕЙСТВИЯ (одобрение/отказ/отправка) ──── */}
+        {submitError && (
+          <div className="mb-6 flex items-center gap-2.5 bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs font-bold rounded-xl px-4 py-3">
+            <AlertTriangle className="w-4 h-4 shrink-0" /> {submitError}
+          </div>
+        )}
+
         {/* ── ФОРМА ПОДАЧИ ЗАЯВКИ ────────────────────────── */}
         {activeTab === 'create' && (
           <form
@@ -365,15 +380,37 @@ export default function CadreAudit({ user }) {
 
             <button
               type="submit"
-              className="w-full py-3 bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 hover:scale-[1.01] text-white font-black rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+              disabled={submitting}
+              className="w-full py-3 bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 hover:scale-[1.01] disabled:opacity-60 disabled:hover:scale-100 text-white font-black rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
             >
-              <Send className="w-4 h-4" /> Отправить на проверку следящим
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {submitting ? 'Отправка...' : 'Отправить на проверку следящим'}
             </button>
           </form>
         )}
 
         {/* ── СПИСОК КАРТОЧЕК (PENDING / HISTORY) ────────── */}
-        {activeTab !== 'create' && (
+        {activeTab !== 'create' && loading && (
+          <div className="col-span-full py-16 text-center text-slate-400 bg-white/[0.015] border border-white/[0.08] rounded-2xl flex flex-col items-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+            Загрузка заявок из базы данных...
+          </div>
+        )}
+
+        {activeTab !== 'create' && !loading && loadError && (
+          <div className="col-span-full py-12 text-center bg-rose-500/[0.04] border border-rose-500/20 rounded-2xl flex flex-col items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-rose-400" />
+            <p className="text-rose-300 text-sm font-bold">{loadError}</p>
+            <button
+              onClick={loadAudits}
+              className="px-4 py-2 bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white rounded-xl text-xs font-bold transition-all duration-150"
+            >
+              Повторить
+            </button>
+          </div>
+        )}
+
+        {activeTab !== 'create' && !loading && !loadError && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredAudits.length === 0 ? (
               <div className="col-span-full py-12 text-center text-slate-500 bg-white/[0.015] border border-white/[0.08] rounded-2xl">
@@ -407,7 +444,7 @@ export default function CadreAudit({ user }) {
                               </span>
                             </h3>
                             <p className="text-xs text-slate-400 mt-1">
-                              Подал: <span className="text-slate-200">{audit.submittedBy}</span> • {audit.submittedAt}
+                              Подал: <span className="text-slate-200">{audit.submittedBy}</span> • {formatDate(audit.submittedAt)}
                             </p>
                           </div>
                         </div>
@@ -484,18 +521,20 @@ export default function CadreAudit({ user }) {
                       <div className="flex gap-2 p-4 pt-3 mt-2 border-t border-white/5">
                         <button
                           onClick={() => handleApprove(audit.id)}
-                          className="flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5"
+                          disabled={pendingActionId === audit.id}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 disabled:opacity-50"
                           style={{ background: 'rgba(34,197,94,.1)', color: 'rgb(34,197,94)', border: '1px solid rgba(34,197,94,.25)' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'rgb(34,197,94)'; e.currentTarget.style.color = '#fff' }}
+                          onMouseEnter={e => { if (pendingActionId !== audit.id) { e.currentTarget.style.background = 'rgb(34,197,94)'; e.currentTarget.style.color = '#fff' } }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,197,94,.1)'; e.currentTarget.style.color = 'rgb(34,197,94)' }}
                         >
-                          <CheckCircle2 className="w-4 h-4" /> Одобрить
+                          {pendingActionId === audit.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Одобрить
                         </button>
                         <button
                           onClick={() => openRejectModal(audit.id)}
-                          className="flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5"
+                          disabled={pendingActionId === audit.id}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 disabled:opacity-50"
                           style={{ background: 'rgba(239,68,68,.1)', color: 'rgb(239,68,68)', border: '1px solid rgba(239,68,68,.25)' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'rgb(239,68,68)'; e.currentTarget.style.color = '#fff' }}
+                          onMouseEnter={e => { if (pendingActionId !== audit.id) { e.currentTarget.style.background = 'rgb(239,68,68)'; e.currentTarget.style.color = '#fff' } }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,.1)'; e.currentTarget.style.color = 'rgb(239,68,68)' }}
                         >
                           <XCircle className="w-4 h-4" /> Отказать
@@ -545,17 +584,20 @@ export default function CadreAudit({ user }) {
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   onClick={() => setRejectModalOpen(false)}
-                  className="px-4 py-2 bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white rounded-xl text-xs font-bold transition-all duration-150"
+                  disabled={pendingActionId === rejectAuditId}
+                  className="px-4 py-2 bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white rounded-xl text-xs font-bold transition-all duration-150 disabled:opacity-50"
                 >
                   Отмена
                 </button>
                 <button
                   onClick={handleConfirmReject}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all duration-150"
+                  disabled={pendingActionId === rejectAuditId}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all duration-150 flex items-center gap-1.5 disabled:opacity-60"
                   style={{ background: 'rgb(239,68,68)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgb(220,38,38)' }}
+                  onMouseEnter={e => { if (pendingActionId !== rejectAuditId) e.currentTarget.style.background = 'rgb(220,38,38)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgb(239,68,68)' }}
                 >
+                  {pendingActionId === rejectAuditId && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Подтвердить отказ
                 </button>
               </div>

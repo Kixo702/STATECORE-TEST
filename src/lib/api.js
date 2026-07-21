@@ -54,6 +54,32 @@ export async function syncLocalUsers(users, session = null) {
   return api('/sync-local-users', { method: 'POST', body: JSON.stringify({ users, session }) })
 }
 
+// Cadre audit (Кадровый аудит / Антиблат)
+export async function getCadreAudits(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  const data = await api(`/cadre-audits${query}`)
+  return data.audits || []
+}
+
+export async function createCadreAudit(payload) {
+  const data = await api('/cadre-audits', { method: 'POST', body: JSON.stringify(payload) })
+  return data.audit || data
+}
+
+export async function approveCadreAudit(id) {
+  const data = await api(`/cadre-audits/${id}/approve`, { method: 'PATCH' })
+  return data.audit || data
+}
+
+export async function rejectCadreAudit(id, rejectReason) {
+  const data = await api(`/cadre-audits/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ rejectReason }) })
+  return data.audit || data
+}
+
+export async function deleteCadreAudit(id) {
+  return api(`/cadre-audits/${id}`, { method: 'DELETE' })
+}
+
 // Friends
 export async function sendFriendRequest(payload) {
   return api('/friends/request', { method: 'POST', body: JSON.stringify(payload) })

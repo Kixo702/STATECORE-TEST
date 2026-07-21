@@ -46,6 +46,26 @@ export async function initDatabase() {
     );
     CREATE INDEX IF NOT EXISTS users_registered_at_idx ON users (registered_at DESC);
     CREATE INDEX IF NOT EXISTS friend_requests_recipient_idx ON friend_requests (to_user_id, status);
+    CREATE TABLE IF NOT EXISTS cadre_audits (
+      id SERIAL PRIMARY KEY,
+      candidate_nick TEXT NOT NULL,
+      faction TEXT NOT NULL,
+      current_rank INTEGER NOT NULL DEFAULT 0,
+      target_rank INTEGER NOT NULL DEFAULT 9,
+      reason TEXT NOT NULL DEFAULT 'Доверенное лицо',
+      proof_url TEXT,
+      vk_url TEXT,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      submitted_by_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      submitted_by TEXT NOT NULL,
+      submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      reviewed_by_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      reviewed_by TEXT,
+      reviewed_at TIMESTAMPTZ,
+      reject_reason TEXT
+    );
+    CREATE INDEX IF NOT EXISTS cadre_audits_status_idx ON cadre_audits (status);
+    CREATE INDEX IF NOT EXISTS cadre_audits_faction_idx ON cadre_audits (faction);
   `)
 }
 
