@@ -33,10 +33,59 @@ const FRACTION_STATUS_TEXT = {
   negotiation: 'В данный момент идут переговоры с Главной следящей администрацией за сферой',
 }
 
-// ГС гос / ЗГС гос — заполняется вручную
-const GOS_LEADERSHIP = {
-  gs:  { nickname: 'Robert_Kamiya',  vk: 'vk.com/robertkamiya', forum: 'forum.gta-mobile.ru/members/171464/' },
-  zgs: { nickname: 'Minato_Ramirez', vk: 'vk.com/minatoramirez', forum: 'forum.gta-mobile.ru/vaxi/' },
+// ГС гос / ЗГС гос по серверам — заполняется вручную.
+// Если ГС или ЗГС на сервере отсутствует — ставим null, и в карточке покажется «Отсутствует».
+const GOS_LEADERSHIP_BY_SERVER = {
+  Texas: {
+    gs:  { nickname: 'Robert_Kamiya',  vk: 'vk.com/robertkamiya', forum: 'forum.gta-mobile.ru/members/171464/' },
+    zgs: { nickname: 'Minato_Ramirez', vk: 'vk.com/minatoramirez', forum: 'forum.gta-mobile.ru/vaxi/' },
+  },
+  Florida: {
+    gs:  { nickname: 'Kimberly Qwenty', vk: 'https://vk.ru/ygol_antihype', forum: 'https://forum.gta-mobile.ru/v_moey_krovi_ledokain/' },
+    zgs: null,
+  },
+  Nevada: {
+    gs:  { nickname: 'Lamberti_Quinn', vk: 'https://vk.com/hardnes_s', forum: 'https://forum.gta-mobile.ru/hardness/#about' },
+    zgs: { nickname: 'Marcus_Martinez', vk: 'https://vk.com/norm_chei', forum: 'https://forum.gta-mobile.ru/members/84216/#about' },
+  },
+  Hawaii: {
+    gs:  null,
+    zgs: null,
+  },
+  Indiana: {
+    gs:  { nickname: 'Samuel_Vinogradov', vk: 'https://vk.ru/id388929639', forum: 'https://forum.gta-mobile.ru/members/24462/' },
+    zgs: null,
+  },
+}
+
+// Открывает внешнюю ссылку только после подтверждения пользователем
+const normalizeExternalUrl = (value) => (/^https?:\/\//i.test(value) ? value : `https://${value}`)
+
+const confirmAndOpenExternal = (value) => {
+  const url = normalizeExternalUrl(value)
+  const ok = window.confirm(`Вы уверены, что хотите покинуть сайт и перейти на страницу «${url}»?`)
+  if (ok) window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// Кликабельная ссылка (вк/форум) с иконкой и подтверждением перехода; если данных нет — плейсхолдер
+function LeaderContactLink({ icon, value }) {
+  if (!value) {
+    return (
+      <span className="flex items-center gap-1.5 opacity-50">
+        <span className="w-3.5 h-3.5">{icon}</span>нет данных
+      </span>
+    )
+  }
+  const url = normalizeExternalUrl(value)
+  return (
+    <a
+      href={url}
+      onClick={(e) => { e.preventDefault(); confirmAndOpenExternal(value) }}
+      className="flex items-center gap-1.5 hover:text-orange-400 transition-colors cursor-pointer underline decoration-dotted underline-offset-2"
+    >
+      <span className="w-3.5 h-3.5">{icon}</span>{value}
+    </a>
+  )
 }
 
 const todayISO = () => new Date().toISOString().split('T')[0]
@@ -455,6 +504,9 @@ export default function Dashboard({ user, onLogout }) {
   // Получаем правильно склоненные названия ролей руководства на основе текущей сферы
   const { gs: gsLabel, zgs: zgsLabel } = LEADERSHIP_NAMES[activeNode] || { gs: 'ГС', zgs: 'ЗГС' }
 
+  // Руководство гос.структур для ВЫБРАННОГО сервера (раньше было одно и то же для всех серверов)
+  const currentGosLeadership = GOS_LEADERSHIP_BY_SERVER[activeServer] || { gs: null, zgs: null }
+
   return (
     <div className="text-white min-h-screen" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
       <style>{`
@@ -623,8 +675,8 @@ export default function Dashboard({ user, onLogout }) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
               {[
-                { role: 'Главный Следящий гос.структур', data: GOS_LEADERSHIP.gs, accent: '251,146,60' },
-                { role: 'Зам. Главного следящего гос.структур', data: GOS_LEADERSHIP.zgs, accent: '56,189,248' },
+                { role: 'Главный Следящий гос.структур', data: currentGosLeadership.gs, accent: '251,146,60' },
+                { role: 'Зам. Главного следящего гос.структур', data: currentGosLeadership.zgs, accent: '56,189,248' },
               ].map(person => (
                 <div
                   key={person.role}
@@ -640,11 +692,17 @@ export default function Dashboard({ user, onLogout }) {
                     </div>
                     <div className="min-w-0">
                       <p className="text-[11px] font-extrabold tracking-[1.5px] uppercase" style={{ color: `rgb(${person.accent})` }}>{person.role}</p>
-                      <h3 className="text-lg font-black mt-0.5 truncate">{person.data.nickname}</h3>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
-                        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5">{IC.link}</span>{person.data.vk}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5">{IC.link}</span>{person.data.forum}</span>
-                      </div>
+                      {person.data ? (
+                        <>
+                          <h3 className="text-lg font-black mt-0.5 truncate">{person.data.nickname}</h3>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
+                            <LeaderContactLink icon={IC.link} value={person.data.vk} />
+                            <LeaderContactLink icon={IC.link} value={person.data.forum} />
+                          </div>
+                        </>
+                      ) : (
+                        <h3 className="text-lg font-black mt-0.5 text-slate-400/90 italic">Отсутствует</h3>
+                      )}
                     </div>
                   </div>
                 </div>
