@@ -1,6 +1,80 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { getPendingNickRequestForUser, createNickRequest } from '../lib/requests'
 import { getUsers, saveUsers, setSession, getSession } from '../lib/userStore'
+
+// ── Вспомогательные функции для TOTP / Google Authenticator ──────
+function generateBase32Secret(length = 16) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let secret = ''
+  const array = new Uint8Array(length)
+  window.crypto.getRandomValues(array)
+  for (let i = 0; i < length; i++) {
+    secret += chars[array[i] % chars.length]
+  }
+  return secret
+}
+
+function base32ToBytes(base32) {
+  const base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = ''
+  let hex = ''
+  const cleaned = base32.replace(/=+$/, '').toUpperCase()
+  for (let i = 0; i < cleaned.length; i++) {
+    const val = base32chars.indexOf(cleaned.charAt(i))
+    if (val === -1) continue
+    bits += val.toString(2).padStart(5, '0')
+  }
+  for (let i = 0; i + 4 <= bits.length; i += 4) {
+    const chunk = bits.substr(i, 4)
+    hex += parseInt(chunk, 2).toString(16)
+  }
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16)
+  }
+  return bytes
+}
+
+async function verifyTOTP(secret, token) {
+  try {
+    const keyBytes = base32ToBytes(secret)
+    const epoch = Math.floor(Date.now() / 1000)
+    const timeStep = 30
+    const counter = Math.floor(epoch / timeStep)
+
+    // Проверяем текущее окно, предыдущее и следующее (допуск ±30 сек)
+    for (let errorWindow = -1; errorWindow <= 1; errorWindow++) {
+      const currentCounter = counter + errorWindow
+      const buffer = new ArrayBuffer(8)
+      const view = new DataView(buffer)
+      view.setUint32(4, currentCounter, false)
+
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw',
+        keyBytes,
+        { name: 'HMAC', hash: 'SHA-1' },
+        false,
+        ['sign']
+      )
+
+      const signature = await window.crypto.subtle.sign('HMAC', cryptoKey, buffer)
+      const sigBytes = new Uint8Array(signature)
+      const offset = sigBytes[sigBytes.length - 1] & 0xf
+      const binary =
+        ((sigBytes[offset] & 0x7f) << 24) |
+        ((sigBytes[offset + 1] & 0xff) << 16) |
+        ((sigBytes[offset + 2] & 0xff) << 8) |
+        (sigBytes[offset + 3] & 0xff)
+
+      const otp = (binary % 1000000).toString().padStart(6, '0')
+      if (otp === token.trim()) return true
+    }
+  } catch (err) {
+    console.error('Ошибка проверки 2FA:', err)
+  }
+  return false
+}
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -15,8 +89,6 @@ function getPlayerUid(id) {
   return `SC-${id.replace(/-/g, '').toUpperCase().slice(0, 6)}`
 }
 
-// Сжимает и приводит загруженное изображение к квадратному аватару,
-// чтобы не раздувать localStorage
 function fileToAvatarDataUrl(file, size = 256) {
   return new Promise((resolve, reject) => {
     if (!file.type || !file.type.startsWith('image/')) {
@@ -74,8 +146,13 @@ const IconHourglass = () => (
     <path d="M5 22h14M5 2h14M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
   </svg>
 )
+const IconShield = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+)
 
-// ── Цветовая система (деловой, сдержанный тон) ─────────────────
+// ── Цветовая система ───────────────────────────────────────────
 const T = {
   bg: '#0b0e14',
   panel: '#11151d',
@@ -90,6 +167,8 @@ const T = {
   warn: '#d69a3c',
   warnSoft: 'rgba(214,154,60,0.12)',
   danger: '#e2635f',
+  success: '#3fb787',
+  successSoft: 'rgba(63,183,135,0.12)',
 }
 
 export default function Profile({ user, onUpdate }) {
@@ -106,6 +185,8 @@ export default function Profile({ user, onUpdate }) {
     id: u?.id || null,
     login: u?.login || '—',
     avatar: u?.avatar || null,
+    twoFactorSecret: u?.twoFactorSecret || null,
+    twoFactorEnabled: !!u?.twoFactorEnabled,
   }), [u])
 
   const playerUid = getPlayerUid(data.id)
@@ -129,6 +210,15 @@ export default function Profile({ user, onUpdate }) {
 
   const [pendingReq, setPendingReq] = useState(() => getPendingNickRequestForUser(data.id))
 
+  // ── Состояние 2FA ─────────────────────────────────────────────
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(data.twoFactorEnabled)
+  const [show2FaModal, setShow2FaModal] = useState(false)
+  const [tempSecret, setTempSecret] = useState('')
+  const [totpInput, setTotpInput] = useState('')
+  const [totpError, setTotpError] = useState('')
+  const [verifying2Fa, setVerifying2Fa] = useState(false)
+  const [disable2FaModal, setDisable2FaModal] = useState(false)
+
   const pushLog = (text) => {
     const entry = { text, at: new Date().toISOString() }
     setLogs((prev) => {
@@ -151,7 +241,6 @@ export default function Profile({ user, onUpdate }) {
     } catch {}
   }, [])
 
-  // Отслеживаем решение по заявке на смену ника (в т.ч. из другой вкладки)
   useEffect(() => {
     const refresh = () => setPendingReq(getPendingNickRequestForUser(data.id))
     window.addEventListener('sc:nick-requests-updated', refresh)
@@ -224,6 +313,86 @@ export default function Profile({ user, onUpdate }) {
     }, 350)
   }
 
+  // ── Включение 2FA ──────────────────────────────────────────────
+  const handleStart2FA = () => {
+    const secret = generateBase32Secret()
+    setTempSecret(secret)
+    setTotpInput('')
+    setTotpError('')
+    setShow2FaModal(true)
+  }
+
+  const handleVerifyAndEnable2FA = async () => {
+    if (!totpInput || totpInput.length < 6) {
+      setTotpError('Введите 6-значный код')
+      return
+    }
+    setVerifying2Fa(true)
+    setTotpError('')
+
+    const isValid = await verifyTOTP(tempSecret, totpInput)
+    setVerifying2Fa(false)
+
+    if (!isValid) {
+      setTotpError('Неверный код. Проверьте время на телефоне')
+      return
+    }
+
+    // Сохранение привязаной 2FA в localStorage и сессии
+    let stored = {}
+    try { stored = JSON.parse(localStorage.getItem('sc_user') || '{}') } catch {}
+    stored.twoFactorSecret = tempSecret
+    stored.twoFactorEnabled = true
+    localStorage.setItem('sc_user', JSON.stringify(stored))
+
+    const users = getUsers()
+    const idx = users.findIndex(x => x.id === data.id)
+    if (idx !== -1) {
+      users[idx].twoFactorSecret = tempSecret
+      users[idx].twoFactorEnabled = true
+      saveUsers(users)
+    }
+
+    const currentSession = getSession()
+    if (currentSession?.id === data.id) {
+      setSession({ ...currentSession, twoFactorSecret: tempSecret, twoFactorEnabled: true })
+    }
+
+    setTwoFactorEnabled(true)
+    setShow2FaModal(false)
+    pushLog('Включена двухфакторная аутентификация (Google Auth)')
+    onUpdate && onUpdate({ ...stored, twoFactorSecret: tempSecret, twoFactorEnabled: true })
+  }
+
+  // ── Отключение 2FA ─────────────────────────────────────────────
+  const handleConfirmDisable2FA = async () => {
+    let stored = {}
+    try { stored = JSON.parse(localStorage.getItem('sc_user') || '{}') } catch {}
+    delete stored.twoFactorSecret
+    stored.twoFactorEnabled = false
+    localStorage.setItem('sc_user', JSON.stringify(stored))
+
+    const users = getUsers()
+    const idx = users.findIndex(x => x.id === data.id)
+    if (idx !== -1) {
+      delete users[idx].twoFactorSecret
+      users[idx].twoFactorEnabled = false
+      saveUsers(users)
+    }
+
+    const currentSession = getSession()
+    if (currentSession?.id === data.id) {
+      const updatedSession = { ...currentSession, twoFactorEnabled: false }
+      delete updatedSession.twoFactorSecret
+      setSession(updatedSession)
+    }
+
+    setTwoFactorEnabled(false)
+    setDisable2FaModal(false)
+    pushLog('Отключена двухфакторная аутентификация')
+    onUpdate && onUpdate({ ...stored, twoFactorEnabled: false })
+  }
+
   const addSessionToShared = async () => {
     try {
       setAddingShared(true)
@@ -242,7 +411,9 @@ export default function Profile({ user, onUpdate }) {
           avatar: session.avatar || null,
           password: '',
           registeredAt: session.registeredAt || new Date().toISOString(),
-          roleName: session.roleName || 'Игрок'
+          roleName: session.roleName || 'Игрок',
+          twoFactorEnabled: session.twoFactorEnabled || false,
+          twoFactorSecret: session.twoFactorSecret || null,
         })
         saveUsers(users)
         pushLog('Добавлен в базу пользователей')
@@ -266,6 +437,8 @@ export default function Profile({ user, onUpdate }) {
     'Лидер': '#3fb787',
     'Игрок': T.accent,
   }[data.role] || T.accent
+
+  const otpAuthUrl = `otpauth://totp/StateCore:${encodeURIComponent(data.login)}?secret=${tempSecret}&issuer=StateCore`
 
   return (
     <div style={{
@@ -478,6 +651,44 @@ export default function Profile({ user, onUpdate }) {
                   <span style={{ fontSize: '13px', color: T.faint }}>Не указан</span>
                 )}
               </div>
+
+              {/* ДВУХФАКТОРНАЯ АУТЕНТИФИКАЦИЯ (2FA) */}
+              <div className="prof-row" style={{ marginTop: '8px', paddingTop: '16px', borderTop: `1px dashed ${T.border}` }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span className="prof-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: twoFactorEnabled ? T.success : T.muted }}><IconShield /></span>
+                    Google Authenticator (2FA)
+                  </span>
+                  <span style={{ fontSize: '11px', color: T.muted }}>
+                    {twoFactorEnabled ? 'Защита аккаунта активна' : 'Дополнительная защита при входе'}
+                  </span>
+                </div>
+
+                <div>
+                  {twoFactorEnabled ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: T.success, background: T.successSoft, padding: '3px 8px', borderRadius: '6px', border: `1px solid ${T.success}30` }}>
+                        Подключено
+                      </span>
+                      <button
+                        className="prof-btn-ghost"
+                        onClick={() => setDisable2FaModal(true)}
+                        style={{ color: T.danger, borderColor: `${T.danger}40`, padding: '5px 10px', fontSize: '11.5px' }}
+                      >
+                        Отключить
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="prof-btn"
+                      onClick={handleStart2FA}
+                      style={{ background: T.accentSoft, color: T.accent, border: `1px solid ${T.accent}40`, padding: '6px 12px', fontSize: '12px' }}
+                    >
+                      Подключить
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
           </div>
@@ -528,6 +739,94 @@ export default function Profile({ user, onUpdate }) {
           </div>
 
         </div>
+
+        {/* МОДАЛЬНОЕ ОКНО ПОДКЛЮЧЕНИЯ 2FA */}
+        {show2FaModal && (
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.82)', backdropFilter: 'blur(6px)' }} onClick={() => setShow2FaModal(false)} />
+            <div style={{ background: T.panel2, border: `1px solid ${T.border}`, borderRadius: '16px', padding: '28px', width: '420px', zIndex: 1210, animation: 'prof-fade 0.25s ease-out' }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: T.accent, fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+                <IconShield />
+                <span>Защита аккаунта</span>
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 800, marginBottom: '6px', color: '#fff' }}>Привязка Google Authenticator</div>
+              <div style={{ fontSize: '12.5px', color: T.muted, marginBottom: '20px', lineHeight: 1.5 }}>
+                Отсканируйте QR-код в приложении Google Authenticator на телефоне и введите сгенерированный 6-значный код.
+              </div>
+
+              {/* QR-код */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', display: 'inline-block' }}>
+                  <QRCodeSVG value={otpAuthUrl} size={160} />
+                </div>
+              </div>
+
+              {/* Текстовый секрет для ручного ввода */}
+              <div style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${T.borderSoft}`, borderRadius: '8px', padding: '10px', marginBottom: '20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '10.5px', color: T.faint, textTransform: 'uppercase', marginBottom: '4px', fontWeight: 600 }}>Ключ для ручного ввода</div>
+                <div style={{ fontFamily: 'monospace', fontSize: '14px', letterSpacing: '2px', color: T.accent, fontWeight: 700, userSelect: 'all' }}>
+                  {tempSecret}
+                </div>
+              </div>
+
+              {/* Поле для ввода проверочного кода */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: T.text, marginBottom: '8px' }}>Проверочный код:</div>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="000 000"
+                  value={totpInput}
+                  onChange={e => { setTotpInput(e.target.value.replace(/\D/g, '')); setTotpError('') }}
+                  className="prof-input-edit"
+                  style={{ textAlign: 'center', letterSpacing: '6px', fontSize: '20px', fontWeight: 800, height: '48px' }}
+                  autoFocus
+                />
+                {totpError && <div style={{ color: T.danger, fontSize: '11.5px', marginTop: '6px', textAlign: 'center' }}>{totpError}</div>}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  className="prof-btn-ghost"
+                  onClick={() => setShow2FaModal(false)}
+                  style={{ flex: 1, padding: '10px' }}
+                >
+                  Отмена
+                </button>
+                <button
+                  className="prof-btn"
+                  onClick={handleVerifyAndEnable2FA}
+                  disabled={verifying2Fa || totpInput.length !== 6}
+                  style={{ flex: 1.4, padding: '10px', background: T.accent, color: '#0a0e16' }}
+                >
+                  {verifying2Fa ? 'Проверка...' : 'Подтвердить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* МОДАЛЬНОЕ ОКНО ОТКЛЮЧЕНИЯ 2FA */}
+        {disable2FaModal && (
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.8)', backdropFilter: 'blur(6px)' }} onClick={() => setDisable2FaModal(false)} />
+            <div style={{ background: T.panel2, border: `1px solid ${T.border}`, borderRadius: '14px', padding: '24px', width: '380px', zIndex: 1210 }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: T.danger, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Отключение защиты</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '10px' }}>Отключить Google Authenticator?</div>
+              <div style={{ fontSize: '12.5px', color: T.muted, marginBottom: '20px', lineHeight: 1.5 }}>
+                Безопасность вашего аккаунта понизится. При следующем входе вход не будет требовать 6-значный код.
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="prof-btn-ghost" onClick={() => setDisable2FaModal(false)} style={{ flex: 1, padding: '10px' }}>
+                  Отмена
+                </button>
+                <button className="prof-btn" onClick={handleConfirmDisable2FA} style={{ flex: 1, padding: '10px', background: T.danger, color: '#fff' }}>
+                  Да, отключить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ В БАЗУ */}
         {showAddSharedModal && (
