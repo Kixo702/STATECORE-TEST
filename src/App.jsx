@@ -185,6 +185,7 @@ export default function App() {
             onMenu={() => setMobileOpen((v) => !v)}
             title={PAGE_TITLES[activePage] || 'Мониторинг системы'}
             user={user}
+            setActivePage={handleSetActivePage}
           />
 
           {activePage === 'dashboard' && <Dashboard user={user} onLogout={handleLogout} />}
