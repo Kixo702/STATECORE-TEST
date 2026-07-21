@@ -2,9 +2,9 @@ import express from 'express'
 import cors from 'cors'
 import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
-import { db, publicUser } from './db.js'
+import { db, initDatabase, publicUser } from './db.js'
 
-const app = express()
+const app = express({ limit: '1mb' })
 const PORT = process.env.PORT || 4000
 
 // В ORIGIN можно перечислить несколько адресов через запятую, например:
@@ -47,21 +47,14 @@ app.post('/api/register', async (req, res) => {
     const cleanLogin = String(login).trim().toLowerCase()
     if (cleanLogin.length > 10) return bad(res, 400, 'Логин не может быть длиннее 10 символов')
 
-    const existing = db.prepare('SELECT id FROM users WHERE login = ?').get(cleanLogin)
-    if (existing) return bad(res, 409, 'Такой логин уже занят')
-
-    const id = uuid()
     const passwordHash = await bcrypt.hash(password, 10)
-    const registeredAt = new Date().toISOString()
-
-    db.prepare(`
-      INSERT INTO users (id, login, passwordHash, nickname, roleName, vk, forum, registeredAt)
-      VALUES (?, ?, ?, ?, 'Игрок', ?, ?, ?)
-    `).run(id, cleanLogin, passwordHash, nickname.trim(), vk, forum, registeredAt)
-
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
-    ok(res, { user: publicUser(user) })
+    const result = await db.query(`
+      INSERT INTO users (id, login, password_hash, nickname, vk, forum)
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
+    `, [uuid(), cleanLogin, passwordHash, nickname.trim(), vk, forum])
+    ok(res, { user: publicUser(result.rows[0]) })
   } catch (err) {
+    if (err.code === '23505') return bad(res, 409, 'Такой логин уже занят')
     console.error(err)
     bad(res, 500, 'Ошибка сервера при регистрации')
   }
@@ -74,10 +67,11 @@ app.post('/api/login', async (req, res) => {
     if (!login || !password) return bad(res, 400, 'Заполните все поля')
 
     const cleanLogin = String(login).trim().toLowerCase()
-    const user = db.prepare('SELECT * FROM users WHERE login = ?').get(cleanLogin)
+    const result = await db.query('SELECT * FROM users WHERE login = $1', [cleanLogin])
+    const user = result.rows[0]
     if (!user) return bad(res, 401, 'Неверный логин или пароль')
 
-    const validPassword = await bcrypt.compare(password, user.passwordHash)
+    const validPassword = await bcrypt.compare(password, user.password_hash)
     if (!validPassword) return bad(res, 401, 'Неверный логин или пароль')
 
     if (user.isBanned) return bad(res, 403, 'Аккаунт заблокирован: ' + (user.banReason || 'без причины'))
@@ -90,51 +84,41 @@ app.post('/api/login', async (req, res) => {
 })
 
 // ── users ─────────────────────────────────────────────────────
-app.get('/api/users', (req, res) => {
-  const users = db.prepare('SELECT * FROM users ORDER BY registeredAt DESC').all()
-  ok(res, users.map(publicUser))
+app.get('/api/users', async (_req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM users ORDER BY registered_at DESC')
+    ok(res, result.rows.map(publicUser))
+  } catch (err) { console.error(err); bad(res, 500, 'Ошибка загрузки пользователей') }
 })
 
-app.get('/api/users/:id', (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
-  if (!user) return bad(res, 404, 'Пользователь не найден')
-  ok(res, publicUser(user))
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM users WHERE id = $1', [req.params.id])
+    if (!result.rows[0]) return bad(res, 404, 'Пользователь не найден')
+    ok(res, { user: publicUser(result.rows[0]) })
+  } catch (err) { console.error(err); bad(res, 500, 'Ошибка загрузки пользователя') }
 })
 
-// Обновление полей пользователя (роль/бан/выговоры и т.п.) — используется админкой
-app.patch('/api/users/:id', (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
-  if (!user) return bad(res, 404, 'Пользователь не найден')
-
-  const allowed = ['roleName', 'warnings', 'isBanned', 'banReason', 'nickname', 'vk', 'forum', 'avatar']
-  const updates = []
-  const values = []
-  for (const key of allowed) {
-    if (key in (req.body || {})) {
-      updates.push(`${key} = ?`)
-      values.push(key === 'isBanned' ? (req.body[key] ? 1 : 0) : req.body[key])
-    }
-  }
-  if (updates.length === 0) return bad(res, 400, 'Нечего обновлять')
-
-  values.push(req.params.id)
-  db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values)
-
-  const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
-  ok(res, publicUser(updated))
+app.patch('/api/users/:id', async (req, res) => {
+  const fields = { roleName: 'role_name', warnings: 'warnings', isBanned: 'is_banned', banReason: 'ban_reason', nickname: 'nickname', vk: 'vk', forum: 'forum', avatar: 'avatar' }
+  const updates = Object.entries(fields).filter(([key]) => key in (req.body || {}))
+  if (!updates.length) return bad(res, 400, 'Нечего обновлять')
+  try {
+    const values = updates.map(([key]) => req.body[key])
+    const assignments = updates.map(([, column], index) => `${column} = $${index + 1}`)
+    values.push(req.params.id)
+    const result = await db.query(`UPDATE users SET ${assignments.join(', ')} WHERE id = $${values.length} RETURNING *`, values)
+    if (!result.rows[0]) return bad(res, 404, 'Пользователь не найден')
+    return ok(res, publicUser(result.rows[0]))
+  } catch (error) { console.error(error); return bad(res, 500, 'Ошибка обновления пользователя') }
 })
 
-// Полное удаление пользователя из БД — используется админкой (кнопка "Удалить аккаунт")
-app.delete('/api/users/:id', (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
-  if (!user) return bad(res, 404, 'Пользователь не найден')
-
-  // чистим связанные записи, чтобы не оставалось "хвостов" в других таблицах
-  db.prepare('DELETE FROM friend_requests WHERE fromUserId = ? OR toUserId = ?').run(req.params.id, req.params.id)
-  db.prepare('DELETE FROM friends WHERE userId = ? OR friendId = ?').run(req.params.id, req.params.id)
-  db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
-
-  ok(res, { success: true, deletedId: req.params.id })
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const result = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [req.params.id])
+    if (!result.rows[0]) return bad(res, 404, 'Пользователь не найден')
+    return ok(res, { success: true, deletedId: result.rows[0].id })
+  } catch (error) { console.error(error); return bad(res, 500, 'Ошибка удаления пользователя') }
 })
 
 // ── friend requests ───────────────────────────────────────────

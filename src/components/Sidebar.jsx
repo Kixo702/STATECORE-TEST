@@ -157,6 +157,17 @@ export default function Sidebar({
               <path d="M9.5 14.5l5 4M14.5 14.5l-5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           )
+        },
+        {
+          id: 'cadreAudit',
+          title: 'Анти-Блат',
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <rect x="4" y="11" width="16" height="9" rx="2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9.5 14.5l5 4M14.5 14.5l-5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )
         }
       ]
     },
@@ -232,6 +243,17 @@ export default function Sidebar({
     {
       label: 'Помощь',
       items: [
+        {
+          id: 'knowledge',
+          title: 'База знаний',
+          alwaysVisible: true,
+          icon: (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <path d="M5 5h14v14H5V5zm0 0l3 3m8-3l-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8 7h8M8 11h8M8 15h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          )
+        },
         {
           id: 'faq',
           title: 'FAQ',

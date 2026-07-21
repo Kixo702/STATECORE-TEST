@@ -17,8 +17,10 @@ import MobileHeader from './components/MobileHeader'
 import Profile from './components/Profile'
 import Users from './components/Users'
 import FAQ from './components/faq'
+import KnowledgeBase from './components/KnowledgeBase'
 import InterviewGenerator from './components/InterviewGenerator'
 import EventPlanner from './components/EventPlanner'
+import CadreAudit from './components/CadreAudit'
 
 const PAGE_TITLES = {
   dashboard: 'Мониторинг системы',
@@ -31,8 +33,10 @@ const PAGE_TITLES = {
   inactive: 'Неактивы',
   eventPlanner: 'Планировщик РП',
   users: 'Пользователи',
+  cadreAudit: 'Кадровый аудит',
   profile: 'Профиль',
   faq: 'FAQ и помощь',
+  knowledge: 'База знаний',
   interview: 'Генератор собеседований',
 }
 
@@ -200,6 +204,8 @@ export default function App() {
           {activePage === 'interview' && <InterviewGenerator />}
           {activePage === 'users' && <Users currentUser={user} />}
           {activePage === 'profile' && <Profile user={user} />}
+          {activePage === 'knowledge' && <KnowledgeBase />}
+          {activePage === 'cadreAudit' && <CadreAudit user={user} />} {/* <--- Добавили */}
           {activePage === 'faq' && <FAQ user={user} />}
         </div>
       </main>

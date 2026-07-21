@@ -1,51 +1,69 @@
-import Database from 'better-sqlite3'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import pg from 'pg'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-// В проде (Render/Railway) можно подключить постоянный диск через DB_PATH,
-// иначе файл лежит рядом с сервером.
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'statecore.db')
+const { Pool } = pg
 
-export const db = new Database(dbPath)
-db.pragma('journal_mode = WAL')
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required. Use a hosted PostgreSQL database such as Neon or Supabase.')
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    login TEXT UNIQUE,
-    passwordHash TEXT,
-    nickname TEXT,
-    roleName TEXT DEFAULT 'Игрок',
-    vk TEXT DEFAULT '',
-    forum TEXT DEFAULT '',
-    avatar TEXT DEFAULT '',
-    warnings INTEGER DEFAULT 0,
-    isBanned INTEGER DEFAULT 0,
-    banReason TEXT DEFAULT '',
-    registeredAt TEXT
-  );
+export const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+  max: 5,
+  idleTimeoutMillis: 30000,
+})
 
-  CREATE TABLE IF NOT EXISTS friend_requests (
-    id TEXT PRIMARY KEY,
-    fromUserId TEXT NOT NULL,
-    toUserId TEXT NOT NULL,
-    status TEXT DEFAULT 'pending', -- pending | accepted | rejected
-    createdAt TEXT NOT NULL,
-    FOREIGN KEY (fromUserId) REFERENCES users(id),
-    FOREIGN KEY (toUserId) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS friends (
-    userId TEXT NOT NULL,
-    friendId TEXT NOT NULL,
-    createdAt TEXT NOT NULL,
-    PRIMARY KEY (userId, friendId)
-  );
-`)
+export async function initDatabase() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      login TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      nickname TEXT NOT NULL,
+      role_name TEXT NOT NULL DEFAULT 'Игрок',
+      vk TEXT NOT NULL DEFAULT '',
+      forum TEXT NOT NULL DEFAULT '',
+      avatar TEXT,
+      warnings INTEGER NOT NULL DEFAULT 0,
+      is_banned BOOLEAN NOT NULL DEFAULT FALSE,
+      ban_reason TEXT NOT NULL DEFAULT '',
+      registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS friend_requests (
+      id TEXT PRIMARY KEY,
+      from_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      to_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS friend_requests_pending_unique
+      ON friend_requests (from_user_id, to_user_id) WHERE status = 'pending';
+    CREATE TABLE IF NOT EXISTS friends (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      friend_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, friend_id)
+    );
+    CREATE INDEX IF NOT EXISTS users_registered_at_idx ON users (registered_at DESC);
+    CREATE INDEX IF NOT EXISTS friend_requests_recipient_idx ON friend_requests (to_user_id, status);
+  `)
+}
 
 export function publicUser(row) {
   if (!row) return null
-  const { passwordHash, ...rest } = row
-  return { ...rest, isBanned: !!rest.isBanned }
+  const {
+    password_hash: _passwordHash,
+    role_name: roleName,
+    is_banned: isBanned,
+    ban_reason: banReason,
+    registered_at: registeredAt,
+    ...rest
+  } = row
+  return {
+    ...rest,
+    roleName,
+    isBanned: Boolean(isBanned),
+    banReason,
+    registeredAt,
+  }
 }
