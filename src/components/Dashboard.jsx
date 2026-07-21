@@ -51,6 +51,8 @@ const GOS_LEADERSHIP_BY_SERVER = {
   Hawaii: {
     gs:  null,
     zgs: null,
+    // Врио ГС — временно исполняет обязанности, показывается отдельной карточкой со статусом «ВРИО»
+    actingGs: { nickname: 'Austin Collins', vk: 'https://vk.com/id852509629', forum: 'https://forum.gta-mobile.ru/legendary134/' },
   },
   Indiana: {
     gs:  { nickname: 'Samuel_Vinogradov', vk: 'https://vk.ru/id388929639', forum: 'https://forum.gta-mobile.ru/members/24462/' },
@@ -708,6 +710,47 @@ export default function Dashboard({ user, onLogout }) {
                 </div>
               ))}
             </div>
+
+            {/* ── ВРИО ГС — отдельная карточка, не путать с основным ГС ── */}
+            {currentGosLeadership.actingGs && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Временное исполнение обязанностей ({activeServer})</span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+                  <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200">
+                    <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: 'rgb(168,85,247)' }} />
+                    <div className="flex items-start gap-4 pl-5 pr-5 py-5">
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: 'rgba(168,85,247,.12)', color: 'rgb(168,85,247)' }}
+                      >
+                        {IC.crown}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-[11px] font-extrabold tracking-[1.5px] uppercase" style={{ color: 'rgb(168,85,247)' }}>
+                            Главный Следящий гос.структур
+                          </p>
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider"
+                            style={{ background: 'rgba(168,85,247,.15)', color: 'rgb(168,85,247)', border: '1px solid rgba(168,85,247,.35)' }}
+                          >
+                            ВРИО
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-black mt-0.5 truncate">{currentGosLeadership.actingGs.nickname}</h3>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
+                          <LeaderContactLink icon={IC.link} value={currentGosLeadership.actingGs.vk} />
+                          <LeaderContactLink icon={IC.link} value={currentGosLeadership.actingGs.forum} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </>
         ) : (
           /* ── OTHER FRACTION NODES — placeholder + LEADERSHIP ── */
