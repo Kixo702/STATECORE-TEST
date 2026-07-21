@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import banner from '../assets/banner.png'
 // ⚠️ Проверь путь до roles.js в своём проекте — поправь при необходимости
-import { isPlayer } from '../roles'
+import { isPlayer } from '../lib/roles'
 
 /* ───────── ICONS ───────── */
 const IconSearch = () => (
