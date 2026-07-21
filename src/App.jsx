@@ -21,6 +21,16 @@ import KnowledgeBase from './components/KnowledgeBase'
 import InterviewGenerator from './components/InterviewGenerator'
 import EventPlanner from './components/EventPlanner'
 import CadreAudit from './components/CadreAudit'
+import Maintenance from './components/Maintenance'
+
+// ===== ТЕХНИЧЕСКОЕ ОБСЛУЖИВАНИЕ =====
+// Если true — ВСЕ пользователи (в т.ч. незалогиненные) видят страницу
+// технического обслуживания вместо всего остального интерфейса.
+// Чтобы снять режим — поставьте false и задеплойте.
+const MAINTENANCE_MODE = true
+// Необязательные подписи для страницы техобслуживания
+const MAINTENANCE_MESSAGE = null // напр. 'Обновляем базу данных организаций, вернёмся в течение часа.'
+const MAINTENANCE_ETA = null // напр. '~ 18:00 МСК'
 
 const PAGE_TITLES = {
   dashboard: 'Мониторинг системы',
@@ -193,6 +203,10 @@ export default function App() {
   }
 
   if (!hydrated) return null
+
+  if (MAINTENANCE_MODE) {
+    return <Maintenance message={MAINTENANCE_MESSAGE} eta={MAINTENANCE_ETA} />
+  }
 
   if (!user) {
     return <Landing onLogin={(nextUser) => { setUser(nextUser); setSession(nextUser); setView('app'); setPath('dashboard', 1, 'replace') }} currentUser={null} onLogout={null} />
