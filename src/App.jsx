@@ -97,12 +97,12 @@ export default function App() {
         const serverUser = await getUser(user.id)
         if (!serverUser) return
 
-        // Если роли, названия ролей или статусы бана не совпадают — обновляем клиентский стейт и сессию
+        // Если роли, названия ролей, статусы бана или кол-во выговоров не совпадают — обновляем клиентский стейт и сессию
         const isChanged =
           serverUser.role !== user.role ||
           serverUser.roleName !== user.roleName ||
           serverUser.isBanned !== user.isBanned ||
-          serverUser.warns !== user.warns
+          serverUser.warnings !== user.warnings
 
         if (isChanged) {
           const updatedUser = { ...user, ...serverUser }
@@ -111,20 +111,28 @@ export default function App() {
           upsertUser(updatedUser)
         }
       } catch (err) {
-        // Игнорируем ошибки сети при фоновом запросе
+        // Раньше ошибка тихо проглатывалась и было невозможно понять,
+        // почему синхронизация не работает — теперь она хотя бы видна в консоли
+        console.warn('Не удалось обновить данные пользователя с бэкенда:', err)
       }
     }
+
+    // Проверяем сразу при заходе/логине, не дожидаясь первого тика интервала
+    refreshUserData()
 
     // Проверяем актуальность данных раз в 5 секунд
     const interval = setInterval(refreshUserData, 5000)
     // А также моментально проверяем при возвращении пользователя на вкладку браузера
     window.addEventListener('focus', refreshUserData)
+    // На мобильных при сворачивании/переключении вкладок 'focus' срабатывает не всегда — подстрахуемся
+    document.addEventListener('visibilitychange', refreshUserData)
 
     return () => {
       clearInterval(interval)
       window.removeEventListener('focus', refreshUserData)
+      document.removeEventListener('visibilitychange', refreshUserData)
     }
-  }, [user?.id, user?.role, user?.roleName, user?.isBanned, user?.warns])
+  }, [user?.id, user?.role, user?.roleName, user?.isBanned, user?.warnings])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
