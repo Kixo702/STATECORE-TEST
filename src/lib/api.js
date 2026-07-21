@@ -1,57 +1,97 @@
-const API_BASE = (import.meta.env.VITE_API_BASE || 'https://statecore-api.onrender.com/api').replace(/\/$/, '')
+// src/services/api.js
 
-export async function api(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+const API_URL = import.meta.env.VITE_API_URL || '/api'
+
+async function api(endpoint, options = {}) {
+  const token = localStorage.getItem('statecore_token')
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
+    headers,
   })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || 'Ошибка запроса')
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Ошибка запроса к API')
+  }
+
   return data
 }
 
-export async function registerUser(payload) {
-  return api('/register', { method: 'POST', body: JSON.stringify(payload) })
+// Auth API
+export async function loginApi(credentials) {
+  return await api('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  })
 }
 
-export async function loginUser(payload) {
-  return api('/login', { method: 'POST', body: JSON.stringify(payload) })
+export async function registerApi(userData) {
+  return await api('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(userData),
+  })
 }
 
+// Users API
 export async function getUsers() {
-  return api('/users')
+  const data = await api('/users')
+  return Array.isArray(data) ? data : (data.users || [])
 }
 
 export async function getUser(id) {
-  return api(`/users/${id}`)
+  const data = await api(`/users/${id}`)
+  return data.user || data
 }
 
-// Частичное обновление пользователя (роль, бан, выговоры, ник и т.п.)
-export async function updateUser(id, patch) {
-  return api(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
+export async function updateUser(id, updateData) {
+  const data = await api(`/users/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updateData),
+  })
+  return data.user || data
 }
 
-// Полное удаление аккаунта из БД (необратимо)
-export async function deleteUser(id) {
-  return api(`/users/${id}`, { method: 'DELETE' })
+// Friends API
+export async function sendFriendRequest(toUserId) {
+  return await api('/friends/request', {
+    method: 'POST',
+    body: JSON.stringify({ toUserId }),
+  })
 }
 
-export async function sendFriendRequest(payload) {
-  return api('/friends/request', { method: 'POST', body: JSON.stringify(payload) })
+export async function acceptFriendRequest(requestId) {
+  return await api('/friends/accept', {
+    method: 'POST',
+    body: JSON.stringify({ requestId }),
+  })
+}
+
+export async function rejectFriendRequest(requestId) {
+  return await api('/friends/reject', {
+    method: 'POST',
+    body: JSON.stringify({ requestId }),
+  })
 }
 
 export async function getFriendRequests(userId) {
-  return api(`/friends/requests/${userId}`)
-}
-
-export async function acceptFriendRequest(payload) {
-  return api('/friends/accept', { method: 'POST', body: JSON.stringify(payload) })
+  const data = await api(`/friends/requests/${userId}`)
+  return Array.isArray(data) ? data : (data.requests || [])
 }
 
 export async function getFriends(userId) {
-  return api(`/friends/${userId}`)
+  const data = await api(`/friends/${userId}`)
+  return Array.isArray(data) ? data : (data.friends || [])
 }
 
-export async function syncLocalUsers(users, session = null) {
-  return api('/sync-local-users', { method: 'POST', body: JSON.stringify({ users, session }) })
+export async function removeFriend(friendId) {
+  return await api(`/friends/${friendId}`, {
+    method: 'DELETE',
+  })
 }
