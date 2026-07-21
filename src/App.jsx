@@ -182,6 +182,7 @@ export default function App() {
 
   const handleLogout = () => {
     clearSession()
+    localStorage.removeItem('statecore_token')
     setUser(null)
     setView('app')
   }

@@ -442,6 +442,9 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
       }
       upsertUser(userData)
       setSession(userData)
+      if (response.token) {
+        localStorage.setItem('statecore_token', response.token)
+      }
       setSuccess(true)
       setTimeout(() => { onLogin && onLogin(userData) }, 700)
     } catch (err) {
@@ -478,8 +481,12 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
       if (remember) {
         upsertUser(userData)
         setSession(userData)
+        if (response.token) {
+          localStorage.setItem('statecore_token', response.token)
+        }
       } else {
         localStorage.removeItem('sc_user')
+        localStorage.removeItem('statecore_token')
       }
       setSuccess(true)
       setTimeout(() => { onLogin && onLogin(userData) }, 700)
