@@ -80,8 +80,7 @@ function groupRoles(roles, query = '') {
   return { filtered, grouped }
 }
 
-// Список ролей для выпадающих меню: группировка по фракциям + поиск,
-// если ролей много (актуально после разбивки "Лидер" по фракциям)
+// Список ролей для выпадающих меню: группировка по фракциям + поиск
 function RoleOptionsList({ roles, onPick, activeValue, showAllOption, onPickAll }) {
   const [q, setQ] = useState('')
   const showSearch = roles.length > 10
@@ -135,7 +134,7 @@ function getPlayerUid(id) {
   return `SC-${id.replace(/-/g, '').toUpperCase().slice(0, 6)}`
 }
 
-// ── Icons (единый набор в духе Dashboard.jsx) ───────────────────
+// ── Icons ───────────────────
 const IC = {
   bell:      <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   arrowLeft: <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><line x1="19" y1="12" x2="5" y2="12" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"/><polyline points="12 19 5 12 12 5" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
@@ -153,7 +152,6 @@ const IC = {
 }
 
 export default function Users({ currentUser }) {
-  // Доступ к разделу теперь определяется матрицей ролей, а не белым списком логинов
   if (!canViewAll(currentUser)) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
@@ -171,8 +169,6 @@ export default function Users({ currentUser }) {
   const canReprimand = canIssueReprimand(currentUser)
   const canRemoveLead = canRemoveLeader(currentUser)
   const canReviewNick = canReviewNickRequests(currentUser)
-  // Полное удаление аккаунта — самое опасное действие, доступно только тем,
-  // кто может редактировать роли (высший уровень модераторских прав)
   const canDeleteAccount = canEditRolesPerm
 
   const [page, setPage] = useState('list') // 'list' | 'requests'
@@ -186,7 +182,6 @@ export default function Users({ currentUser }) {
   const [roleMenuPos, setRoleMenuPos] = useState(null)
   const roleBtnRefs = useRef({})
 
-  // Закрываем открытое меню при скролле/ресайзе, чтобы оно не "отклеивалось" от кнопки
   useEffect(() => {
     if (!roleMenuOpen && !filterRoleOpen) return
     const close = () => { setRoleMenuOpen(null); setFilterRoleOpen(false) }
@@ -219,7 +214,7 @@ export default function Users({ currentUser }) {
 
   const pendingNickRequests = useMemo(() => nickRequests.filter(r => r.status === 'pending'), [nickRequests])
 
-  // ── Пользователи — из бэкенда, не из localStorage ──────────────
+  // ── Пользователи из бэкенда ──────────────
   const [allUsers, setAllUsers] = useState([])
   const [usersLoading, setUsersLoading] = useState(true)
   const [usersError, setUsersError] = useState(null)
@@ -246,7 +241,6 @@ export default function Users({ currentUser }) {
     return map
   }, [allUsers])
 
-  // всегда берём актуальную версию открытого профиля из свежего списка
   const profileModal = profileModalId ? usersById[profileModalId] || null : null
 
   const filtered = useMemo(() => {
@@ -264,18 +258,16 @@ export default function Users({ currentUser }) {
     setPendingRole(p => ({ ...p, [userId]: newRole }))
   }
 
-  const handleSaveRole = (u) => {
-    const newRole = pendingRole[u.id]
+  // Обновлено: теперь функция может гибко принимать роль напрямую (для вызова из модалки)
+  const handleSaveRole = (u, targetRole = null) => {
+    const newRole = targetRole || pendingRole[u.id]
     if (!newRole || newRole === (u.roleName || 'Игрок')) return
     setConfirmModal({ kind: 'role', user: u, role: newRole })
   }
 
-  // mutator: { id, patch } — patch это объект полей для PATCH /api/users/:id
   const writeUsers = async ({ id, patch }) => {
     await updateUser(id, patch)
 
-    // если правим самого себя — обновим и локальную сессию, чтобы шапка/профиль
-    // на этом устройстве сразу показали актуальные данные
     let session = {}
     try {
       const sraw = localStorage.getItem('sc_user')
@@ -310,28 +302,36 @@ export default function Users({ currentUser }) {
     if (!modal) return
     const { kind, user: u, role: newRole, ban } = modal
     setSaving(u.id)
+
     try {
       if (kind === 'role') {
         const prevRole = u.roleName || 'Игрок'
+
+        // Оптимистично обновляем стейт интерфейса сразу
+        setAllUsers(prev => prev.map(item => item.id === u.id ? { ...item, roleName: newRole } : item))
+
         await writeUsers({ id: u.id, patch: { roleName: newRole } })
         pushLog(u.id, `Роль изменена: «${prevRole}» → «${newRole}» (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
         setPendingRole(p => { const n = { ...p }; delete n[u.id]; return n })
       } else if (kind === 'reprimand') {
         const nextWarnings = (u.warnings || 0) + 1
+        setAllUsers(prev => prev.map(item => item.id === u.id ? { ...item, warnings: nextWarnings } : item))
+        
         await writeUsers({ id: u.id, patch: { warnings: nextWarnings } })
         pushLog(u.id, `Выдан выговор (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
       } else if (kind === 'removeLeader') {
+        setAllUsers(prev => prev.map(item => item.id === u.id ? { ...item, roleName: 'Игрок' } : item))
+
         await writeUsers({ id: u.id, patch: { roleName: 'Игрок' } })
         pushLog(u.id, `Статус лидера снят (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
       } else if (kind === 'ban') {
+        setAllUsers(prev => prev.map(item => item.id === u.id ? { ...item, isBanned: ban } : item))
+
         await writeUsers({ id: u.id, patch: { isBanned: ban, banReason: ban ? 'Забанен администратором' : '' } })
         pushLog(u.id, ban ? `Пользователь забанен (${currentUser?.nickname || currentUser?.login || 'модератор'})` : `Пользователь разбанен (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
       } else if (kind === 'delete') {
-        // 1) удаляем аккаунт на бэкенде — навсегда, из БД
         await deleteUser(u.id)
-        // 2) подчищаем локальный кэш/фолбэк пользователей и сессию (если удалили себя)
         removeUser(u.id)
-        // 3) подчищаем локальную историю действий по этому аккаунту
         try { localStorage.removeItem(`sc_logs_${u.id}`) } catch {}
         setPendingRole(p => { const n = { ...p }; delete n[u.id]; return n })
         if (profileModalId === u.id) setProfileModalId(null)
@@ -341,6 +341,7 @@ export default function Users({ currentUser }) {
       setSaved(`${u.id}_${Math.random().toString(36).slice(2, 8)}`)
     } catch (e) {
       console.error(e)
+      loadUsers() // Откатываем интерфейс при ошибке
       setUsersError(e?.message || (kind === 'delete' ? 'Не удалось удалить аккаунт' : 'Не удалось сохранить изменения'))
     } finally {
       setSaving(null)
@@ -517,16 +518,8 @@ export default function Users({ currentUser }) {
       background: rgba(255,255,255,.02);
       animation: u-fadeUp .25s ease both;
     }
-
-    .skeleton-text {
-      background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.04) 75%);
-      background-size: 200% 100%;
-      animation: u-shimmer 1.6s infinite linear;
-      border-radius: 6px;
-    }
   `
 
-  // ── Страница заявок на смену ника ────────────────────────────
   if (page === 'requests') {
     return (
       <div className="min-h-screen text-white" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
@@ -603,7 +596,6 @@ export default function Users({ currentUser }) {
     )
   }
 
-  // ── Основная страница списка пользователей ───────────────────
   return (
     <div className="min-h-screen text-white" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       <style>{sharedStyles}</style>
@@ -645,7 +637,7 @@ export default function Users({ currentUser }) {
           </div>
         )}
 
-        {/* ── СТАТИСТИКА (плашки в духе Dashboard) ───────────────── */}
+        {/* ── СТАТИСТИКА ───────────────── */}
         <div className="flex items-center gap-3 mb-4">
           <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Статистика</span>
           <div className="flex-1 h-px bg-white/5" />
@@ -910,7 +902,7 @@ export default function Users({ currentUser }) {
 
       </div>
 
-      {/* ── ПАНЕЛЬ МОДЕРАТОРА (модалка профиля) ───────────────── */}
+      {/* ── ПАНЕЛЬ МОДЕРАТОРА ───────────────── */}
       {profileModal && (
         <ModeratorPanel
           user={profileModal}
@@ -923,7 +915,7 @@ export default function Users({ currentUser }) {
           canDelete={canDeleteAccount}
           pendingRole={pendingRole}
           onRoleChange={handleRoleChange}
-          onSaveRole={handleSaveRole}
+          onSaveRole={(u, newRole) => handleSaveRole(u, newRole)}
           onReprimand={(u) => setConfirmModal({ kind: 'reprimand', user: u })}
           onBanToggle={(u) => setConfirmModal({ kind: 'ban', user: u, ban: !u.isBanned })}
           onRemoveLeader={(u) => setConfirmModal({ kind: 'removeLeader', user: u })}
@@ -976,8 +968,8 @@ export default function Users({ currentUser }) {
               <>
                 <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 900, color: '#e2635f' }}>Удалить аккаунт навсегда?</h3>
                 <p style={{ margin: '0 0 14px', fontSize: 13, color: 'rgba(255,255,255,.5)', lineHeight: 1.6 }}>
-                  Аккаунт <span style={{ color: '#e8edf3', fontWeight: 700 }}>{confirmModal.user.nickname || confirmModal.user.login}</span> и все связанные данные (роль, выговоры, заявки, история) будут{' '}
-                  <span style={{ color: '#e2635f', fontWeight: 700 }}>безвозвратно удалены из базы данных</span>. Отменить это действие нельзя.
+                  Аккаунт <span style={{ color: '#e8edf3', fontWeight: 700 }}>{confirmModal.user.nickname || confirmModal.user.login}</span> и все связанные данные будут{' '}
+                  <span style={{ color: '#e2635f', fontWeight: 700 }}>безвозвратно удалены из базы данных</span>.
                 </p>
                 <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,.4)' }}>
                   Чтобы подтвердить, введите логин пользователя: <span style={{ color: '#fff', fontWeight: 700, fontFamily: 'monospace' }}>{confirmModal.user.login}</span>
@@ -1023,7 +1015,6 @@ export default function Users({ currentUser }) {
   )
 }
 
-// ── Панель модератора — модалка в духе AssignLeaderModal из Dashboard.jsx ──
 function ModeratorPanel({
   user, currentUser, onClose,
   canEditRolesPerm, canReprimand, canRemoveLead, canBan, canDelete,
@@ -1094,7 +1085,7 @@ function ModeratorPanel({
 
         <div style={{ padding: '28px 32px 32px' }}>
 
-          {/* header */}
+          {/* Header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
               <div style={{
@@ -1143,7 +1134,7 @@ function ModeratorPanel({
             </button>
           </div>
 
-          {/* stat tiles */}
+          {/* Stat tiles */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 20 }}>
             {statTiles.map(s => {
               const rgb = s.accent.startsWith('#') ? hexToRgb(s.accent) : s.accent
@@ -1231,7 +1222,7 @@ function ModeratorPanel({
                   </div>
                   {roleChanged && (
                     <button
-                      onClick={() => onSaveRole(user)}
+                      onClick={() => onSaveRole(user, selectedRole)}
                       disabled={saving}
                       style={{
                         marginTop: 10, padding: '9px 18px', borderRadius: 10, border: 'none',
