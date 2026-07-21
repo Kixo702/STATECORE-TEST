@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ensureUserStoreSeeded, getSession, setSession, clearSession, upsertUser, getUsers } from './lib/userStore'
-import { syncLocalUsers } from './lib/api'
+import { syncLocalUsers, getUser } from './lib/api' // <--- Добавили getUser
 
 import Landing from './components/Landing'
 import Dashboard from './components/Dashboard'
@@ -87,6 +87,44 @@ export default function App() {
       syncLocalUsers(getUsers(), getSession()).catch(() => {})
     } catch {}
   }, [hydrated])
+
+  // ===== АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ РОЛИ И ПРОФИЛЯ С БЭКЕНДОМ =====
+  useEffect(() => {
+    if (!user?.id) return
+
+    const refreshUserData = async () => {
+      try {
+        const serverUser = await getUser(user.id)
+        if (!serverUser) return
+
+        // Если роли, названия ролей или статусы бана не совпадают — обновляем клиентский стейт и сессию
+        const isChanged =
+          serverUser.role !== user.role ||
+          serverUser.roleName !== user.roleName ||
+          serverUser.isBanned !== user.isBanned ||
+          serverUser.warns !== user.warns
+
+        if (isChanged) {
+          const updatedUser = { ...user, ...serverUser }
+          setUser(updatedUser)
+          setSession(updatedUser)
+          upsertUser(updatedUser)
+        }
+      } catch (err) {
+        // Игнорируем ошибки сети при фоновом запросе
+      }
+    }
+
+    // Проверяем актуальность данных раз в 5 секунд
+    const interval = setInterval(refreshUserData, 5000)
+    // А также моментально проверяем при возвращении пользователя на вкладку браузера
+    window.addEventListener('focus', refreshUserData)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', refreshUserData)
+    }
+  }, [user?.id, user?.role, user?.roleName, user?.isBanned, user?.warns])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -205,7 +243,7 @@ export default function App() {
           {activePage === 'users' && <Users currentUser={user} />}
           {activePage === 'profile' && <Profile user={user} />}
           {activePage === 'knowledge' && <KnowledgeBase />}
-          {activePage === 'cadreAudit' && <CadreAudit user={user} />} {/* <--- Добавили */}
+          {activePage === 'cadreAudit' && <CadreAudit user={user} />}
           {activePage === 'faq' && <FAQ user={user} />}
         </div>
       </main>
