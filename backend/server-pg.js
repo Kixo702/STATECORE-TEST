@@ -10,14 +10,22 @@ import { db, initDatabase } from './db.js'
 // otplib v13+ заменил старый объект `authenticator` (v11/v12 API) на
 // набор именованных функций верхнего уровня. Используем новый
 // функциональный API напрямую — он же теперь единственный экспорт пакета.
-import { generateSecret, generateURI, verify as verifyOtp } from 'otplib'
+import { generateSecret, generateURI, verify as verifyOtp, createGuardrails } from 'otplib'
+
+// v13 по умолчанию требует секрет не короче 16 байт (128 бит). У части
+// пользователей секреты были сгенерированы ещё старой v12-версией
+// библиотеки, где секрет по умолчанию был 10 байт — без этой поблажки
+// verify() падал бы с SecretTooShortError для всех, кто подключил 2FA
+// до миграции. Новые секреты (generateSecret() ниже) всё так же
+// генерируются длиной 20 байт, поблажка нужна только на чтение старых.
+const LEGACY_GUARDRAILS = createGuardrails({ MIN_SECRET_BYTES: 10 })
 
 // Небольшая обёртка под старое имя/сигнатуру authenticator.check(token, secret),
 // чтобы не переписывать логику проверки кода в каждом обработчике ниже.
 // verify() в v13 асинхронный, поэтому check тоже асинхронный — вызовы
 // ниже используют await.
 async function checkOtp(token, secret) {
-  const result = await verifyOtp({ secret, token })
+  const result = await verifyOtp({ secret, token, guardrails: LEGACY_GUARDRAILS })
   return result.valid
 }
 
