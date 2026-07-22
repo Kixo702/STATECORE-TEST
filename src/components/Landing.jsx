@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef } from 'react'
 import { upsertUser, setSession, getUsers } from '../lib/userStore'
-import { registerUser, loginUser } from '../lib/api'
+import { registerUser, loginUser, verify2FALogin } from '../lib/api'
 import logoUrl from '../assets/vite.svg'
 
 // ── Design tokens ─────────────────────────────────────────────
