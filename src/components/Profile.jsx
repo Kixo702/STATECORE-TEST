@@ -347,35 +347,69 @@ export default function Profile({ user, onUpdate }) {
     setVerifying2Fa(true)
     setTotpError('')
 
-    const isValid = await verifyTOTP(tempSecret, totpInput)
-    setVerifying2Fa(false)
+    try {
+      // 1. Сначала локальная проверка (или сразу отправка на сервер)
+      const isValid = await verifyTOTP(tempSecret, totpInput)
+      if (!isValid) {
+        setTotpError('Неверный код. Проверьте время на телефоне')
+        setVerifying2Fa(false)
+        return
+      }
 
-    if (!isValid) {
-      setTotpError('Неверный код. Проверьте время на телефоне')
-      return
+      // 2. Формируем новый объект пользователя
+      const updatedUser = { 
+        ...(user || u), 
+        twoFactorSecret: tempSecret, 
+        twoFactorEnabled: true,
+        is_totp_enabled: true // Для синхронизации с PostgreSQL
+      }
+
+      // 3. Сохраняем на сервере в PostgreSQL
+      if (typeof updateUserOnServer === 'function') {
+        await updateUserOnServer(updatedUser)
+      }
+
+      // 4. Обновляем сессию и стейты
+      setSession(updatedUser)
+      upsertUser(updatedUser)
+      setTwoFactorEnabled(true)
+      setShow2FaModal(false)
+      pushLog('Включена двухфакторная аутентификация (Google Auth)')
+      
+      if (onUpdate) onUpdate(updatedUser)
+    } catch (err) {
+      console.error('Ошибка при сохранении 2FA:', err)
+      setTotpError(err.message || 'Не удалось сохранить настройки 2FA на сервере')
+    } finally {
+      setVerifying2Fa(false)
     }
-
-    const updatedUser = { ...(user || u), twoFactorSecret: tempSecret, twoFactorEnabled: true }
-    setSession(updatedUser)
-    upsertUser(updatedUser)
-
-    setTwoFactorEnabled(true)
-    setShow2FaModal(false)
-    pushLog('Включена двухфакторная аутентификация (Google Auth)')
-    onUpdate && onUpdate(updatedUser)
   }
 
   const handleConfirmDisable2FA = async () => {
-    const updatedUser = { ...(user || u), twoFactorEnabled: false }
-    delete updatedUser.twoFactorSecret
+    try {
+      const updatedUser = { 
+        ...(user || u), 
+        twoFactorEnabled: false,
+        is_totp_enabled: false,
+        twoFactorSecret: null 
+      }
 
-    setSession(updatedUser)
-    upsertUser(updatedUser)
+      // Сохраняем сброс 2FA в PostgreSQL
+      if (typeof updateUserOnServer === 'function') {
+        await updateUserOnServer(updatedUser)
+      }
 
-    setTwoFactorEnabled(false)
-    setDisable2FaModal(false)
-    pushLog('Отключена двухфакторная аутентификация')
-    onUpdate && onUpdate(updatedUser)
+      setSession(updatedUser)
+      upsertUser(updatedUser)
+
+      setTwoFactorEnabled(false)
+      setDisable2FaModal(false)
+      pushLog('Отключена двухфакторная аутентификация')
+      
+      if (onUpdate) onUpdate(updatedUser)
+    } catch (err) {
+      console.error('Ошибка отключения 2FA:', err)
+    }
   }
 
   const addSessionToShared = async () => {
