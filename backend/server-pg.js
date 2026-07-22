@@ -10,7 +10,17 @@ import { db, initDatabase } from './db.js'
 // Импортируем createRequire для безопасной загрузки CommonJS пакетов в ESM
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
-const { authenticator } = require('otplib')
+const otplibPkg = require('otplib')
+// В разных сборках otplib нужный объект лежит либо в корне модуля,
+// либо под .default (интероп CJS/ESM) — поддерживаем оба варианта,
+// чтобы не падать молча в рантайме при каждом запросе на 2FA.
+const authenticator = otplibPkg.authenticator || otplibPkg.default?.authenticator
+
+if (!authenticator || typeof authenticator.check !== 'function') {
+  throw new Error(
+    '[StateCore API] Не удалось загрузить otplib.authenticator — проверьте версию пакета "otplib" в package.json/node_modules'
+  )
+}
 
 const app = express()
 const PORT = process.env.PORT || 5000
