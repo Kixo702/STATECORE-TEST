@@ -368,10 +368,10 @@ export default function Profile({ user, onUpdate }) {
       if (typeof updateUserOnServer === 'function') {
         await updateUserOnServer({
           id: data.id,
-          twoFactorSecret: tempSecret,       // Проверь наименование в БД!
-          two_factor_secret: tempSecret,      // Дублируем под snake_case для надежности
-          twoFactorEnabled: true,
-          is_totp_enabled: true
+          two_factor_secret: tempSecret,
+          is_totp_enabled: true,
+          twoFactorSecret: tempSecret,
+          twoFactorEnabled: true
         })
       }
 
@@ -393,18 +393,27 @@ export default function Profile({ user, onUpdate }) {
 
   const handleConfirmDisable2FA = async () => {
     try {
+      // 1. Поля только для сервера (Patch)
+      const patch2FA = {
+        id: data.id,
+        two_factor_secret: null,
+        is_totp_enabled: false,
+        twoFactorSecret: null,
+        twoFactorEnabled: false
+      }
+
+      // 2. Отправляем на бэкенд
+      if (typeof updateUserOnServer === 'function') {
+        await updateUserOnServer(patch2FA)
+      }
+
+      // 3. Полный объект для обновления локального состояния и UI
       const updatedUser = { 
         ...(user || u), 
-        twoFactorEnabled: false,
-        is_totp_enabled: false,
-        twoFactorSecret: null 
+        ...patch2FA 
       }
 
-      // Сохраняем сброс 2FA в PostgreSQL
-      if (typeof updateUserOnServer === 'function') {
-        await updateUserOnServer(updatedUser)
-      }
-
+      // 4. Синхронизируем локальный стор и контекст
       setSession(updatedUser)
       upsertUser(updatedUser)
 

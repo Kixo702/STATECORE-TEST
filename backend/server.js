@@ -102,47 +102,53 @@ app.get('/api/users/:id', async (req, res) => {
 })
 
 app.patch('/api/users/:id', async (req, res) => {
-  const fields = { 
-    roleName: 'role_name', 
-    warnings: 'warnings', 
-    isBanned: 'is_banned', 
-    banReason: 'ban_reason', 
-    nickname: 'nickname', 
-    vk: 'vk', 
-    forum: 'forum', 
-    avatar: 'avatar',
-    // Поля двухфакторной аутентификации (2FA)
-    twoFactorSecret: 'two_factor_secret',
-    two_factor_secret: 'two_factor_secret',
-    twoFactorEnabled: 'is_totp_enabled',
-    is_totp_enabled: 'is_totp_enabled'
-  }
+  const { id } = req.params
+  const { 
+    nickname, 
+    avatar, 
+    vk, 
+    forum, 
+    twoFactorSecret, 
+    two_factor_secret, 
+    twoFactorEnabled, 
+    is_totp_enabled 
+  } = req.body
 
-  const body = req.body || {}
   const updates = []
+  const values = []
+  let idx = 1
 
-  // Собираем массив обновляемых полей, защищаясь от дублирования столбцов
-  for (const [key, column] of Object.entries(fields)) {
-    if (key in body && !updates.some(u => u.column === column)) {
-      updates.push({ column, value: body[key] })
-    }
+  if (nickname !== undefined) { updates.push(`nickname = $${idx++}`); values.push(nickname) }
+  if (avatar !== undefined) { updates.push(`avatar = $${idx++}`); values.push(avatar) }
+  if (vk !== undefined) { updates.push(`vk = $${idx++}`); values.push(vk) }
+  if (forum !== undefined) { updates.push(`forum = $${idx++}`); values.push(forum) }
+
+  // 2FA Поля (поддерживаем оба формата именования)
+  const secretVal = twoFactorSecret ?? two_factor_secret
+  if (secretVal !== undefined) { 
+    updates.push(`two_factor_secret = $${idx++}`); 
+    values.push(secretVal) 
   }
 
-  if (!updates.length) return bad(res, 400, 'Нечего обновлять')
+  const enabledVal = twoFactorEnabled ?? is_totp_enabled
+  if (enabledVal !== undefined) { 
+    updates.push(`is_totp_enabled = $${idx++}`); 
+    values.push(enabledVal) 
+  }
+
+  // Если массив updates пуст — сервер и выдает "Нет полей для обновления"
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'Нет полей для обновления' })
+  }
+
+  values.push(id)
+  const query = `UPDATE users SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`
 
   try {
-    const valuesArr = updates.map(u => u.value)
-    const assignments = updates.map((u, index) => `${u.column} = $${index + 1}`)
-    valuesArr.push(req.params.id)
-
-    const sql = `UPDATE users SET ${assignments.join(', ')} WHERE id = $${valuesArr.length} RETURNING *`
-    const result = await db.query(sql, valuesArr)
-
-    if (!result.rows[0]) return bad(res, 404, 'Пользователь не найден')
-    return ok(res, publicUser(result.rows[0]))
-  } catch (error) { 
-    console.error('Ошибка при обновлении пользователя:', error)
-    return bad(res, 500, 'Ошибка обновления пользователя') 
+    const { rows } = await db.query(query, values)
+    res.json({ user: rows[0] })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 
