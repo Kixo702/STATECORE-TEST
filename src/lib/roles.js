@@ -229,7 +229,7 @@ export function canViewMenu(user, menuId) {
   // ЧС (chsgos) — остальные направления подключаются по мере готовности.
   if (isRestrictedLeadership(user)) {
     const direction = getLeadershipDirection(user)
-    if (direction === 'bo' || direction === 'mafia') {
+    if (direction === 'bo' || direction === 'mafia' || direction === 'ghetto') {
       return id === 'dashboard' || id === 'cadreaudit' || id === 'chsgos'
     }
     return id === 'dashboard' || id === 'cadreaudit'
