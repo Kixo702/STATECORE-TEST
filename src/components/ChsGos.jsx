@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import banner from '../assets/banner.png'
 import {
-  isPlayer,
   isLeaderOfFaction,
   getLeadershipDirection,
   isChief,
   isDeputy,
+  SERVERS,
 } from '../lib/roles'
 
 /* ───────── ICONS ───────── */
@@ -322,6 +322,9 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
   const [filterOpen, setFilterOpen] = useState(false)
   const [filter, setFilter] = useState('ALL')
 
+  const [serverFilterOpen, setServerFilterOpen] = useState(false)
+  const [serverFilter, setServerFilter] = useState('texas')
+
   // Таблица ЧС гос — экспорт конкретного листа (gid) в CSV через gviz
   const CHSGOS_URL =
     'https://docs.google.com/spreadsheets/d/1U8Af3WFz7LafeJeSh8TACam9Rs7ACa_haUMJjRjfRTg/gviz/tq?tqx=out:csv&gid=1094292304'
@@ -406,7 +409,7 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
 
   useEffect(() => {
     setPageNumber(1)
-  }, [search, filter, setPageNumber])
+  }, [search, filter, serverFilter, setPageNumber])
 
   const filterLabel =
     filter === 'ALL'
@@ -414,6 +417,11 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
       : filter === 'ACTIVE'
       ? 'Активные'
       : 'Неактивные'
+
+  const activeServer = SERVERS.find((s) => s.id === serverFilter) || SERVERS[0]
+  // Таблица ЧС гос сейчас ведётся только для Техаса — для остальных
+  // серверов данных пока нет, показываем заглушку "в разработке"
+  const serverHasData = serverFilter === 'texas'
 
   return (
     <>
@@ -473,11 +481,55 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
             </div>
           )}
         </div>
+
+        <div className="relative z-20">
+          <button
+            onClick={() => setServerFilterOpen((v) => !v)}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
+          >
+            <IconFilter />
+            {activeServer.label}
+          </button>
+
+          {serverFilterOpen && (
+            <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
+              {SERVERS.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    setServerFilter(s.id)
+                    setServerFilterOpen(false)
+                  }}
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition flex items-center justify-between gap-2 ${
+                    serverFilter === s.id
+                      ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
+                      : ''
+                  }`}
+                >
+                  <span>{s.label}</span>
+                  {s.id !== 'texas' && (
+                    <span className="text-[10px] text-gray-500">в разработке</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {loading ? (
+        {!serverHasData ? (
+          <div className="col-span-full rounded-xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400">
+              <IconWrench />
+            </div>
+            <div className="text-gray-300 font-semibold">В разработке</div>
+            <p className="text-gray-500 text-sm max-w-sm">
+              ЧС гос для сервера «{activeServer.label}» пока не подключён. Загляните позже.
+            </p>
+          </div>
+        ) : loading ? (
           <div className="text-gray-400">Загрузка...</div>
         ) : filtered.length === 0 ? (
           <div className="text-gray-500">Ничего не найдено</div>
@@ -1604,9 +1656,10 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
    - ГС/ЗГС мафий                          → полная таблица ЧС мафий
    - ГС/ЗГС Гетто                          → полная таблица ЧС Гетто
    - ГС/ЗГС Байкеров                       → полная таблица ЧС Байкеров
-   - Игрок                                 → фильтр по сферам (Гос/БО/Мафия/Гетто/Байкеры работают)
-   - Все остальные (ГС/ЗГС Гос., полный
-     доступ, следящие, прочие лидеры)      → как раньше, полная таблица ЧС гос
+   - Все остальные (Игрок, ГС/ЗГС Гос.,
+     полный доступ, следящие, прочие
+     лидеры)                               → фильтр по сферам
+     (Гос/БО/Мафия/Гетто/Байкеры работают), виден всем одинаково
 */
 export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} }) {
   const [sphere, setSphere] = useState('gov')
@@ -1650,52 +1703,44 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
     )
   }
 
-  if (isPlayer(user)) {
-    const activeSphere = SPHERES.find((s) => s.id === sphere) || SPHERES[0]
-
-    return (
-      <PageChrome>
-        <div className="mb-6 flex flex-wrap gap-2">
-          {SPHERES.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setSphere(s.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${
-                sphere === s.id
-                  ? 'bg-gradient-to-r from-purple-500/25 to-purple-600/10 border-purple-500/40 text-purple-100'
-                  : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {activeSphere.id === 'gov' && (
-          <ChsGosTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
-        )}
-        {activeSphere.id === 'bo' && (
-          <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
-        )}
-        {activeSphere.id === 'mafia' && (
-          <ChsMafiaTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
-        )}
-        {activeSphere.id === 'ghetto' && (
-          <ChsGhettoTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
-        )}
-        {activeSphere.id === 'bikers' && (
-          <ChsBikersTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
-        )}
-        {!activeSphere.hasSource && (
-          <InDevelopmentCard sphereLabel={activeSphere.label} />
-        )}
-      </PageChrome>
-    )
-  }
+  const activeSphere = SPHERES.find((s) => s.id === sphere) || SPHERES[0]
 
   return (
     <PageChrome>
-      <ChsGosTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+      <div className="mb-6 flex flex-wrap gap-2">
+        {SPHERES.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSphere(s.id)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${
+              sphere === s.id
+                ? 'bg-gradient-to-r from-purple-500/25 to-purple-600/10 border-purple-500/40 text-purple-100'
+                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSphere.id === 'gov' && (
+        <ChsGosTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+      )}
+      {activeSphere.id === 'bo' && (
+        <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
+      )}
+      {activeSphere.id === 'mafia' && (
+        <ChsMafiaTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+      )}
+      {activeSphere.id === 'ghetto' && (
+        <ChsGhettoTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+      )}
+      {activeSphere.id === 'bikers' && (
+        <ChsBikersTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+      )}
+      {!activeSphere.hasSource && (
+        <InDevelopmentCard sphereLabel={activeSphere.label} />
+      )}
     </PageChrome>
   )
 }

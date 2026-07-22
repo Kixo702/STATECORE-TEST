@@ -10,6 +10,9 @@ import {
   getAllLeaderRoles,
   CHIEF_ROLES_BY_DIRECTION,
   DEPUTY_ROLES_BY_DIRECTION,
+  CHIEF_ROLES_BY_DIRECTION_SERVER,
+  DEPUTY_ROLES_BY_DIRECTION_SERVER,
+  SERVERS,
 } from '../lib/roles'
 import { getNickRequests, reviewNickRequest } from '../lib/requests'
 import { setSession, removeUser } from '../lib/userStore'
@@ -58,11 +61,28 @@ const LEADERSHIP_ROLES = [
   })),
 ]
 
+// Серверные роли ГС/ЗГС (пока только направление "Гос.", остальные
+// направления подключаются по мере готовности) — сгруппированы по серверу,
+// чтобы в выпадающем списке было видно, к какому штату относится роль.
+const SERVER_LEADERSHIP_ROLES = SERVERS.flatMap((server) => [
+  {
+    value: CHIEF_ROLES_BY_DIRECTION_SERVER.gov[server.id],
+    color: DIRECTION_META.gov.color,
+    group: `Гос. — ${server.label}`,
+  },
+  {
+    value: DEPUTY_ROLES_BY_DIRECTION_SERVER.gov[server.id],
+    color: DIRECTION_META.gov.color,
+    group: `Гос. — ${server.label}`,
+  },
+])
+
 const ROLES = [
   { value: 'Игрок', color: '#6b7280', group: 'Роли' },
   ...LEADER_ROLES,
   { value: 'Следящий', color: '#8b5cf6', group: 'Роли' },
   ...LEADERSHIP_ROLES,
+  ...SERVER_LEADERSHIP_ROLES,
   { value: 'Заместитель Главного Следящего', color: '#f59e0b', group: 'Роли (устаревшие)' },
   { value: 'Главный Следящий', color: '#f59e0b', group: 'Роли (устаревшие)' },
   { value: 'Разработчик', color: '#22c55e', group: 'Роли' },
