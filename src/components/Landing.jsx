@@ -367,6 +367,8 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
   const [step, setStep] = useState('hero')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
+  const [twoFactorCode, setTwoFactorCode] = useState('')
+  const [requires2FA, setRequires2FA] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -390,10 +392,24 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
-  const openModal = (initial = 'hero') => { setStep(initial); setShowModal(true); setTimeout(() => setModalVisible(true), 10) }
+  const openModal = (initial = 'hero') => { 
+    setStep(initial); 
+    setShowModal(true); 
+    setRequires2FA(false);
+    setTwoFactorCode('');
+    setTimeout(() => setModalVisible(true), 10) 
+  }
   const closeModal = () => {
     setModalVisible(false)
-    setTimeout(() => { setShowModal(false); setStep('hero'); setError(''); setLogin(''); setPassword('') }, 320)
+    setTimeout(() => { 
+      setShowModal(false); 
+      setStep('hero'); 
+      setError(''); 
+      setLogin(''); 
+      setPassword(''); 
+      setTwoFactorCode('');
+      setRequires2FA(false);
+    }, 320)
   }
 
   const handleRegister = async () => {
@@ -450,6 +466,16 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
     }
   }
 
+  const getDeviceId = () => {
+    let id = localStorage.getItem('statecore_device_id')
+    if (!id) {
+      id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
+      localStorage.setItem('statecore_device_id', id)
+    }
+    return id
+  }
+  const [tempToken, setTempToken] = useState('')
+
   const handleLogin = async () => {
     if (!login.trim() || !password.trim()) {
       setError('Заполните все поля')
@@ -458,40 +484,77 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
 
     setLoading(true)
     setError('')
+
     try {
-      const normalize = s => (s || '').trim().replace(/\/+$/, '').toLowerCase()
-      const l = normalize(login)
-      const response = await loginUser({ login: l, password })
-      const found = response.user
-      const userData = {
-        id: found.id,
-        login: found.login || found.vk || found.forum,
-        nickname: found.nickname || found.login || found.vk || found.forum,
-        roleName: found.roleName || 'Игрок',
-        role: found.role || 'player',
-        avatar: found.avatar || '',
-        vk: found.vk || '',
-        forum: found.forum || '',
-        registeredAt: found.registeredAt || null,
-      }
-      if (remember) {
-        upsertUser(userData)
-        setSession(userData)
-        if (response.token) {
-          localStorage.setItem('statecore_token', response.token)
+      const deviceId = getDeviceId()
+
+      // 1. Если 2FA уже затребован — отправляем 6-значный код
+      if (requires2FA) {
+        if (!twoFactorCode.trim()) {
+          setError('Введите код двухфакторной аутентификации')
+          setLoading(false)
+          return
         }
-      } else {
-        localStorage.removeItem('sc_user')
-        localStorage.removeItem('statecore_token')
+
+        const response = await verify2FALogin({
+          tempToken,
+          code: twoFactorCode.trim(),
+          deviceId
+        })
+
+        finishAuth(response)
+        return
       }
-      setSuccess(true)
-      setTimeout(() => { onLogin && onLogin(userData) }, 700)
+
+      // 2. Обычная попытка входа
+      const normalize = s => (s || '').trim().replace(/\/+$/, '').toLowerCase()
+      const response = await loginUser({ 
+        login: normalize(login), 
+        password, 
+        deviceId 
+      })
+
+      // Если бэкенд просит 2FA (новое устройство)
+      if (response.requires2FA) {
+        setRequires2FA(true)
+        setTempToken(response.tempToken)
+        setLoading(false)
+        return
+      }
+
+      // Вход без 2FA (устройство уже было доверенным)
+      finishAuth(response)
     } catch (err) {
       console.error(err)
-      setError('Ошибка при проверке учётных данных')
+      setError(err.message || 'Ошибка при входе')
     } finally {
       setLoading(false)
     }
+  }
+
+  const finishAuth = (response) => {
+    const found = response.user
+    const userData = {
+      id: found.id,
+      login: found.login,
+      nickname: found.nickname,
+      roleName: found.roleName || 'Игрок',
+      avatar: found.avatar || '',
+      vk: found.vk || '',
+      forum: found.forum || '',
+      registeredAt: found.registeredAt || null,
+    }
+
+    if (remember) {
+      upsertUser(userData)
+      setSession(userData)
+      if (response.token) {
+        localStorage.setItem('statecore_token', response.token)
+      }
+    }
+
+    setSuccess(true)
+    setTimeout(() => { onLogin && onLogin(userData) }, 700)
   }
 
   const features = [
@@ -1180,7 +1243,16 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
             {step === 'login' && !success && (
               <div style={{ animation:'land-scaleIn .28s ease both' }}>
                 <button
-                  onClick={() => { setStep('hero'); setError('') }}
+                  onClick={() => {
+                    if (requires2FA) {
+                      setRequires2FA(false)
+                      setTwoFactorCode('')
+                      setError('')
+                    } else {
+                      setStep('hero')
+                      setError('')
+                    }
+                  }}
                   style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', color:T.ink2, fontSize:12, cursor:'pointer', marginBottom:22, padding:0, transition:'color .15s' }}
                   onMouseEnter={e => e.currentTarget.style.color=T.ink}
                   onMouseLeave={e => e.currentTarget.style.color=T.ink2}
@@ -1191,31 +1263,57 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
                   <div style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:10.5, color:T.primarySoft, letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:8, fontWeight:700 }}>
                     {IC.shield(14)} Следящая Администрация
                   </div>
-                  <h2 style={{ margin:0, fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:800, letterSpacing:'-0.4px' }}>Вход в систему</h2>
-                  <p style={{ margin:'6px 0 0', fontSize:13, color:T.ink2 }}>Введите данные, выданные Главным Следящим</p>
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
-                  <div style={{ position:'relative' }}>
-                    <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,.32)', pointerEvents:'none', display:'flex' }}>{IC.at(13)}</span>
-                    <input type="text" className="land-input" placeholder="Логин (до 10 символов)" value={login} maxLength={10} onChange={e => { setLogin(e.target.value); setError('') }} onKeyDown={e => e.key === 'Enter' && handleLogin()} autoFocus style={{ width:'100%', background:'rgba(255,255,255,.06)', border:`1px solid ${error ? hexToRgba(T.red,.5) : T.glassBorder}`, color:T.ink, padding:'13px 14px 13px 38px', borderRadius:14, fontSize:14, fontFamily:'inherit' }}/>
-                  </div>
-                  <div style={{ position:'relative' }}>
-                    <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,.32)', pointerEvents:'none', display:'flex' }}>{IC.lock(13)}</span>
-                    <input type="password" className="land-input" placeholder="Пароль" value={password} onChange={e => { setPassword(e.target.value); setError('') }} onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ width:'100%', background:'rgba(255,255,255,.06)', border:`1px solid ${error ? hexToRgba(T.red,.5) : T.glassBorder}`, color:T.ink, padding:'13px 14px 13px 38px', borderRadius:14, fontSize:14, fontFamily:'inherit' }}/>
-                  </div>
+                  <h2 style={{ margin:0, fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:800, letterSpacing:'-0.4px' }}>
+                    {requires2FA ? 'Подтверждение 2FA' : 'Вход в систему'}
+                  </h2>
+                  <p style={{ margin:'6px 0 0', fontSize:13, color:T.ink2 }}>
+                    {requires2FA ? 'Введите 6-значный код из Google Authenticator' : 'Введите данные, выданные Главным Следящим'}
+                  </p>
                 </div>
 
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none', marginBottom:4, padding:'2px 0' }} onClick={() => setRemember(r => !r)}>
-                  <span style={{ fontSize:13.5, color:T.ink2 }}>Запомнить меня</span>
-                  <div style={{
-                    width:44, height:26, borderRadius:999, flexShrink:0, padding:2,
-                    background: remember ? T.green : 'rgba(255,255,255,.14)',
-                    transition:'background .2s ease', display:'flex', alignItems:'center',
-                    justifyContent: remember ? 'flex-end' : 'flex-start',
-                  }}>
-                    <div style={{ width:22, height:22, borderRadius:'50%', background:'#fff', boxShadow:'0 2px 6px rgba(0,0,0,.3)', transition:'all .2s cubic-bezier(.2,.8,.2,1)' }}/>
+                {!requires2FA ? (
+                  <>
+                    <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
+                      <div style={{ position:'relative' }}>
+                        <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,.32)', pointerEvents:'none', display:'flex' }}>{IC.at(13)}</span>
+                        <input type="text" className="land-input" placeholder="Логин (до 10 символов)" value={login} maxLength={10} onChange={e => { setLogin(e.target.value); setError('') }} onKeyDown={e => e.key === 'Enter' && handleLogin()} autoFocus style={{ width:'100%', background:'rgba(255,255,255,.06)', border:`1px solid ${error ? hexToRgba(T.red,.5) : T.glassBorder}`, color:T.ink, padding:'13px 14px 13px 38px', borderRadius:14, fontSize:14, fontFamily:'inherit' }}/>
+                      </div>
+                      <div style={{ position:'relative' }}>
+                        <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,.32)', pointerEvents:'none', display:'flex' }}>{IC.lock(13)}</span>
+                        <input type="password" className="land-input" placeholder="Пароль" value={password} onChange={e => { setPassword(e.target.value); setError('') }} onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ width:'100%', background:'rgba(255,255,255,.06)', border:`1px solid ${error ? hexToRgba(T.red,.5) : T.glassBorder}`, color:T.ink, padding:'13px 14px 13px 38px', borderRadius:14, fontSize:14, fontFamily:'inherit' }}/>
+                      </div>
+                    </div>
+
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none', marginBottom:4, padding:'2px 0' }} onClick={() => setRemember(r => !r)}>
+                      <span style={{ fontSize:13.5, color:T.ink2 }}>Запомнить меня</span>
+                      <div style={{
+                        width:44, height:26, borderRadius:999, flexShrink:0, padding:2,
+                        background: remember ? T.green : 'rgba(255,255,255,.14)',
+                        transition:'background .2s ease', display:'flex', alignItems:'center',
+                        justifyContent: remember ? 'flex-end' : 'flex-start',
+                      }}>
+                        <div style={{ width:22, height:22, borderRadius:'50%', background:'#fff', boxShadow:'0 2px 6px rgba(0,0,0,.3)', transition:'all .2s cubic-bezier(.2,.8,.2,1)' }}/>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
+                    <div style={{ position:'relative' }}>
+                      <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,.32)', pointerEvents:'none', display:'flex' }}>{IC.lock(13)}</span>
+                      <input 
+                        type="text" 
+                        className="land-input" 
+                        placeholder="Код 2FA (6 цифр)" 
+                        value={twoFactorCode} 
+                        maxLength={6}
+                        onChange={e => { setTwoFactorCode(e.target.value.replace(/\D/g, '')); setError('') }} 
+                        onKeyDown={e => e.key === 'Enter' && handleLogin()} 
+                        autoFocus 
+                        style={{ width:'100%', background:'rgba(255,255,255,.06)', border:`1px solid ${error ? hexToRgba(T.red,.5) : T.glassBorder}`, color:T.ink, padding:'13px 14px 13px 38px', borderRadius:14, fontSize:16, fontFamily:FONT_MONO, letterSpacing:'2px', textAlign:'center' }}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {error && (
                   <div style={{ display:'flex', alignItems:'center', gap:8, background:hexToRgba(T.red,.1), border:`1px solid ${hexToRgba(T.red,.3)}`, borderRadius:12, padding:'10px 13px', marginTop:14, marginBottom:6, fontSize:12, color:T.red, animation:'land-fadeUp .2s ease both' }}>
@@ -1231,7 +1329,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
                   {loading ? (
                     <><div style={{ width:16, height:16, border:'2px solid rgba(255,255,255,.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'land-spin .7s linear infinite' }}/> Проверка…</>
                   ) : (
-                    <> Войти {IC.arrow(16)} </>
+                    <> {requires2FA ? 'Подтвердить' : 'Войти'} {IC.arrow(16)} </>
                   )}
                 </Pill>
                 <p style={{ textAlign:'center', marginTop:16, fontSize:11, color:T.ink3 }}>

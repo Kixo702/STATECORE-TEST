@@ -29,6 +29,11 @@ export async function loginUser(payload) {
   return api('/login', { method: 'POST', body: JSON.stringify(payload) })
 }
 
+export async function verify2FALogin(payload) {
+  // payload содержит { tempToken, code, deviceId }
+  return api('/login/2fa', { method: 'POST', body: JSON.stringify(payload) })
+}
+
 // Users
 export async function getUsers() {
   const data = await api('/users')

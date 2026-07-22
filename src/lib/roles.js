@@ -6,7 +6,8 @@ const ROLE_FULL = 'Главный Разработчик'
 const ROLE_CHIEF = 'Главный Следящий'
 const ROLE_DEPUTY = 'Заместитель Главного Следящего'
 
-// Новые роли ГС/ЗГС, разбитые по направлениям.
+// Старые роли ГС/ЗГС без разбивки по серверам (переходный период до полного
+// переноса всех пользователей на серверные роли). Трактуются как "любой сервер".
 const ROLE_CHIEF_GOV = 'ГС Гос.'
 const ROLE_CHIEF_MAFIA = 'ГС Мафий'
 const ROLE_CHIEF_GHETTO = 'ГС Гетто'
@@ -23,7 +24,7 @@ const ROLE_WATCHER = 'Следящий'
 const ROLE_PLAYER = 'Игрок'
 const LEADER_PREFIX = 'Лидер'
 
-// direction ('gov' | 'mafia' | 'ghetto' | 'bo' | 'bikers') -> roleName
+// direction ('gov' | 'mafia' | 'ghetto' | 'bo' | 'bikers') -> "безсерверная" roleName (legacy)
 export const CHIEF_ROLES_BY_DIRECTION = {
   gov: ROLE_CHIEF_GOV,
   mafia: ROLE_CHIEF_MAFIA,
@@ -40,11 +41,62 @@ export const DEPUTY_ROLES_BY_DIRECTION = {
   bikers: ROLE_DEPUTY_BIKERS,
 }
 
-// Плоский список всех ГС/ЗГС ролей — удобно для выпадающих списков в UI
-export const STAFF_LEADERSHIP_ROLES = [
-  ...Object.entries(CHIEF_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({ kind: 'chief', direction, roleName })),
-  ...Object.entries(DEPUTY_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({ kind: 'deputy', direction, roleName })),
+// direction -> "именительный" суффикс (для сборки roleName)
+const DIRECTION_LABEL = {
+  gov: 'Гос.',
+  mafia: 'Мафий',
+  ghetto: 'Гетто',
+  bo: 'БО',
+  bikers: 'Байкеров',
+}
+
+// Сервера. genitive — форма для названия роли ("ГС Гос. <genitive>")
+export const SERVERS = [
+  { id: 'texas', label: 'Texas', genitive: 'Техаса' },
+  { id: 'florida', label: 'Florida', genitive: 'Флориды' },
+  { id: 'nevada', label: 'Nevada', genitive: 'Невады' },
+  { id: 'hawaii', label: 'Hawaii', genitive: 'Гавайев' },
+  { id: 'indiana', label: 'Indiana', genitive: 'Индианы' },
 ]
+
+export function getServerById(serverId) {
+  return SERVERS.find((s) => s.id === serverId) || null
+}
+
+function buildServerRoleName(prefix, direction, serverId) {
+  const server = getServerById(serverId)
+  if (!server) return null
+  return `${prefix} ${DIRECTION_LABEL[direction]} ${server.genitive}`
+}
+
+// CHIEF_ROLES_BY_DIRECTION_SERVER.gov.texas -> "ГС Гос. Техаса"
+export const CHIEF_ROLES_BY_DIRECTION_SERVER = {}
+export const DEPUTY_ROLES_BY_DIRECTION_SERVER = {}
+
+for (const direction of Object.keys(DIRECTION_LABEL)) {
+  CHIEF_ROLES_BY_DIRECTION_SERVER[direction] = {}
+  DEPUTY_ROLES_BY_DIRECTION_SERVER[direction] = {}
+  for (const server of SERVERS) {
+    CHIEF_ROLES_BY_DIRECTION_SERVER[direction][server.id] = buildServerRoleName('ГС', direction, server.id)
+    DEPUTY_ROLES_BY_DIRECTION_SERVER[direction][server.id] = buildServerRoleName('ЗГС', direction, server.id)
+  }
+}
+
+// Плоский список всех ГС/ЗГС ролей (с серверами) — удобно для выпадающих списков в UI
+export const STAFF_LEADERSHIP_ROLES = Object.keys(DIRECTION_LABEL).flatMap((direction) => [
+  ...SERVERS.map((server) => ({
+    kind: 'chief',
+    direction,
+    server: server.id,
+    roleName: CHIEF_ROLES_BY_DIRECTION_SERVER[direction][server.id],
+  })),
+  ...SERVERS.map((server) => ({
+    kind: 'deputy',
+    direction,
+    server: server.id,
+    roleName: DEPUTY_ROLES_BY_DIRECTION_SERVER[direction][server.id],
+  })),
+])
 
 // Все фракции сервера, сгруппированные по типу.
 // label используется как суффикс роли лидера: `${LEADER_PREFIX} ${label}`
@@ -121,33 +173,62 @@ function _roleName(user) {
   return rn.trim()
 }
 
+// Разобрать roleName на { kind: 'chief'|'deputy', direction, server } либо null.
+// Понимает и новые серверные роли, и старые безсерверные/докатегорийные.
+function parseLeadershipRole(rn) {
+  if (rn === ROLE_CHIEF) return { kind: 'chief', direction: 'gov', server: null }
+  if (rn === ROLE_DEPUTY) return { kind: 'deputy', direction: 'gov', server: null }
+
+  for (const [direction, roleName] of Object.entries(CHIEF_ROLES_BY_DIRECTION)) {
+    if (roleName === rn) return { kind: 'chief', direction, server: null }
+  }
+  for (const [direction, roleName] of Object.entries(DEPUTY_ROLES_BY_DIRECTION)) {
+    if (roleName === rn) return { kind: 'deputy', direction, server: null }
+  }
+
+  for (const [direction, byServer] of Object.entries(CHIEF_ROLES_BY_DIRECTION_SERVER)) {
+    for (const [serverId, roleName] of Object.entries(byServer)) {
+      if (roleName === rn) return { kind: 'chief', direction, server: serverId }
+    }
+  }
+  for (const [direction, byServer] of Object.entries(DEPUTY_ROLES_BY_DIRECTION_SERVER)) {
+    for (const [serverId, roleName] of Object.entries(byServer)) {
+      if (roleName === rn) return { kind: 'deputy', direction, server: serverId }
+    }
+  }
+
+  return null
+}
+
 // Permissions matrix (derivable from role)
 export function isFullAccess(user) {
   return _roleName(user) === ROLE_FULL
 }
 
-// true для любого ГС — и старой докатегорийной роли, и новых "ГС <направление>"
+// true для любого ГС — серверного, безсерверного (legacy) и докатегорийного
 export function isChief(user) {
-  const rn = _roleName(user)
-  return rn === ROLE_CHIEF || Object.values(CHIEF_ROLES_BY_DIRECTION).includes(rn)
+  const parsed = parseLeadershipRole(_roleName(user))
+  return !!parsed && parsed.kind === 'chief'
 }
 
-// true для любого ЗГС — и старой докатегорийной роли, и новых "ЗГС <направление>"
+// true для любого ЗГС — серверного, безсерверного (legacy) и докатегорийного
 export function isDeputy(user) {
-  const rn = _roleName(user)
-  return rn === ROLE_DEPUTY || Object.values(DEPUTY_ROLES_BY_DIRECTION).includes(rn)
+  const parsed = parseLeadershipRole(_roleName(user))
+  return !!parsed && parsed.kind === 'deputy'
 }
 
 // Направление конкретного ГС/ЗГС ('gov' | 'mafia' | 'ghetto' | 'bo' | 'bikers'),
-// либо null, если это не ГС/ЗГС. Старые докатегорийные роли считаются "gov".
+// либо null, если это не ГС/ЗГС.
 export function getLeadershipDirection(user) {
-  const rn = _roleName(user)
-  if (rn === ROLE_CHIEF || rn === ROLE_DEPUTY) return 'gov'
-  const chiefEntry = Object.entries(CHIEF_ROLES_BY_DIRECTION).find(([, name]) => name === rn)
-  if (chiefEntry) return chiefEntry[0]
-  const deputyEntry = Object.entries(DEPUTY_ROLES_BY_DIRECTION).find(([, name]) => name === rn)
-  if (deputyEntry) return deputyEntry[0]
-  return null
+  const parsed = parseLeadershipRole(_roleName(user))
+  return parsed ? parsed.direction : null
+}
+
+// Сервер конкретного ГС/ЗГС ('texas' | 'florida' | ...), либо null —
+// если роль безсерверная (legacy) или пользователь вообще не ГС/ЗГС.
+export function getLeadershipServer(user) {
+  const parsed = parseLeadershipRole(_roleName(user))
+  return parsed ? parsed.server : null
 }
 
 // ГС Гос. / ЗГС Гос. (а также старые докатегорийные ГС/ЗГС) — расширенный доступ
@@ -186,6 +267,21 @@ export function isLeaderOfFaction(user, faction) {
 
 export function isPlayer(user) {
   return _roleName(user) === ROLE_PLAYER
+}
+
+// Может ли user1 (ГС/ЗГС) работать с данными, относящимися к серверу targetServerId.
+// - Полный доступ / докатегорийные / безсерверные (legacy) роли — видят все сервера.
+// - Серверная роль — только свой сервер.
+// - Если targetServerId не передан (данные без привязки к серверу) — доступ разрешён.
+export function canAccessServer(user, targetServerId) {
+  if (isFullAccess(user)) return true
+  if (!targetServerId) return true
+
+  const userServer = getLeadershipServer(user)
+  if (!(isChief(user) || isDeputy(user))) return true // ограничение по серверу касается только ГС/ЗГС
+  if (!userServer) return true // legacy безсерверная роль — доступ ко всем серверам
+
+  return userServer === targetServerId
 }
 
 // action checks
@@ -268,10 +364,14 @@ export function canViewMenu(user, menuId) {
 
 export default {
   ROLE_FULL, ROLE_CHIEF, ROLE_DEPUTY, ROLE_WATCHER, ROLE_PLAYER, LEADER_PREFIX,
-  CHIEF_ROLES_BY_DIRECTION, DEPUTY_ROLES_BY_DIRECTION, STAFF_LEADERSHIP_ROLES,
+  CHIEF_ROLES_BY_DIRECTION, DEPUTY_ROLES_BY_DIRECTION,
+  CHIEF_ROLES_BY_DIRECTION_SERVER, DEPUTY_ROLES_BY_DIRECTION_SERVER,
+  SERVERS, getServerById,
+  STAFF_LEADERSHIP_ROLES,
   FACTIONS,
   getAllFactions, leaderRoleName, getAllLeaderRoles, getFactionByRoleName,
   isFullAccess, isChief, isDeputy, isWatcher, isLeader, isLeaderOfFaction, isPlayer,
-  getLeadershipDirection, isGovLeadership, isRestrictedLeadership,
+  getLeadershipDirection, getLeadershipServer, isGovLeadership, isRestrictedLeadership,
+  canAccessServer,
   canViewAll, canIssueReprimand, canRemoveLeader, canEditRoles, canReviewNickRequests, canViewMenu,
 }

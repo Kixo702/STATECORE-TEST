@@ -4,6 +4,8 @@ import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
+import { authenticator } from 'otplib'
+import qrcode from 'qrcode'
 import { db, initDatabase } from './db.js'
 
 const app = express()
@@ -45,6 +47,7 @@ function publicUser(row) {
     warnings: row.warnings || 0,
     isBanned: Boolean(row.is_banned),
     banReason: row.ban_reason || null,
+    isTotpEnabled: Boolean(row.is_totp_enabled),
     registeredAt: row.registered_at,
   }
 }
@@ -113,7 +116,7 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   try {
-    const { login, password } = req.body || {}
+    const { login, password, deviceId } = req.body || {}
 
     if (!login || !password) {
       return bad(res, 400, 'Введите логин и пароль')
@@ -136,6 +139,45 @@ app.post('/api/login', async (req, res) => {
       return bad(res, 403, 'Аккаунт заблокирован: ' + (rawUser.ban_reason || 'без причины'))
     }
 
+    // Проверка 2FA, если включен
+    if (rawUser.is_totp_enabled && rawUser.totp_secret) {
+      let isKnownDevice = false
+
+      if (deviceId) {
+        const deviceCheck = await db.query(
+          'SELECT id FROM user_devices WHERE user_id = $1 AND device_id = $2',
+          [rawUser.id, deviceId]
+        )
+        isKnownDevice = deviceCheck.rows.length > 0
+      }
+
+      // Новое устройство / браузер — запрашиваем 2FA код
+      if (!isKnownDevice) {
+        const tempToken = jwt.sign(
+          { id: rawUser.id, type: '2fa_pending' },
+          JWT_SECRET,
+          { expiresIn: '5m' }
+        )
+
+        return ok(res, {
+          requires2FA: true,
+          tempToken,
+          message: 'Требуется подтверждение Google Authenticator'
+        })
+      }
+    }
+
+    // Сохраняем текущее устройство как доверенное
+    if (deviceId) {
+      await db.query(
+        `INSERT INTO user_devices (user_id, device_id, ip_address, user_agent)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_id, device_id) 
+         DO UPDATE SET last_used_at = NOW()`,
+        [rawUser.id, deviceId, req.ip, req.headers['user-agent'] || '']
+      )
+    }
+
     const user = publicUser(rawUser)
     const token = jwt.sign({ id: user.id, login: user.login }, JWT_SECRET, { expiresIn: '7d' })
 
@@ -143,6 +185,147 @@ app.post('/api/login', async (req, res) => {
   } catch (error) {
     console.error('Ошибка входа:', error)
     return bad(res, 500, 'Ошибка при входе в систему')
+  }
+})
+
+// Верификация 2FA кода при входе с нового устройства
+app.post('/api/login/2fa', async (req, res) => {
+  try {
+    const { tempToken, code, deviceId } = req.body || {}
+
+    if (!tempToken || !code) {
+      return bad(res, 400, 'Переданы не все данные')
+    }
+
+    let payload
+    try {
+      payload = jwt.verify(tempToken, JWT_SECRET)
+    } catch (e) {
+      return bad(res, 401, 'Сессия входа истекла. Авторизуйтесь заново.')
+    }
+
+    if (payload.type !== '2fa_pending') {
+      return bad(res, 400, 'Неверный токен авторизации')
+    }
+
+    const result = await db.query('SELECT * FROM users WHERE id = $1', [payload.id])
+    const rawUser = result.rows[0]
+
+    if (!rawUser || !rawUser.totp_secret) {
+      return bad(res, 400, 'Пользователь не найден или 2FA не привязан')
+    }
+
+    const isValidCode = authenticator.check(String(code).trim(), rawUser.totp_secret)
+    if (!isValidCode) {
+      return bad(res, 400, 'Неверный код из Google Authenticator')
+    }
+
+    // Сохраняем устройство в доверенные
+    if (deviceId) {
+      await db.query(
+        `INSERT INTO user_devices (user_id, device_id, ip_address, user_agent)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_id, device_id) 
+         DO UPDATE SET last_used_at = NOW()`,
+        [rawUser.id, deviceId, req.ip, req.headers['user-agent'] || '']
+      )
+    }
+
+    const user = publicUser(rawUser)
+    const token = jwt.sign({ id: user.id, login: user.login }, JWT_SECRET, { expiresIn: '7d' })
+
+    return ok(res, { token, user })
+  } catch (error) {
+    console.error('Ошибка подтверждения 2FA:', error)
+    return bad(res, 500, 'Ошибка проверки 2FA кода')
+  }
+})
+
+/* ==========================================================================
+   2FA SETUP ENDPOINTS (Личный кабинет)
+   ========================================================================== */
+
+// 1. Генерация секретного ключа и QR-кода для настройки 2FA
+app.post('/api/2fa/setup', authenticateToken, async (req, res) => {
+  try {
+    const userRes = await db.query('SELECT login FROM users WHERE id = $1', [req.user.id])
+    if (userRes.rows.length === 0) return bad(res, 404, 'Пользователь не найден')
+
+    const secret = authenticator.generateSecret()
+    const otpauth = authenticator.keyuri(userRes.rows[0].login, 'StateCore', secret)
+    const qrCodeUrl = await qrcode.toDataURL(otpauth)
+
+    // Сохраняем временный секрет в БД
+    await db.query('UPDATE users SET totp_secret = $1 WHERE id = $2', [secret, req.user.id])
+
+    return ok(res, { secret, qrCodeUrl })
+  } catch (error) {
+    console.error('Ошибка настройки 2FA:', error)
+    return bad(res, 500, 'Не удалось сгенерировать 2FA ключ')
+  }
+})
+
+// 2. Включение 2FA (подтверждение первым кодом из приложения)
+app.post('/api/2fa/enable', authenticateToken, async (req, res) => {
+  try {
+    const { code, deviceId } = req.body || {}
+    if (!code) return bad(res, 400, 'Введите 6-значный код')
+
+    const userRes = await db.query('SELECT totp_secret FROM users WHERE id = $1', [req.user.id])
+    const rawUser = userRes.rows[0]
+
+    if (!rawUser || !rawUser.totp_secret) {
+      return bad(res, 400, 'Сначала сгенерируйте QR-код для подключения')
+    }
+
+    const isValid = authenticator.check(String(code).trim(), rawUser.totp_secret)
+    if (!isValid) {
+      return bad(res, 400, 'Неверный код. Попробуйте еще раз.')
+    }
+
+    await db.query('UPDATE users SET is_totp_enabled = TRUE WHERE id = $1', [req.user.id])
+
+    // Текущее устройство сразу запоминаем как доверенное
+    if (deviceId) {
+      await db.query(
+        `INSERT INTO user_devices (user_id, device_id, ip_address, user_agent)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_id, device_id) 
+         DO UPDATE SET last_used_at = NOW()`,
+        [req.user.id, deviceId, req.ip, req.headers['user-agent'] || '']
+      )
+    }
+
+    return ok(res, { success: true, message: 'Двухфакторная аутентификация успешно включена!' })
+  } catch (error) {
+    console.error('Ошибка активации 2FA:', error)
+    return bad(res, 500, 'Не удалось активировать 2FA')
+  }
+})
+
+// 3. Отключение 2FA
+app.post('/api/2fa/disable', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.body || {}
+    const userRes = await db.query('SELECT totp_secret, is_totp_enabled FROM users WHERE id = $1', [req.user.id])
+    const rawUser = userRes.rows[0]
+
+    if (!rawUser || !rawUser.is_totp_enabled) {
+      return bad(res, 400, '2FA не включен на этом аккаунте')
+    }
+
+    const isValid = authenticator.check(String(code).trim(), rawUser.totp_secret)
+    if (!isValid) {
+      return bad(res, 400, 'Неверный код 2FA')
+    }
+
+    await db.query('UPDATE users SET is_totp_enabled = FALSE, totp_secret = NULL WHERE id = $1', [req.user.id])
+    await db.query('DELETE FROM user_devices WHERE user_id = $1', [req.user.id])
+
+    return ok(res, { success: true, message: '2FA успешно отключен' })
+  } catch (error) {
+    console.error('Ошибка отключения 2FA:', error)
+    return bad(res, 500, 'Не удалось отключить 2FA')
   }
 })
 
@@ -217,7 +400,8 @@ app.delete('/api/users/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params
     
-    // Удаляем связи пользователя из друзей и запросов
+    // Удаляем связи пользователя из друзей, устройств и запросов
+    await db.query('DELETE FROM user_devices WHERE user_id = $1', [id])
     await db.query('DELETE FROM friends WHERE user_id = $1 OR friend_id = $1', [id])
     await db.query('DELETE FROM friend_requests WHERE from_user_id = $1 OR to_user_id = $1', [id])
     
@@ -465,8 +649,6 @@ app.post('/api/cadre-audits', authenticateToken, async (req, res) => {
       return bad(res, 400, 'Заполните обязательные поля заявки')
     }
 
-    // Имя подавшего заявку берём из его аккаунта на сервере, а не из тела запроса,
-    // чтобы нельзя было подделать поле submittedBy
     const submitterRes = await db.query('SELECT nickname, login FROM users WHERE id = $1', [req.user.id])
     const submitter = submitterRes.rows[0]
     const submittedByName = submitter?.nickname || submitter?.login || 'Лидер'
@@ -557,7 +739,7 @@ app.patch('/api/cadre-audits/:id/reject', authenticateToken, async (req, res) =>
   }
 })
 
-// Удаление заявки (например, ошибочно созданной)
+// Удаление заявки
 app.delete('/api/cadre-audits/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params

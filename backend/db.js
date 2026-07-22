@@ -27,8 +27,28 @@ export async function initDatabase() {
       warnings INTEGER NOT NULL DEFAULT 0,
       is_banned BOOLEAN NOT NULL DEFAULT FALSE,
       ban_reason TEXT NOT NULL DEFAULT '',
+      totp_secret TEXT,
+      is_totp_enabled BOOLEAN NOT NULL DEFAULT FALSE,
       registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    -- Миграция для имеющихся баз данных (если таблица users уже существовала)
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
+    CREATE TABLE IF NOT EXISTS user_devices (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      device_id TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS user_devices_lookup_idx ON user_devices (user_id, device_id);
+
     CREATE TABLE IF NOT EXISTS friend_requests (
       id TEXT PRIMARY KEY,
       from_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -73,9 +93,11 @@ export function publicUser(row) {
   if (!row) return null
   const {
     password_hash: _passwordHash,
+    totp_secret: _totpSecret,
     role_name: roleName,
     is_banned: isBanned,
     ban_reason: banReason,
+    is_totp_enabled: isTotpEnabled,
     registered_at: registeredAt,
     ...rest
   } = row
@@ -84,6 +106,7 @@ export function publicUser(row) {
     roleName,
     isBanned: Boolean(isBanned),
     banReason,
+    isTotpEnabled: Boolean(isTotpEnabled),
     registeredAt,
   }
 }
