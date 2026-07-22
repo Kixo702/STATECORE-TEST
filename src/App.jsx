@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { StrictMode, useState, useEffect, useCallback, useRef } from 'react'
 import { ensureUserStoreSeeded, getSession, setSession, clearSession, upsertUser, getUsers } from './lib/userStore'
-import { syncLocalUsers, getUser } from './lib/api' // <--- Добавили getUser
+import { syncLocalUsers, getUser } from './lib/api'
 
 import Landing from './components/Landing'
 import Dashboard from './components/Dashboard'
@@ -23,14 +23,9 @@ import EventPlanner from './components/EventPlanner'
 import CadreAudit from './components/CadreAudit'
 import Maintenance from './components/Maintenance'
 
-// ===== ТЕХНИЧЕСКОЕ ОБСЛУЖИВАНИЕ =====
-// Если true — ВСЕ пользователи (в т.ч. незалогиненные) видят страницу
-// технического обслуживания вместо всего остального интерфейса.
-// Чтобы снять режим — поставьте false и задеплойте.
 const MAINTENANCE_MODE = false
-// Необязательные подписи для страницы техобслуживания
-const MAINTENANCE_MESSAGE = null // напр. 'Обновляем базу данных организаций, вернёмся в течение часа.'
-const MAINTENANCE_ETA = null // напр. '~ 18:00 МСК'
+const MAINTENANCE_MESSAGE = null
+const MAINTENANCE_ETA = null
 
 const PAGE_TITLES = {
   dashboard: 'Мониторинг системы',
@@ -51,25 +46,28 @@ const PAGE_TITLES = {
 }
 
 function resolvePageFromPath(pathname) {
-  // Поддержка перенаправления через ?p= при перезагрузке
-  const searchParams = new URLSearchParams(window.location.search)
-  let cleanPath = pathname
+  try {
+    const searchParams = new URLSearchParams(window.location.search)
+    let cleanPath = pathname
 
-  if (searchParams.has('p')) {
-    cleanPath = '/' + searchParams.get('p')
-  }
+    if (searchParams.has('p')) {
+      cleanPath = '/' + searchParams.get('p')
+    }
 
-  const clean = cleanPath.replace(/\/+$/, '')
-  const base = '/STATECORE-TEST'
-  const suffix = clean.startsWith(base) ? clean.slice(base.length) : clean
-  const parts = suffix.replace(/^\//, '').split('/').filter(Boolean)
-  
-  const page = parts[0] || 'dashboard'
-  const pageNumber = parts.length > 1 ? Number(parts[1]) : 1
+    const clean = cleanPath.replace(/\/+$/, '')
+    const base = '/STATECORE-TEST'
+    const suffix = clean.startsWith(base) ? clean.slice(base.length) : clean
+    const parts = suffix.replace(/^\//, '').split('/').filter(Boolean)
+    
+    const page = parts[0] || 'dashboard'
+    const pageNumber = parts.length > 1 ? Number(parts[1]) : 1
 
-  return {
-    page: page in PAGE_TITLES ? page : 'dashboard',
-    pageNumber: Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1,
+    return {
+      page: page in PAGE_TITLES ? page : 'dashboard',
+      pageNumber: Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1,
+    }
+  } catch {
+    return { page: 'dashboard', pageNumber: 1 }
   }
 }
 
@@ -90,12 +88,17 @@ function setPath(page, pageNumber = 1, mode = 'push') {
 export default function App() {
   const initialRoute = resolvePageFromPath(window.location.pathname)
   const [user, setUser] = useState(null)
-  // 'app' — рабочая панель (сайдбар + страницы), 'landing' — лендинг StateCore
   const [view, setView] = useState('app')
   const [activePage, setActivePage] = useState(initialRoute.page)
   const [pageNumber, setPageNumber] = useState(initialRoute.pageNumber)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
+
+  // Используем Ref для актуального состояния пользователя внутри таймаутов/интервалов без ререндеров
+  const userRef = useRef(user)
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
 
   useEffect(() => {
     ensureUserStoreSeeded()
@@ -108,80 +111,83 @@ export default function App() {
     } catch {}
   }, [hydrated])
 
-  // ===== АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ РОЛИ И ПРОФИЛЯ С БЭКЕНДОМ =====
+  // ===== БЕЗОПАСНАЯ СИНХРОНИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ =====
+  const refreshUserData = useCallback(async () => {
+    const currentUser = userRef.current
+    if (!currentUser?.id) return
+
+    try {
+      const serverUser = await getUser(currentUser.id)
+      if (!serverUser) return
+
+      const isChanged =
+        serverUser.role !== currentUser.role ||
+        serverUser.roleName !== currentUser.roleName ||
+        serverUser.isBanned !== currentUser.isBanned ||
+        serverUser.warnings !== currentUser.warnings
+
+      if (isChanged) {
+        const updatedUser = { ...currentUser, ...serverUser }
+        setUser(updatedUser)
+        setSession(updatedUser)
+        upsertUser(updatedUser)
+      }
+    } catch (err) {
+      console.warn('Ошибка синхронизации с бэкендом:', err)
+    }
+  }, [])
+
   useEffect(() => {
     if (!user?.id) return
 
-    const refreshUserData = async () => {
-      try {
-        const serverUser = await getUser(user.id)
-        if (!serverUser) return
-
-        // Если роли, названия ролей, статусы бана или кол-во выговоров не совпадают — обновляем клиентский стейт и сессию
-        const isChanged =
-          serverUser.role !== user.role ||
-          serverUser.roleName !== user.roleName ||
-          serverUser.isBanned !== user.isBanned ||
-          serverUser.warnings !== user.warnings
-
-        if (isChanged) {
-          const updatedUser = { ...user, ...serverUser }
-          setUser(updatedUser)
-          setSession(updatedUser)
-          upsertUser(updatedUser)
-        }
-      } catch (err) {
-        // Раньше ошибка тихо проглатывалась и было невозможно понять,
-        // почему синхронизация не работает — теперь она хотя бы видна в консоли
-        console.warn('Не удалось обновить данные пользователя с бэкенда:', err)
-      }
-    }
-
-    // Проверяем сразу при заходе/логине, не дожидаясь первого тика интервала
     refreshUserData()
 
-    // Проверяем актуальность данных раз в 5 секунд
     const interval = setInterval(refreshUserData, 5000)
-    // А также моментально проверяем при возвращении пользователя на вкладку браузера
-    window.addEventListener('focus', refreshUserData)
-    // На мобильных при сворачивании/переключении вкладок 'focus' срабатывает не всегда — подстрахуемся
-    document.addEventListener('visibilitychange', refreshUserData)
+    const handleFocus = () => refreshUserData()
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleFocus)
 
     return () => {
       clearInterval(interval)
-      window.removeEventListener('focus', refreshUserData)
-      document.removeEventListener('visibilitychange', refreshUserData)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleFocus)
     }
-  }, [user?.id, user?.role, user?.roleName, user?.isBanned, user?.warnings])
+  }, [user?.id, refreshUserData])
 
+  // ===== ИНИЦИАЛИЗАЦИЯ И ВОССТАНОВЛЕНИЕ СЕССИИ =====
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
 
-    if (code) {
-      const genUid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2,8))
-      const nextUser = {
-        id: genUid(),
-        name: 'VK User',
-        login: 'vkuser',
-        nickname: 'VK User',
-        vk: code,
-        registeredAt: new Date().toISOString(),
-      }
+      if (code) {
+        const genUid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2,8))
+        const nextUser = {
+          id: genUid(),
+          name: 'VK User',
+          login: 'vkuser',
+          nickname: 'VK User',
+          vk: code,
+          registeredAt: new Date().toISOString(),
+        }
 
-      upsertUser(nextUser)
-      setSession(nextUser)
-      setUser(nextUser)
-      window.history.replaceState({}, document.title, window.location.pathname)
-    } else {
-      const saved = getSession()
-      if (saved) {
-        setUser(saved)
-        upsertUser(saved)
+        upsertUser(nextUser)
+        setSession(nextUser)
+        setUser(nextUser)
+        window.history.replaceState({}, document.title, window.location.pathname)
+      } else {
+        const saved = getSession()
+        if (saved && saved.id) {
+          setUser(saved)
+          upsertUser(saved)
+        }
       }
+    } catch (err) {
+      console.error('Ошибка гидратации сессии:', err)
+    } finally {
+      setHydrated(true)
     }
-
-    setHydrated(true)
   }, [])
 
   useEffect(() => {
@@ -219,13 +225,28 @@ export default function App() {
   }
 
   if (!user) {
-    return <Landing onLogin={(nextUser) => { setUser(nextUser); setSession(nextUser); setView('app'); setPath('dashboard', 1, 'replace') }} currentUser={null} onLogout={null} />
+    return (
+      <Landing
+        onLogin={(nextUser) => {
+          setUser(nextUser)
+          setSession(nextUser)
+          setView('app')
+          setPath('dashboard', 1, 'replace')
+        }}
+        currentUser={null}
+        onLogout={null}
+      />
+    )
   }
 
   if (view === 'landing') {
     return (
       <Landing
-        onLogin={(nextUser) => { setUser(nextUser); setSession(nextUser); setView('app') }}
+        onLogin={(nextUser) => {
+          setUser(nextUser)
+          setSession(nextUser)
+          setView('app')
+        }}
         currentUser={user}
         onLogout={handleLogout}
         onOpenApp={() => setView('app')}
