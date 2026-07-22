@@ -7,19 +7,18 @@ import { v4 as uuid } from 'uuid'
 import qrcode from 'qrcode'
 import { db, initDatabase } from './db.js'
 
-// Импортируем createRequire для безопасной загрузки CommonJS пакетов в ESM
-import { createRequire } from 'module'
-const require = createRequire(import.meta.url)
-const otplibPkg = require('otplib')
-// В разных сборках otplib нужный объект лежит либо в корне модуля,
-// либо под .default (интероп CJS/ESM) — поддерживаем оба варианта,
-// чтобы не падать молча в рантайме при каждом запросе на 2FA.
-const authenticator = otplibPkg.authenticator || otplibPkg.default?.authenticator
+// otplib v13+ заменил старый объект `authenticator` (v11/v12 API) на
+// набор именованных функций верхнего уровня. Используем новый
+// функциональный API напрямую — он же теперь единственный экспорт пакета.
+import { generateSecret, generateURI, verify as verifyOtp } from 'otplib'
 
-if (!authenticator || typeof authenticator.check !== 'function') {
-  throw new Error(
-    '[StateCore API] Не удалось загрузить otplib.authenticator — проверьте версию пакета "otplib" в package.json/node_modules'
-  )
+// Небольшая обёртка под старое имя/сигнатуру authenticator.check(token, secret),
+// чтобы не переписывать логику проверки кода в каждом обработчике ниже.
+// verify() в v13 асинхронный, поэтому check тоже асинхронный — вызовы
+// ниже используют await.
+async function checkOtp(token, secret) {
+  const result = await verifyOtp({ secret, token })
+  return result.valid
 }
 
 const app = express()
@@ -252,7 +251,7 @@ app.post('/api/login/2fa', async (req, res) => {
       return bad(res, 400, 'Пользователь не найден или 2FA не привязан')
     }
 
-    const isValidCode = authenticator.check(String(code).trim(), rawUser.totp_secret)
+    const isValidCode = await checkOtp(String(code).trim(), rawUser.totp_secret)
     if (!isValidCode) {
       return bad(res, 400, 'Неверный код из Google Authenticator')
     }
@@ -295,8 +294,12 @@ app.post('/api/2fa/setup', authenticateToken, async (req, res) => {
     const userRes = await db.query('SELECT login FROM users WHERE id = $1', [req.user.id])
     if (userRes.rows.length === 0) return bad(res, 404, 'Пользователь не найден')
 
-    const secret = authenticator.generateSecret()
-    const otpauth = authenticator.keyuri(userRes.rows[0].login, 'StateCore', secret)
+    const secret = generateSecret()
+    const otpauth = generateURI({
+      issuer: 'StateCore',
+      label: userRes.rows[0].login,
+      secret,
+    })
     const qrCodeUrl = await qrcode.toDataURL(otpauth)
 
     // Сохраняем временный секрет в БД
@@ -322,7 +325,7 @@ app.post('/api/2fa/enable', authenticateToken, async (req, res) => {
       return bad(res, 400, 'Сначала сгенерируйте QR-код для подключения')
     }
 
-    const isValid = authenticator.check(String(code).trim(), rawUser.totp_secret)
+    const isValid = await checkOtp(String(code).trim(), rawUser.totp_secret)
     if (!isValid) {
       return bad(res, 400, 'Неверный код. Попробуйте еще раз.')
     }
@@ -358,7 +361,7 @@ app.post('/api/2fa/disable', authenticateToken, async (req, res) => {
       return bad(res, 400, '2FA не включен на этом аккаунте')
     }
 
-    const isValid = authenticator.check(String(code).trim(), rawUser.totp_secret)
+    const isValid = await checkOtp(String(code).trim(), rawUser.totp_secret)
     if (!isValid) {
       return bad(res, 400, 'Неверный код 2FA')
     }
