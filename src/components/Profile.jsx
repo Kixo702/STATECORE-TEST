@@ -43,7 +43,6 @@ async function verifyTOTP(secret, token) {
     const timeStep = 30
     const counter = Math.floor(epoch / timeStep)
 
-    // Проверяем текущее окно, предыдущее и следующее (допуск ±30 сек)
     for (let errorWindow = -1; errorWindow <= 1; errorWindow++) {
       const currentCounter = counter + errorWindow
       const buffer = new ArrayBuffer(8)
@@ -171,6 +170,16 @@ const T = {
   successSoft: 'rgba(63,183,135,0.12)',
 }
 
+// ── Определение цвета ролей с поддержкой префиксов (Лидер LSPD, ГС Гос. и т.д.) ──
+function getRoleColor(roleName = '') {
+  if (roleName === 'Главный Разработчик') return T.danger
+  if (roleName.startsWith('ГС') || roleName.startsWith('Главный Следящий')) return T.warn
+  if (roleName.startsWith('ЗГС') || roleName.startsWith('Заместитель Главного Следящего')) return T.warn
+  if (roleName.startsWith('Следящий')) return '#8b93f0'
+  if (roleName.startsWith('Лидер')) return T.success
+  return T.accent
+}
+
 export default function Profile({ user, onUpdate }) {
   const u = user || (() => {
     try { return JSON.parse(localStorage.getItem('sc_user')) } catch { return null }
@@ -207,6 +216,11 @@ export default function Profile({ user, onUpdate }) {
   const [avatarError, setAvatarError] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileInputRef = useRef(null)
+
+  // Синхронизируем локальный аву, если обновился пропс user
+  useEffect(() => {
+    setAvatarUrl(data.avatar)
+  }, [data.avatar])
 
   const [pendingReq, setPendingReq] = useState(() => getPendingNickRequestForUser(data.id))
 
@@ -261,13 +275,17 @@ export default function Profile({ user, onUpdate }) {
     setAvatarUploading(true)
     try {
       const dataUrl = await fileToAvatarDataUrl(file)
+
+      // 1. Обновляем локальный state
       setAvatarUrl(dataUrl)
 
+      // 2. Обновляем sc_user в localStorage
       let stored = {}
       try { stored = JSON.parse(localStorage.getItem('sc_user') || '{}') } catch { stored = {} }
       stored.avatar = dataUrl
       localStorage.setItem('sc_user', JSON.stringify(stored))
 
+      // 3. Обновляем базу юзеров и сессию
       const users = getUsers()
       const idx = users.findIndex(x => x.id === data.id)
       if (idx !== -1) {
@@ -280,8 +298,9 @@ export default function Profile({ user, onUpdate }) {
       }
 
       pushLog('Обновлена аватарка профиля')
+
+      // 4. Уведомляем родительский компонент без перезагрузки страницы
       onUpdate && onUpdate({ ...stored, avatar: dataUrl })
-      window.setTimeout(() => window.location.reload(), 250)
     } catch (err) {
       setAvatarError(err.message || 'Не удалось загрузить изображение')
     } finally {
@@ -305,7 +324,6 @@ export default function Profile({ user, onUpdate }) {
         })
         setPendingReq(req)
         pushLog(`Отправлена заявка на смену никнейма: «${data.nickname}» → «${trimmed}»`)
-        window.setTimeout(() => window.location.reload(), 250)
       } catch (e) { console.error(e) }
       setEditingNick(false)
       setNickSaving(false)
@@ -338,7 +356,6 @@ export default function Profile({ user, onUpdate }) {
       return
     }
 
-    // Сохранение привязаной 2FA в localStorage и сессии
     let stored = {}
     try { stored = JSON.parse(localStorage.getItem('sc_user') || '{}') } catch {}
     stored.twoFactorSecret = tempSecret
@@ -417,7 +434,6 @@ export default function Profile({ user, onUpdate }) {
         })
         saveUsers(users)
         pushLog('Добавлен в базу пользователей')
-        window.setTimeout(() => window.location.reload(), 250)
       }
       setShowAddSharedModal(false)
     } finally { setAddingShared(false) }
@@ -429,15 +445,7 @@ export default function Profile({ user, onUpdate }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const roleColor = {
-    'Главный Разработчик': T.danger,
-    'Главный Следящий': T.warn,
-    'Заместитель Главного Следящего': T.warn,
-    'Следящий': '#8b93f0',
-    'Лидер': '#3fb787',
-    'Игрок': T.accent,
-  }[data.role] || T.accent
-
+  const roleColor = getRoleColor(data.role)
   const otpAuthUrl = `otpauth://totp/StateCore:${encodeURIComponent(data.login)}?secret=${tempSecret}&issuer=StateCore`
 
   return (
@@ -513,6 +521,11 @@ export default function Profile({ user, onUpdate }) {
           display: inline-flex; align-items: center; gap: 5px;
           font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
           background: ${T.warnSoft}; color: ${T.warn}; border: 1px solid ${T.warn}40;
+        }
+        .role-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;
+          background: var(--rc-soft); color: var(--rc); border: 1px solid var(--rc-border);
         }
       `}</style>
 
@@ -603,9 +616,20 @@ export default function Profile({ user, onUpdate }) {
                         <span className="badge-pending"><IconHourglass /> На рассмотрении: «{pendingReq.requestedNickname}»</span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '7px', fontSize: '12px', fontWeight: 700, color: roleColor }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: roleColor }} />
-                      {data.role}
+                    
+                    {/* Динамический бейдж роли */}
+                    <div style={{ marginTop: '8px' }}>
+                      <div 
+                        className="role-badge" 
+                        style={{
+                          '--rc': roleColor,
+                          '--rc-soft': `${roleColor}18`,
+                          '--rc-border': `${roleColor}40`,
+                        }}
+                      >
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: roleColor }} />
+                        {data.role}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -754,14 +778,12 @@ export default function Profile({ user, onUpdate }) {
                 Отсканируйте QR-код в приложении Google Authenticator на телефоне и введите сгенерированный 6-значный код.
               </div>
 
-              {/* QR-код */}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
                 <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', display: 'inline-block' }}>
                   <QRCodeSVG value={otpAuthUrl} size={160} />
                 </div>
               </div>
 
-              {/* Текстовый секрет для ручного ввода */}
               <div style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${T.borderSoft}`, borderRadius: '8px', padding: '10px', marginBottom: '20px', textAlign: 'center' }}>
                 <div style={{ fontSize: '10.5px', color: T.faint, textTransform: 'uppercase', marginBottom: '4px', fontWeight: 600 }}>Ключ для ручного ввода</div>
                 <div style={{ fontFamily: 'monospace', fontSize: '14px', letterSpacing: '2px', color: T.accent, fontWeight: 700, userSelect: 'all' }}>
@@ -769,7 +791,6 @@ export default function Profile({ user, onUpdate }) {
                 </div>
               </div>
 
-              {/* Поле для ввода проверочного кода */}
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 600, color: T.text, marginBottom: '8px' }}>Проверочный код:</div>
                 <input
