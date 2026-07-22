@@ -51,12 +51,22 @@ const PAGE_TITLES = {
 }
 
 function resolvePageFromPath(pathname) {
-  const clean = pathname.replace(/\/+$/, '')
+  // Поддержка перенаправления через ?p= при перезагрузке
+  const searchParams = new URLSearchParams(window.location.search)
+  let cleanPath = pathname
+
+  if (searchParams.has('p')) {
+    cleanPath = '/' + searchParams.get('p')
+  }
+
+  const clean = cleanPath.replace(/\/+$/, '')
   const base = '/STATECORE-TEST'
   const suffix = clean.startsWith(base) ? clean.slice(base.length) : clean
   const parts = suffix.replace(/^\//, '').split('/').filter(Boolean)
+  
   const page = parts[0] || 'dashboard'
   const pageNumber = parts.length > 1 ? Number(parts[1]) : 1
+
   return {
     page: page in PAGE_TITLES ? page : 'dashboard',
     pageNumber: Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1,
