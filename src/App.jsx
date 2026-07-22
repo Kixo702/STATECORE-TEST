@@ -127,7 +127,18 @@ export default function App() {
         serverUser.warnings !== currentUser.warnings
 
       if (isChanged) {
-        const updatedUser = { ...currentUser, ...serverUser }
+        // Мержим только те поля, которые реально отслеживаем выше (role,
+        // roleName, isBanned, warnings), а не весь объект с сервера —
+        // иначе сюда затянет и устаревший avatar с бэкенда, если он ещё
+        // не успел сохраниться (гонка с загрузкой новой аватарки), и
+        // затрёт локально только что установленную аватарку.
+        const updatedUser = {
+          ...currentUser,
+          role: serverUser.role,
+          roleName: serverUser.roleName,
+          isBanned: serverUser.isBanned,
+          warnings: serverUser.warnings,
+        }
         setUser(updatedUser)
         setSession(updatedUser)
         upsertUser(updatedUser)
