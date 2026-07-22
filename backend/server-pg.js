@@ -4,18 +4,38 @@ import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
-import otplib from 'otplib'
-
+import * as otplib from 'otplib'
 import qrcode from 'qrcode'
 import { db, initDatabase } from './db.js'
 
-const { authenticator } = otplib
+// Инициализируем authenticator из otplib для ESM
+const authenticator = otplib.authenticator || new otplib.Authenticator()
+
 const app = express()
 const PORT = process.env.PORT || 5000
 const JWT_SECRET = process.env.JWT_SECRET || 'statecore_secret_key_change_me'
 
-app.use(cors())
-app.use(express.json())
+// Увеличенный лимит для обработки больших запросов (например, аватарок в base64)
+app.use(express.json({ limit: '10mb' }))
+
+// Настройка CORS для поддержки внешних запросов и локальной разработки
+const ALLOWED_ORIGINS = (process.env.ORIGIN || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean)
+
+const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173']
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, true)
+    if (ALLOWED_ORIGINS.length === 0) return callback(null, true)
+    if (ALLOWED_ORIGINS.includes(origin) || DEV_ORIGINS.includes(origin)) {
+      return callback(null, true)
+    }
+    return callback(null, true)
+  }
+}))
 
 // Хелперы
 const ok = (res, data, status = 200) => res.status(status).json(data)
@@ -440,7 +460,7 @@ app.get('/api/friends/requests/:userId', authenticateToken, async (req, res) => 
     const { userId } = req.params
     const query = `
       SELECT fr.id, fr.from_user_id, fr.to_user_id, fr.status, fr.created_at,
-             u.username, u.nickname, u.avatar
+             u.login, u.nickname, u.avatar
       FROM friend_requests fr
       JOIN users u ON u.id = fr.from_user_id
       WHERE fr.to_user_id = $1 AND fr.status = 'pending'
@@ -457,7 +477,7 @@ app.get('/api/friends/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params
     const query = `
-      SELECT u.id, u.username, u.nickname, u.avatar, u.role, u.role_name
+      SELECT u.id, u.login, u.nickname, u.avatar, u.role_name
       FROM friends f
       JOIN users u ON u.id = f.friend_id
       WHERE f.user_id = $1
@@ -477,7 +497,7 @@ app.post('/api/friends/request', authenticateToken, async (req, res) => {
     const { toUserId, userId } = req.body || {}
     const targetId = toUserId || userId
 
-    if (!targetId || fromUserId === Number(targetId)) {
+    if (!targetId || String(fromUserId) === String(targetId)) {
       return bad(res, 400, 'Некорректный получатель')
     }
 
