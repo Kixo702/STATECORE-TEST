@@ -225,11 +225,12 @@ export function canViewMenu(user, menuId) {
 
   // ГС/ЗГС любого направления, кроме "Гос." — пока что видят только
   // мониторинг и анти-блат (faq и база знаний и так всегда видны в сайдбаре).
-  // Исключения: ГС/ЗГС БО, ГС/ЗГС мафий и ГС/ЗГС Гетто дополнительно видят
-  // свой раздел ЧС (chsgos) — остальные направления подключаются по мере готовности.
+  // Исключения: ГС/ЗГС БО, ГС/ЗГС мафий, ГС/ЗГС Гетто и ГС/ЗГС Байкеров
+  // дополнительно видят свой раздел ЧС (chsgos) — остальные направления
+  // подключаются по мере готовности.
   if (isRestrictedLeadership(user)) {
     const direction = getLeadershipDirection(user)
-    if (direction === 'bo' || direction === 'mafia' || direction === 'ghetto') {
+    if (direction === 'bo' || direction === 'mafia' || direction === 'ghetto' || direction === 'bikers') {
       return id === 'dashboard' || id === 'cadreaudit' || id === 'chsgos'
     }
     return id === 'dashboard' || id === 'cadreaudit'
