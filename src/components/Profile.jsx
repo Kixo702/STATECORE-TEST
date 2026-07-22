@@ -214,7 +214,7 @@ export default function Profile({ user, onUpdate }) {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar || data.avatar)
   const [avatarError, setAvatarError] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
-  fileInputRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   // Синхронизируем аватар напрямую при изменении user
   useEffect(() => {
