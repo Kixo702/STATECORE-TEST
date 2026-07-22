@@ -624,7 +624,7 @@ export default function Logs({ pageNumber = 1, setPageNumber = () => {} }) {
       `}</style>
 
       <div className="log-container">
-        {/* ── ФИЛЬТРЫ ПО СФЕРЕ И СЕРВЕРУ ── */}
+        {/* ── ФИЛЬТРЫ ПО СФЕРЕ ОРГАНИЗАЦИЙ И СЕРВЕРУ ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,.3)', letterSpacing: '0.5px', textTransform: 'uppercase', fontFamily: 'Onest, sans-serif', minWidth: '60px' }}>Сфера</span>
