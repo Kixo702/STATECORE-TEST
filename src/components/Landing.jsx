@@ -488,10 +488,17 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
     try {
       const deviceId = getDeviceId()
 
-      // 1. Если 2FA уже затребован — отправляем 6-значный код
+      // 1. Если 2FA затребован
       if (requires2FA) {
         if (!twoFactorCode.trim()) {
           setError('Введите код двухфакторной аутентификации')
+          setLoading(false)
+          return
+        }
+
+        if (!tempToken) {
+          setError('Сессия входа истекла. Авторизуйтесь заново.')
+          setRequires2FA(false)
           setLoading(false)
           return
         }
@@ -514,7 +521,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
         deviceId 
       })
 
-      // Если бэкенд просит 2FA (новое устройство)
       if (response.requires2FA) {
         setRequires2FA(true)
         setTempToken(response.tempToken)
@@ -522,7 +528,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
         return
       }
 
-      // Вход без 2FA (устройство уже было доверенным)
       finishAuth(response)
     } catch (err) {
       console.error(err)
