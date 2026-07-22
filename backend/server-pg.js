@@ -8,9 +8,6 @@ import { authenticator } from 'otplib'
 import qrcode from 'qrcode'
 import { db, initDatabase } from './db.js'
 
-// Безопасное извлечение authenticator для разных версий otplib и ESM/CommonJS
-const authenticator = otplib.authenticator || (otplib.default && otplib.default.authenticator) || otplib
-
 const app = express()
 const PORT = process.env.PORT || 5000
 const JWT_SECRET = process.env.JWT_SECRET || 'statecore_secret_key_change_me'
