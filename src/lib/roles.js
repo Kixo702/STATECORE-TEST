@@ -1,10 +1,50 @@
 // Roles and permission helpers
 const ROLE_FULL = 'Главный Разработчик'
+
+// Старые (докатегорийные) роли ГС/ЗГС. Часть пользователей в базе всё ещё
+// имеет именно эти roleName — трактуем их как "Гос." (полный доступ, см. ниже).
 const ROLE_CHIEF = 'Главный Следящий'
 const ROLE_DEPUTY = 'Заместитель Главного Следящего'
+
+// Новые роли ГС/ЗГС, разбитые по направлениям.
+const ROLE_CHIEF_GOV = 'ГС Гос.'
+const ROLE_CHIEF_MAFIA = 'ГС Мафий'
+const ROLE_CHIEF_GHETTO = 'ГС Гетто'
+const ROLE_CHIEF_BO = 'ГС БО'
+const ROLE_CHIEF_BIKERS = 'ГС Байкеров'
+
+const ROLE_DEPUTY_GOV = 'ЗГС Гос.'
+const ROLE_DEPUTY_MAFIA = 'ЗГС Мафий'
+const ROLE_DEPUTY_GHETTO = 'ЗГС Гетто'
+const ROLE_DEPUTY_BO = 'ЗГС БО'
+const ROLE_DEPUTY_BIKERS = 'ЗГС Байкеров'
+
 const ROLE_WATCHER = 'Следящий'
 const ROLE_PLAYER = 'Игрок'
 const LEADER_PREFIX = 'Лидер'
+
+// direction ('gov' | 'mafia' | 'ghetto' | 'bo' | 'bikers') -> roleName
+export const CHIEF_ROLES_BY_DIRECTION = {
+  gov: ROLE_CHIEF_GOV,
+  mafia: ROLE_CHIEF_MAFIA,
+  ghetto: ROLE_CHIEF_GHETTO,
+  bo: ROLE_CHIEF_BO,
+  bikers: ROLE_CHIEF_BIKERS,
+}
+
+export const DEPUTY_ROLES_BY_DIRECTION = {
+  gov: ROLE_DEPUTY_GOV,
+  mafia: ROLE_DEPUTY_MAFIA,
+  ghetto: ROLE_DEPUTY_GHETTO,
+  bo: ROLE_DEPUTY_BO,
+  bikers: ROLE_DEPUTY_BIKERS,
+}
+
+// Плоский список всех ГС/ЗГС ролей — удобно для выпадающих списков в UI
+export const STAFF_LEADERSHIP_ROLES = [
+  ...Object.entries(CHIEF_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({ kind: 'chief', direction, roleName })),
+  ...Object.entries(DEPUTY_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({ kind: 'deputy', direction, roleName })),
+]
 
 // Все фракции сервера, сгруппированные по типу.
 // label используется как суффикс роли лидера: `${LEADER_PREFIX} ${label}`
@@ -86,12 +126,38 @@ export function isFullAccess(user) {
   return _roleName(user) === ROLE_FULL
 }
 
+// true для любого ГС — и старой докатегорийной роли, и новых "ГС <направление>"
 export function isChief(user) {
-  return _roleName(user) === ROLE_CHIEF
+  const rn = _roleName(user)
+  return rn === ROLE_CHIEF || Object.values(CHIEF_ROLES_BY_DIRECTION).includes(rn)
 }
 
+// true для любого ЗГС — и старой докатегорийной роли, и новых "ЗГС <направление>"
 export function isDeputy(user) {
-  return _roleName(user) === ROLE_DEPUTY
+  const rn = _roleName(user)
+  return rn === ROLE_DEPUTY || Object.values(DEPUTY_ROLES_BY_DIRECTION).includes(rn)
+}
+
+// Направление конкретного ГС/ЗГС ('gov' | 'mafia' | 'ghetto' | 'bo' | 'bikers'),
+// либо null, если это не ГС/ЗГС. Старые докатегорийные роли считаются "gov".
+export function getLeadershipDirection(user) {
+  const rn = _roleName(user)
+  if (rn === ROLE_CHIEF || rn === ROLE_DEPUTY) return 'gov'
+  const chiefEntry = Object.entries(CHIEF_ROLES_BY_DIRECTION).find(([, name]) => name === rn)
+  if (chiefEntry) return chiefEntry[0]
+  const deputyEntry = Object.entries(DEPUTY_ROLES_BY_DIRECTION).find(([, name]) => name === rn)
+  if (deputyEntry) return deputyEntry[0]
+  return null
+}
+
+// ГС Гос. / ЗГС Гос. (а также старые докатегорийные ГС/ЗГС) — расширенный доступ
+export function isGovLeadership(user) {
+  return (isChief(user) || isDeputy(user)) && getLeadershipDirection(user) === 'gov'
+}
+
+// ГС/ЗГС любого направления, кроме Гос. — урезанный доступ в сайдбаре
+export function isRestrictedLeadership(user) {
+  return (isChief(user) || isDeputy(user)) && getLeadershipDirection(user) !== 'gov'
 }
 
 export function isWatcher(user) {
@@ -157,6 +223,18 @@ export function canViewMenu(user, menuId) {
 
   const id = menuId.toLowerCase()
 
+  // ГС/ЗГС любого направления, кроме "Гос." — пока что видят только
+  // мониторинг и анти-блат (faq и база знаний и так всегда видны в сайдбаре)
+  if (isRestrictedLeadership(user)) {
+    return id === 'dashboard' || id === 'cadreaudit'
+  }
+
+  // ГС Гос. / ЗГС Гос. (и старые докатегорийные ГС/ЗГС) — видят всё, что
+  // видно и сейчас, кроме анти-блата
+  if (isGovLeadership(user)) {
+    return id !== 'cadreaudit'
+  }
+
   // Раздел виден всем, у кого есть право просматривать пользователей —
   // конкретные действия (смена роли, выговор, снятие лидера) уже
   // ограничены внутри самой страницы в зависимости от роли
@@ -169,12 +247,10 @@ export function canViewMenu(user, menuId) {
     return ['logs', 'blacklist'].includes(id)
   }
 
-  // Остальной стафф
+  // Остальной стафф (лидеры, следящие, полный доступ)
   if (
     isLeader(user) ||
     isWatcher(user) ||
-    isDeputy(user) ||
-    isChief(user) ||
     isFullAccess(user)
   ) {
     return true
@@ -185,8 +261,10 @@ export function canViewMenu(user, menuId) {
 
 export default {
   ROLE_FULL, ROLE_CHIEF, ROLE_DEPUTY, ROLE_WATCHER, ROLE_PLAYER, LEADER_PREFIX,
+  CHIEF_ROLES_BY_DIRECTION, DEPUTY_ROLES_BY_DIRECTION, STAFF_LEADERSHIP_ROLES,
   FACTIONS,
   getAllFactions, leaderRoleName, getAllLeaderRoles, getFactionByRoleName,
   isFullAccess, isChief, isDeputy, isWatcher, isLeader, isLeaderOfFaction, isPlayer,
+  getLeadershipDirection, isGovLeadership, isRestrictedLeadership,
   canViewAll, canIssueReprimand, canRemoveLeader, canEditRoles, canReviewNickRequests, canViewMenu,
 }

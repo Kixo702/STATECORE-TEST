@@ -8,6 +8,8 @@ import {
   canReviewNickRequests,
   isLeader,
   getAllLeaderRoles,
+  CHIEF_ROLES_BY_DIRECTION,
+  DEPUTY_ROLES_BY_DIRECTION,
 } from '../lib/roles'
 import { getNickRequests, reviewNickRequest } from '../lib/requests'
 import { setSession, removeUser } from '../lib/userStore'
@@ -22,6 +24,16 @@ const FACTION_CATEGORY_META = {
   radio:  { group: 'Радио',        color: '#06b6d4' },
 }
 
+// Оформление направлений для ролей ГС/ЗГС (совпадает по духу с FACTION_CATEGORY_META,
+// но включает направление "БО", которого нет во фракциях-лидерах)
+const DIRECTION_META = {
+  gov:    { color: '#3b82f6' },
+  mafia:  { color: '#dc2626' },
+  ghetto: { color: '#84cc16' },
+  bo:     { color: '#a855f7' },
+  bikers: { color: '#eab308' },
+}
+
 // Роли-лидеры генерируются по всем фракциям из lib/roles.js —
 // добавление новой фракции туда автоматически добавит роль и сюда
 const LEADER_ROLES = getAllLeaderRoles().map((f) => ({
@@ -30,12 +42,32 @@ const LEADER_ROLES = getAllLeaderRoles().map((f) => ({
   group: FACTION_CATEGORY_META[f.category]?.group || 'Лидеры',
 }))
 
+// ГС/ЗГС по направлениям — тоже генерируются из lib/roles.js, чтобы новое
+// направление не пришлось дублировать здесь вручную
+const LEADERSHIP_ROLES = [
+  ...Object.entries(CHIEF_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({
+    value: roleName,
+    color: DIRECTION_META[direction]?.color || '#f59e0b',
+    group: 'Руководство',
+  })),
+  ...Object.entries(DEPUTY_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({
+    value: roleName,
+    color: DIRECTION_META[direction]?.color || '#f59e0b',
+    group: 'Руководство',
+  })),
+]
+
 const ROLES = [
   { value: 'Игрок', color: '#6b7280', group: 'Роли' },
   ...LEADER_ROLES,
   { value: 'Следящий', color: '#8b5cf6', group: 'Роли' },
-  { value: 'Заместитель Главного Следящего', color: '#f59e0b', group: 'Роли' },
-  { value: 'Главный Следящий', color: '#f59e0b', group: 'Роли' },
+  ...LEADERSHIP_ROLES,
+  // Старые докатегорийные роли ГС/ЗГС — оставлены в списке отдельной группой
+  // только для совместимости с уже назначенными аккаунтами (сортировка,
+  // отображение цвета и т.п.). Для новых назначений используйте роли
+  // из группы "Руководство" выше.
+  { value: 'Заместитель Главного Следящего', color: '#f59e0b', group: 'Роли (устаревшие)' },
+  { value: 'Главный Следящий', color: '#f59e0b', group: 'Роли (устаревшие)' },
   { value: 'Разработчик', color: '#22c55e', group: 'Роли' },
   { value: 'PR-Assistent', color: '#ec4899', group: 'Роли' },
   { value: 'Главный Разработчик', color: '#ff8c00', group: 'Роли' },

@@ -27,7 +27,7 @@ import Maintenance from './components/Maintenance'
 // Если true — ВСЕ пользователи (в т.ч. незалогиненные) видят страницу
 // технического обслуживания вместо всего остального интерфейса.
 // Чтобы снять режим — поставьте false и задеплойте.
-const MAINTENANCE_MODE = true
+const MAINTENANCE_MODE = false
 // Необязательные подписи для страницы техобслуживания
 const MAINTENANCE_MESSAGE = null // напр. 'Обновляем базу данных организаций, вернёмся в течение часа.'
 const MAINTENANCE_ETA = null // напр. '~ 18:00 МСК'
