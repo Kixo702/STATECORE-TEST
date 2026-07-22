@@ -132,7 +132,14 @@ const getMafiaLevel = (term) => {
 // 'active'  — действует (в т.ч. Красная степень, которая всегда навсегда)
 const getMafiaStatus = (p) => {
   if (clean(p.amnesty)) return 'lifted'
-  if (clean(p.endDate)) return 'lifted'
+
+  const end = parseDate(p.endDate)
+  if (end) {
+    // "Дата вынесения" уже наступила — ЧС реально снят.
+    // Если дата в будущем, это плановая дата окончания степени, а не снятие.
+    return end <= new Date() ? 'lifted' : 'active'
+  }
+
   const level = getMafiaLevel(p.term)
   if (level && level.days) {
     const added = parseDate(p.dateAdded)
