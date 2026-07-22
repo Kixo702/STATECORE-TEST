@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { getPendingNickRequestForUser, createNickRequest } from '../lib/requests'
-import { getUsers, saveUsers, setSession, getSession } from '../lib/userStore'
+import { getUsers, saveUsers, setSession, getSession, upsertUser } from '../lib/userStore'
+import { updateUserOnServer } from '../lib/api' // Подключите ваш API-метод сохранения, если есть
 
 // ── Вспомогательные функции для TOTP / Google Authenticator ──────
 function generateBase32Secret(length = 16) {
@@ -151,7 +152,6 @@ const IconShield = () => (
   </svg>
 )
 
-// ── Цветовая система ───────────────────────────────────────────
 const T = {
   bg: '#0b0e14',
   panel: '#11151d',
@@ -170,7 +170,6 @@ const T = {
   successSoft: 'rgba(63,183,135,0.12)',
 }
 
-// ── Определение цвета ролей с поддержкой префиксов (Лидер LSPD, ГС Гос. и т.д.) ──
 function getRoleColor(roleName = '') {
   if (roleName === 'Главный Разработчик') return T.danger
   if (roleName.startsWith('ГС') || roleName.startsWith('Главный Следящий')) return T.warn
@@ -212,19 +211,20 @@ export default function Profile({ user, onUpdate }) {
   const [nickSaving, setNickSaving] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const [avatarUrl, setAvatarUrl] = useState(data.avatar)
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || data.avatar)
   const [avatarError, setAvatarError] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
-  const fileInputRef = useRef(null)
+  fileInputRef = useRef(null)
 
-  // Синхронизируем локальный аву, если обновился пропс user
+  // Синхронизируем аватар напрямую при изменении user
   useEffect(() => {
-    setAvatarUrl(data.avatar)
-  }, [data.avatar])
+    if (user?.avatar !== undefined) {
+      setAvatarUrl(user.avatar)
+    }
+  }, [user?.avatar])
 
   const [pendingReq, setPendingReq] = useState(() => getPendingNickRequestForUser(data.id))
 
-  // ── Состояние 2FA ─────────────────────────────────────────────
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(data.twoFactorEnabled)
   const [show2FaModal, setShow2FaModal] = useState(false)
   const [tempSecret, setTempSecret] = useState('')
@@ -276,31 +276,31 @@ export default function Profile({ user, onUpdate }) {
     try {
       const dataUrl = await fileToAvatarDataUrl(file)
 
-      // 1. Обновляем локальный state
+      // 1. Обновляем локальный стейт
       setAvatarUrl(dataUrl)
 
-      // 2. Обновляем sc_user в localStorage
-      let stored = {}
-      try { stored = JSON.parse(localStorage.getItem('sc_user') || '{}') } catch { stored = {} }
-      stored.avatar = dataUrl
-      localStorage.setItem('sc_user', JSON.stringify(stored))
+      // 2. Подготавливаем обновленный объект пользователя
+      const updatedUser = { ...(user || u), avatar: dataUrl }
 
-      // 3. Обновляем базу юзеров и сессию
-      const users = getUsers()
-      const idx = users.findIndex(x => x.id === data.id)
-      if (idx !== -1) {
-        users[idx].avatar = dataUrl
-        saveUsers(users)
-        const current = getSession()
-        if (current?.id === data.id) {
-          setSession({ ...current, avatar: dataUrl })
+      // 3. Синхронизируем со сторами и сессией
+      setSession(updatedUser)
+      upsertUser(updatedUser)
+
+      // 4. Опционально сохраняем на бэкенде (если API настроен)
+      if (typeof updateUserOnServer === 'function') {
+        try {
+          await updateUserOnServer(updatedUser)
+        } catch (apiErr) {
+          console.warn('Сервер не сохранил аватар:', apiErr)
         }
       }
 
       pushLog('Обновлена аватарка профиля')
 
-      // 4. Уведомляем родительский компонент без перезагрузки страницы
-      onUpdate && onUpdate({ ...stored, avatar: dataUrl })
+      // 5. Вызываем родительский callback для немедленного обновления у остальных компонентов (Sidebar, Topbar)
+      if (onUpdate) {
+        onUpdate(updatedUser)
+      }
     } catch (err) {
       setAvatarError(err.message || 'Не удалось загрузить изображение')
     } finally {
@@ -331,7 +331,6 @@ export default function Profile({ user, onUpdate }) {
     }, 350)
   }
 
-  // ── Включение 2FA ──────────────────────────────────────────────
   const handleStart2FA = () => {
     const secret = generateBase32Secret()
     setTempSecret(secret)
@@ -356,64 +355,33 @@ export default function Profile({ user, onUpdate }) {
       return
     }
 
-    let stored = {}
-    try { stored = JSON.parse(localStorage.getItem('sc_user') || '{}') } catch {}
-    stored.twoFactorSecret = tempSecret
-    stored.twoFactorEnabled = true
-    localStorage.setItem('sc_user', JSON.stringify(stored))
-
-    const users = getUsers()
-    const idx = users.findIndex(x => x.id === data.id)
-    if (idx !== -1) {
-      users[idx].twoFactorSecret = tempSecret
-      users[idx].twoFactorEnabled = true
-      saveUsers(users)
-    }
-
-    const currentSession = getSession()
-    if (currentSession?.id === data.id) {
-      setSession({ ...currentSession, twoFactorSecret: tempSecret, twoFactorEnabled: true })
-    }
+    const updatedUser = { ...(user || u), twoFactorSecret: tempSecret, twoFactorEnabled: true }
+    setSession(updatedUser)
+    upsertUser(updatedUser)
 
     setTwoFactorEnabled(true)
     setShow2FaModal(false)
     pushLog('Включена двухфакторная аутентификация (Google Auth)')
-    onUpdate && onUpdate({ ...stored, twoFactorSecret: tempSecret, twoFactorEnabled: true })
+    onUpdate && onUpdate(updatedUser)
   }
 
-  // ── Отключение 2FA ─────────────────────────────────────────────
   const handleConfirmDisable2FA = async () => {
-    let stored = {}
-    try { stored = JSON.parse(localStorage.getItem('sc_user') || '{}') } catch {}
-    delete stored.twoFactorSecret
-    stored.twoFactorEnabled = false
-    localStorage.setItem('sc_user', JSON.stringify(stored))
+    const updatedUser = { ...(user || u), twoFactorEnabled: false }
+    delete updatedUser.twoFactorSecret
 
-    const users = getUsers()
-    const idx = users.findIndex(x => x.id === data.id)
-    if (idx !== -1) {
-      delete users[idx].twoFactorSecret
-      users[idx].twoFactorEnabled = false
-      saveUsers(users)
-    }
-
-    const currentSession = getSession()
-    if (currentSession?.id === data.id) {
-      const updatedSession = { ...currentSession, twoFactorEnabled: false }
-      delete updatedSession.twoFactorSecret
-      setSession(updatedSession)
-    }
+    setSession(updatedUser)
+    upsertUser(updatedUser)
 
     setTwoFactorEnabled(false)
     setDisable2FaModal(false)
     pushLog('Отключена двухфакторная аутентификация')
-    onUpdate && onUpdate({ ...stored, twoFactorEnabled: false })
+    onUpdate && onUpdate(updatedUser)
   }
 
   const addSessionToShared = async () => {
     try {
       setAddingShared(true)
-      const session = JSON.parse(localStorage.getItem('sc_user') || 'null')
+      const session = getSession()
       if (!session || !session.id) return
       let users = getUsers()
 
@@ -531,7 +499,6 @@ export default function Profile({ user, onUpdate }) {
 
       <div style={{ maxWidth: 1080, margin: '0 auto' }}>
 
-        {/* Хлебные крошки и заголовок */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: T.faint, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 600 }}>
             <span>Личный кабинет</span>
@@ -546,13 +513,10 @@ export default function Profile({ user, onUpdate }) {
           </div>
         </div>
 
-        {/* Сетка разметки */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
 
-          {/* ЛЕВАЯ СТОРОНА */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-            {/* Карточка юзера */}
             <div className="prof-panel" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
               <div
                 className="avatar-wrap"
@@ -617,7 +581,6 @@ export default function Profile({ user, onUpdate }) {
                       )}
                     </div>
                     
-                    {/* Динамический бейдж роли */}
                     <div style={{ marginTop: '8px' }}>
                       <div 
                         className="role-badge" 
@@ -637,7 +600,6 @@ export default function Profile({ user, onUpdate }) {
               </div>
             </div>
 
-            {/* Реквизиты аккаунта */}
             <div className="prof-panel">
               <div style={{ fontSize: '11px', fontWeight: 700, color: T.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
                 Реквизиты аккаунта
@@ -676,7 +638,6 @@ export default function Profile({ user, onUpdate }) {
                 )}
               </div>
 
-              {/* ДВУХФАКТОРНАЯ АУТЕНТИФИКАЦИЯ (2FA) */}
               <div className="prof-row" style={{ marginTop: '8px', paddingTop: '16px', borderTop: `1px dashed ${T.border}` }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span className="prof-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -717,7 +678,6 @@ export default function Profile({ user, onUpdate }) {
 
           </div>
 
-          {/* ПРАВАЯ СТОРОНА */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
             {pendingReq && (
@@ -764,7 +724,6 @@ export default function Profile({ user, onUpdate }) {
 
         </div>
 
-        {/* МОДАЛЬНОЕ ОКНО ПОДКЛЮЧЕНИЯ 2FA */}
         {show2FaModal && (
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.82)', backdropFilter: 'blur(6px)' }} onClick={() => setShow2FaModal(false)} />
@@ -827,7 +786,6 @@ export default function Profile({ user, onUpdate }) {
           </div>
         )}
 
-        {/* МОДАЛЬНОЕ ОКНО ОТКЛЮЧЕНИЯ 2FA */}
         {disable2FaModal && (
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.8)', backdropFilter: 'blur(6px)' }} onClick={() => setDisable2FaModal(false)} />
@@ -849,7 +807,6 @@ export default function Profile({ user, onUpdate }) {
           </div>
         )}
 
-        {/* МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ В БАЗУ */}
         {showAddSharedModal && (
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.8)', backdropFilter: 'blur(6px)' }} onClick={() => setShowAddSharedModal(false)} />

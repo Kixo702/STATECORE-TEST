@@ -295,7 +295,7 @@ export default function App() {
           {activePage === 'eventPlanner' && <EventPlanner user={user} />}
           {activePage === 'interview' && <InterviewGenerator />}
           {activePage === 'users' && <Users currentUser={user} />}
-          {activePage === 'profile' && <Profile user={user} />}
+          {activePage === 'profile' && <Profile user={user} onUpdate={setUser} />}
           {activePage === 'knowledge' && <KnowledgeBase />}
           {activePage === 'cadreAudit' && <CadreAudit user={user} />}
           {activePage === 'faq' && <FAQ user={user} />}
