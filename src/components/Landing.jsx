@@ -4,9 +4,6 @@ import { registerUser, loginUser } from '../lib/api'
 import logoUrl from '../assets/vite.svg'
 
 // ── Design tokens ─────────────────────────────────────────────
-// Reworked per reference: indigo/purple canvas, a single blue signal
-// color for primary actions, warm colors kept only where they carry
-// real meaning (red = sanction, green = active/live).
 const T = {
   bg: '#07080f',
   bg2: '#0b0d18',
@@ -167,11 +164,9 @@ const IC = {
 }
 
 // ── Ambient backdrop ──────────────────────────────────────────
-// Indigo/purple glow top-left fading into near-black, per reference.
 function Aurora() {
   return (
     <div aria-hidden style={{ position:'fixed', inset:0, zIndex:0, overflow:'hidden', pointerEvents:'none' }}>
-      {/* Glowing drifting orbs — orange + primary signal colors */}
       <div style={{
         position:'absolute', top:'-12%', left:'-8%', width:560, height:560, borderRadius:'50%',
         background:`radial-gradient(circle, ${hexToRgba(T.orange,.22)} 0%, transparent 68%)`,
@@ -217,7 +212,7 @@ function Counter({ to, duration = 1800 }) {
   return <span ref={ref}>{val}</span>
 }
 
-// ── SURVEILLANCE.LOG — live console, kept as a supporting section  ──
+// ── SURVEILLANCE.LOG ──────────────────────────────────────────
 const LOG_FEED = [
   { tag:'OK',   color:T.green,  text:'LSPD — смена лидера подтверждена' },
   { tag:'WARN', color:T.red,    text:'FBI — выдан строгий выговор' },
@@ -345,7 +340,6 @@ function Pill({ children, onClick, variant = 'primary', style, ...rest }) {
   )
 }
 
-// ── Header nav button — detached pill, per reference ────────────
 function NavButton({ icon, children, onClick, highlight, style }) {
   return (
     <button
@@ -436,6 +430,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
         login: response.user.login,
         nickname: response.user.nickname,
         roleName: response.user.roleName || 'Игрок',
+        avatar: response.user.avatar || '',
         vk: response.user.vk || '',
         forum: response.user.forum || '',
         registeredAt: response.user.registeredAt,
@@ -474,6 +469,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
         nickname: found.nickname || found.login || found.vk || found.forum,
         roleName: found.roleName || 'Игрок',
         role: found.role || 'player',
+        avatar: found.avatar || '',
         vk: found.vk || '',
         forum: found.forum || '',
         registeredAt: found.registeredAt || null,
@@ -611,7 +607,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
           *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
         }
 
-        /* Universal mobile safety: nothing should force horizontal scroll */
         html, body { overflow-x: hidden; max-width: 100%; }
         img, svg { max-width: 100%; }
 
@@ -673,7 +668,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
 
       <Aurora />
 
-      {/* ── HEADER — flat, detached buttons, per reference ── */}
+      {/* ── HEADER ── */}
       <div style={{
         position:'fixed', top:0, left:0, right:0, zIndex:50,
         padding: scrolled ? '14px 28px' : '26px 28px',
@@ -684,7 +679,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
       }}>
         <div className="land-header" style={{ maxWidth:1280, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:20 }}>
 
-          {/* Logo — vite.svg mark in a glowing badge */}
+          {/* Logo */}
           <div style={{ display:'flex', alignItems:'center', gap:10, color:T.ink, flexShrink:0 }}>
             <div className="land-logo-badge" style={{
               width:34, height:34, borderRadius:11, flexShrink:0,
@@ -698,7 +693,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
             </span>
           </div>
 
-          {/* Right-side actions — detached pill buttons */}
+          {/* Right-side actions */}
           {currentUser ? (
             <div className="land-nav-actions" style={{ display:'flex', alignItems:'center', gap:8 }}>
               <button
@@ -716,9 +711,13 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
                   width:26, height:26, borderRadius:'50%', flexShrink:0,
                   background:`linear-gradient(160deg, ${T.primary} 0%, ${T.primaryDeep} 100%)`,
                   display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:11, fontWeight:700, color:'#fff',
+                  fontSize:11, fontWeight:700, color:'#fff', overflow:'hidden'
                 }}>
-                  {(currentUser.nickname || currentUser.login || '?')[0].toUpperCase()}
+                  {currentUser.avatar ? (
+                    <img src={currentUser.avatar} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                  ) : (
+                    (currentUser.nickname || currentUser.login || '?')[0].toUpperCase()
+                  )}
                 </div>
                 <div style={{ textAlign:'left' }}>
                   <div style={{ fontSize:12, fontWeight:600, color:T.ink, lineHeight:1.1 }}>
@@ -748,10 +747,8 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
         </div>
       </div>
 
-      {/* ── HERO — centered, per reference ── */}
+      {/* ── HERO ── */}
       <section className="land-hero-section" style={{ position:'relative', zIndex:1, maxWidth:900, margin:'0 auto', padding:'180px 24px 40px', textAlign:'center' }}>
-
-        {/* Glow blob behind headline */}
         <div aria-hidden className="land-hero-glow" style={{
           position:'absolute', top:120, left:'50%', transform:'translateX(-50%)',
           width:560, height:280, borderRadius:'50%', maxWidth:'90vw',
@@ -759,7 +756,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
           filter:'blur(20px)', zIndex:-1, animation:'land-glow-pulse 4.5s ease-in-out infinite',
         }}/>
 
-        {/* Eyebrow */}
         <div style={{
           fontSize:11, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase',
           color:hexToRgba(T.orange,.8), marginBottom:18,
@@ -768,7 +764,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
           Выбор администраторов Online RP
         </div>
 
-        {/* Headline */}
         <h1 className="land-hero-title" style={{
           fontFamily:FONT_DISPLAY, fontSize:'clamp(36px, 5.6vw, 64px)', fontWeight:900,
           letterSpacing:'-1.8px', lineHeight:1.1,
@@ -804,7 +799,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
           </a>
         </div>
 
-        {/* scroll cue */}
         <div style={{ display:'flex', justifyContent:'center', marginTop:76, animation:'land-fadeIn 1s ease .6s both' }}>
           <div style={{ width:26, height:40, borderRadius:14, border:`1.5px solid ${T.glassBorder}`, display:'flex', justifyContent:'center', paddingTop:7 }}>
             <div style={{ width:4, height:8, borderRadius:2, background:T.ink3, animation:'land-float 1.6s ease-in-out infinite' }}/>
@@ -851,7 +845,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
         </div>
       </div>
 
-      {/* ── LIVE MONITORING — signature console, now a supporting section ── */}
+      {/* ── LIVE MONITORING ── */}
       <section className="land-section-pad" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'88px 24px 0' }}>
         <div className="land-hero-grid" style={{ display:'grid', gridTemplateColumns:'0.95fr 1.05fr', gap:56, alignItems:'center' }}>
           <div style={{ position:'relative' }}>
@@ -874,7 +868,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
 
       {/* ── FEATURES ── */}
       <section id="возможности" className="land-section-pad" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'96px 24px' }}>
-
         <div style={{ textAlign:'center', marginBottom:56 }}>
           <div style={{ fontSize:11, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase', color:hexToRgba(T.orange,.8), marginBottom:14 }}>
             Возможности
@@ -922,7 +915,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
       {/* ── ORGANIZATIONS ── */}
       <section id="организации" className="land-section-pad-b" style={{ position:'relative', zIndex:1, borderTop:'1px solid rgba(255,255,255,.06)', borderBottom:'1px solid rgba(255,255,255,.06)', padding:'88px 24px' }}>
         <div style={{ maxWidth:1280, margin:'0 auto' }}>
-
           <div className="land-hero-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:64, alignItems:'center' }}>
             <div>
               <div style={{ fontSize:11, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase', color:hexToRgba(T.blue,.8), marginBottom:14 }}>
@@ -1047,10 +1039,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
       {/* ── FOOTER ── */}
       <footer className="land-footer" style={{ position:'relative', zIndex:1, borderTop:'1px solid rgba(255,255,255,.06)', padding:'44px 24px 28px' }}>
         <div style={{ maxWidth:1280, margin:'0 auto' }}>
-
           <div className="land-footer-grid" style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:40, marginBottom:40 }}>
-
-            {/* Brand */}
             <div>
               <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:14 }}>
                 <img src={logoUrl} alt="StateCore" width={20} height={20} style={{ display:'block', filter:`drop-shadow(0 0 6px ${hexToRgba(T.primarySoft,.55)})` }}/>
@@ -1093,7 +1082,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
             ))}
           </div>
 
-          {/* Bottom bar */}
           <div className="land-footer-bottom" style={{ borderTop:'1px solid rgba(255,255,255,.06)', paddingTop:22, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
             <div style={{ fontSize:12, color:T.ink3 }}>
               © 2026 STATECORE. Все права защищены.
@@ -1106,7 +1094,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
         </div>
       </footer>
 
-      {/* ── MODAL — iOS sheet style ── */}
+      {/* ── MODAL ── */}
       {showModal && (
         <div
           style={{
@@ -1145,7 +1133,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
               {IC.x(15)}
             </button>
 
-            {/* STEP: HERO — выбор входа или регистрации */}
+            {/* STEP: HERO */}
             {step === 'hero' && (
               <div style={{ animation:'land-scaleIn .28s ease both', position:'relative' }}>
                 <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
@@ -1216,7 +1204,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
                     <input type="password" className="land-input" placeholder="Пароль" value={password} onChange={e => { setPassword(e.target.value); setError('') }} onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ width:'100%', background:'rgba(255,255,255,.06)', border:`1px solid ${error ? hexToRgba(T.red,.5) : T.glassBorder}`, color:T.ink, padding:'13px 14px 13px 38px', borderRadius:14, fontSize:14, fontFamily:'inherit' }}/>
                   </div>
                 </div>
-                {/* Remember me — iOS-style toggle */}
+
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none', marginBottom:4, padding:'2px 0' }} onClick={() => setRemember(r => !r)}>
                   <span style={{ fontSize:13.5, color:T.ink2 }}>Запомнить меня</span>
                   <div style={{
@@ -1305,7 +1293,6 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
                   </div>
                 </div>
 
-                {/* Security note — don't reuse real RP-account password */}
                 <div style={{
                   display:'flex', alignItems:'flex-start', gap:10,
                   background:hexToRgba(T.yellow,.08), border:`1px solid ${hexToRgba(T.yellow,.25)}`,
