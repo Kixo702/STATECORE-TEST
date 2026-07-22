@@ -4,12 +4,12 @@ import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
-import * as otplib from 'otplib'
+import otplib from 'otplib'
 import qrcode from 'qrcode'
 import { db, initDatabase } from './db.js'
 
-// Инициализируем authenticator из otplib для ESM
-const authenticator = otplib.authenticator || new otplib.Authenticator()
+// Безопасное извлечение authenticator для разных версий otplib и ESM/CommonJS
+const authenticator = otplib.authenticator || (otplib.default && otplib.default.authenticator) || otplib
 
 const app = express()
 const PORT = process.env.PORT || 5000
