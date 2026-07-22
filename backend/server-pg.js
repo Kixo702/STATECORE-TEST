@@ -4,7 +4,7 @@ import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
-import otplib from 'otplib'
+import { authenticator } from 'otplib'
 import qrcode from 'qrcode'
 import { db, initDatabase } from './db.js'
 
