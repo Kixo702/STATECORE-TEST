@@ -192,13 +192,17 @@ app.post('/api/login', async (req, res) => {
 
     // Сохраняем текущее устройство как доверенное
     if (deviceId) {
-      await db.query(
-        `INSERT INTO user_devices (user_id, device_id, ip_address, user_agent)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (user_id, device_id) 
-         DO UPDATE SET last_used_at = NOW()`,
-        [rawUser.id, deviceId, req.ip, req.headers['user-agent'] || '']
-      )
+      try {
+        await db.query(
+          `INSERT INTO user_devices (user_id, device_id, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (user_id, device_id) 
+           DO UPDATE SET last_used_at = NOW()`,
+          [rawUser.id, deviceId, req.ip, req.headers['user-agent'] || '']
+        )
+      } catch (deviceError) {
+        console.error('Не удалось сохранить доверенное устройство (login):', deviceError)
+      }
     }
 
     const user = publicUser(rawUser)
@@ -243,15 +247,22 @@ app.post('/api/login/2fa', async (req, res) => {
       return bad(res, 400, 'Неверный код из Google Authenticator')
     }
 
-    // Сохраняем устройство в доверенные
+    // Сохраняем устройство в доверенные.
+    // Вынесено в отдельный try/catch: ошибка на этом шаге (например,
+    // отсутствие UNIQUE(user_id, device_id) в таблице user_devices) не
+    // должна валить весь вход — пользователь уже прошёл проверку кода.
     if (deviceId) {
-      await db.query(
-        `INSERT INTO user_devices (user_id, device_id, ip_address, user_agent)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (user_id, device_id) 
-         DO UPDATE SET last_used_at = NOW()`,
-        [rawUser.id, deviceId, req.ip, req.headers['user-agent'] || '']
-      )
+      try {
+        await db.query(
+          `INSERT INTO user_devices (user_id, device_id, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (user_id, device_id) 
+           DO UPDATE SET last_used_at = NOW()`,
+          [rawUser.id, deviceId, req.ip, req.headers['user-agent'] || '']
+        )
+      } catch (deviceError) {
+        console.error('Не удалось сохранить доверенное устройство (2FA):', deviceError)
+      }
     }
 
     const user = publicUser(rawUser)

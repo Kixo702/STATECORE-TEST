@@ -1303,19 +1303,46 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
                   </>
                 ) : (
                   <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
-                    <div style={{ position:'relative' }}>
-                      <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,.32)', pointerEvents:'none', display:'flex' }}>{IC.lock(13)}</span>
-                      <input 
-                        type="text" 
-                        className="land-input" 
-                        placeholder="Код 2FA (6 цифр)" 
-                        value={twoFactorCode} 
+                    <div
+                      style={{ position:'relative', display:'flex', gap:8, justifyContent:'center' }}
+                      onClick={() => document.getElementById('twofa-code-input')?.focus()}
+                    >
+                      <input
+                        id="twofa-code-input"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        value={twoFactorCode}
                         maxLength={6}
-                        onChange={e => { setTwoFactorCode(e.target.value.replace(/\D/g, '')); setError('') }} 
-                        onKeyDown={e => e.key === 'Enter' && handleLogin()} 
-                        autoFocus 
-                        style={{ width:'100%', background:'rgba(255,255,255,.06)', border:`1px solid ${error ? hexToRgba(T.red,.5) : T.glassBorder}`, color:T.ink, padding:'13px 14px 13px 38px', borderRadius:14, fontSize:16, fontFamily:FONT_MONO, letterSpacing:'2px', textAlign:'center' }}
+                        onChange={e => { setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
+                        onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                        autoFocus
+                        style={{
+                          position:'absolute', inset:0, width:'100%', height:'100%',
+                          opacity:0, border:'none', outline:'none', padding:0, margin:0,
+                          cursor:'text', fontSize:16,
+                        }}
                       />
+                      {Array.from({ length: 6 }).map((_, i) => {
+                        const digit = twoFactorCode[i]
+                        const isActive = i === twoFactorCode.length
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              width:44, height:52, borderRadius:12,
+                              background:'rgba(255,255,255,.06)',
+                              border:`1px solid ${error ? hexToRgba(T.red,.5) : isActive ? T.primarySoft : T.glassBorder}`,
+                              display:'flex', alignItems:'center', justifyContent:'center',
+                              fontSize:20, fontFamily:FONT_MONO, fontWeight:700, color:T.ink,
+                              transition:'border-color .15s',
+                              pointerEvents:'none',
+                            }}
+                          >
+                            {digit || ''}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
