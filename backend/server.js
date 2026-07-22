@@ -4,8 +4,11 @@ import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
 import { db, initDatabase, publicUser } from './db.js'
 
-const app = express({ limit: '1mb' })
+const app = express()
 const PORT = process.env.PORT || 4000
+
+// Увеличиваем лимит размера тела запроса для отправки аватарок в base64
+app.use(express.json({ limit: '10mb' }))
 
 // В ORIGIN можно перечислить несколько адресов через запятую, например:
 // ORIGIN=https://kixo702.github.io,http://localhost:5173
@@ -19,9 +22,7 @@ const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173']
 
 app.use(cors({
   origin(origin, callback) {
-    // запросы без origin (curl/Postman/серверные вызовы) — разрешаем
     if (!origin) return callback(null, true)
-    // если ORIGIN не задан вообще — разрешаем всё (ок для старта)
     if (ALLOWED_ORIGINS.length === 0) return callback(null, true)
     if (ALLOWED_ORIGINS.includes(origin) || DEV_ORIGINS.includes(origin)) {
       return callback(null, true)
@@ -29,7 +30,6 @@ app.use(cors({
     return callback(new Error('Not allowed by CORS: ' + origin))
   }
 }))
-app.use(express.json())
 
 const ok = (res, data) => res.json(data)
 const bad = (res, code, error) => res.status(code).json({ error })
@@ -74,7 +74,9 @@ app.post('/api/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password_hash)
     if (!validPassword) return bad(res, 401, 'Неверный логин или пароль')
 
-    if (user.isBanned) return bad(res, 403, 'Аккаунт заблокирован: ' + (user.banReason || 'без причины'))
+    if (user.is_banned || user.isBanned) {
+      return bad(res, 403, 'Аккаунт заблокирован: ' + (user.ban_reason || user.banReason || 'без причины'))
+    }
 
     ok(res, { user: publicUser(user) })
   } catch (err) {
@@ -100,17 +102,48 @@ app.get('/api/users/:id', async (req, res) => {
 })
 
 app.patch('/api/users/:id', async (req, res) => {
-  const fields = { roleName: 'role_name', warnings: 'warnings', isBanned: 'is_banned', banReason: 'ban_reason', nickname: 'nickname', vk: 'vk', forum: 'forum', avatar: 'avatar' }
-  const updates = Object.entries(fields).filter(([key]) => key in (req.body || {}))
+  const fields = { 
+    roleName: 'role_name', 
+    warnings: 'warnings', 
+    isBanned: 'is_banned', 
+    banReason: 'ban_reason', 
+    nickname: 'nickname', 
+    vk: 'vk', 
+    forum: 'forum', 
+    avatar: 'avatar',
+    // Поля двухфакторной аутентификации (2FA)
+    twoFactorSecret: 'two_factor_secret',
+    two_factor_secret: 'two_factor_secret',
+    twoFactorEnabled: 'is_totp_enabled',
+    is_totp_enabled: 'is_totp_enabled'
+  }
+
+  const body = req.body || {}
+  const updates = []
+
+  // Собираем массив обновляемых полей, защищаясь от дублирования столбцов
+  for (const [key, column] of Object.entries(fields)) {
+    if (key in body && !updates.some(u => u.column === column)) {
+      updates.push({ column, value: body[key] })
+    }
+  }
+
   if (!updates.length) return bad(res, 400, 'Нечего обновлять')
+
   try {
-    const values = updates.map(([key]) => req.body[key])
-    const assignments = updates.map(([, column], index) => `${column} = $${index + 1}`)
-    values.push(req.params.id)
-    const result = await db.query(`UPDATE users SET ${assignments.join(', ')} WHERE id = $${values.length} RETURNING *`, values)
+    const valuesArr = updates.map(u => u.value)
+    const assignments = updates.map((u, index) => `${u.column} = $${index + 1}`)
+    valuesArr.push(req.params.id)
+
+    const sql = `UPDATE users SET ${assignments.join(', ')} WHERE id = $${valuesArr.length} RETURNING *`
+    const result = await db.query(sql, valuesArr)
+
     if (!result.rows[0]) return bad(res, 404, 'Пользователь не найден')
     return ok(res, publicUser(result.rows[0]))
-  } catch (error) { console.error(error); return bad(res, 500, 'Ошибка обновления пользователя') }
+  } catch (error) { 
+    console.error('Ошибка при обновлении пользователя:', error)
+    return bad(res, 500, 'Ошибка обновления пользователя') 
+  }
 })
 
 app.delete('/api/users/:id', async (req, res) => {
@@ -122,139 +155,184 @@ app.delete('/api/users/:id', async (req, res) => {
 })
 
 // ── friend requests ───────────────────────────────────────────
-app.post('/api/friends/request', (req, res) => {
-  const { fromUserId, toUserId } = req.body || {}
-  if (!fromUserId || !toUserId) return bad(res, 400, 'Не хватает данных')
-  if (fromUserId === toUserId) return bad(res, 400, 'Нельзя добавить самого себя')
+app.post('/api/friends/request', async (req, res) => {
+  try {
+    const { fromUserId, toUserId } = req.body || {}
+    if (!fromUserId || !toUserId) return bad(res, 400, 'Не хватает данных')
+    if (fromUserId === toUserId) return bad(res, 400, 'Нельзя добавить самого себя')
 
-  const already = db.prepare(`
-    SELECT id FROM friend_requests
-    WHERE fromUserId = ? AND toUserId = ? AND status = 'pending'
-  `).get(fromUserId, toUserId)
-  if (already) return bad(res, 409, 'Заявка уже отправлена')
+    const already = await db.query(`
+      SELECT id FROM friend_requests
+      WHERE from_user_id = $1 AND to_user_id = $2 AND status = 'pending'
+    `, [fromUserId, toUserId])
 
-  const id = uuid()
-  db.prepare(`
-    INSERT INTO friend_requests (id, fromUserId, toUserId, status, createdAt)
-    VALUES (?, ?, ?, 'pending', ?)
-  `).run(id, fromUserId, toUserId, new Date().toISOString())
+    if (already.rows.length) return bad(res, 409, 'Заявка уже отправлена')
 
-  ok(res, { id, fromUserId, toUserId, status: 'pending' })
+    const id = uuid()
+    await db.query(`
+      INSERT INTO friend_requests (id, from_user_id, to_user_id, status, created_at)
+      VALUES ($1, $2, $3, 'pending', $4)
+    `, [id, fromUserId, toUserId, new Date().toISOString()])
+
+    ok(res, { id, fromUserId, toUserId, status: 'pending' })
+  } catch (err) {
+    console.error(err)
+    bad(res, 500, 'Ошибка отправки заявки')
+  }
 })
 
-app.get('/api/friends/requests/:userId', (req, res) => {
-  const requests = db.prepare(`
-    SELECT * FROM friend_requests WHERE toUserId = ? AND status = 'pending' ORDER BY createdAt DESC
-  `).all(req.params.userId)
-  ok(res, requests)
+app.get('/api/friends/requests/:userId', async (req, res) => {
+  try {
+    const requests = await db.query(`
+      SELECT * FROM friend_requests WHERE to_user_id = $1 AND status = 'pending' ORDER BY created_at DESC
+    `, [req.params.userId])
+    ok(res, requests.rows)
+  } catch (err) {
+    console.error(err)
+    bad(res, 500, 'Ошибка получения заявок')
+  }
 })
 
-app.post('/api/friends/accept', (req, res) => {
-  const { requestId } = req.body || {}
-  if (!requestId) return bad(res, 400, 'Не хватает requestId')
+app.post('/api/friends/accept', async (req, res) => {
+  try {
+    const { requestId } = req.body || {}
+    if (!requestId) return bad(res, 400, 'Не хватает requestId')
 
-  const request = db.prepare('SELECT * FROM friend_requests WHERE id = ?').get(requestId)
-  if (!request) return bad(res, 404, 'Заявка не найдена')
+    const requestRes = await db.query('SELECT * FROM friend_requests WHERE id = $1', [requestId])
+    const request = requestRes.rows[0]
+    if (!request) return bad(res, 404, 'Заявка не найдена')
 
-  db.prepare(`UPDATE friend_requests SET status = 'accepted' WHERE id = ?`).run(requestId)
+    await db.query(`UPDATE friend_requests SET status = 'accepted' WHERE id = $1`, [requestId])
 
-  const now = new Date().toISOString()
-  const insertFriend = db.prepare(`
-    INSERT OR IGNORE INTO friends (userId, friendId, createdAt) VALUES (?, ?, ?)
-  `)
-  insertFriend.run(request.fromUserId, request.toUserId, now)
-  insertFriend.run(request.toUserId, request.fromUserId, now)
+    const now = new Date().toISOString()
+    const insertQuery = `
+      INSERT INTO friends (user_id, friend_id, created_at) 
+      VALUES ($1, $2, $3) 
+      ON CONFLICT DO NOTHING
+    `
+    await db.query(insertQuery, [request.from_user_id, request.to_user_id, now])
+    await db.query(insertQuery, [request.to_user_id, request.from_user_id, now])
 
-  ok(res, { success: true })
+    ok(res, { success: true })
+  } catch (err) {
+    console.error(err)
+    bad(res, 500, 'Ошибка при принятии заявки в друзья')
+  }
 })
 
-app.get('/api/friends/:userId', (req, res) => {
-  const friends = db.prepare(`
-    SELECT u.* FROM friends f JOIN users u ON u.id = f.friendId WHERE f.userId = ?
-  `).all(req.params.userId)
-  ok(res, friends.map(publicUser))
+app.get('/api/friends/:userId', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT u.* FROM friends f 
+      JOIN users u ON u.id = f.friend_id 
+      WHERE f.user_id = $1
+    `, [req.params.userId])
+    
+    ok(res, result.rows.map(publicUser))
+  } catch (err) {
+    console.error(err)
+    bad(res, 500, 'Ошибка при получении списка друзей')
+  }
 })
 
 // ── sync-local-users ──────────────────────────────────────────
-// Принимает пользователей, накопленных раньше в localStorage (до появления бэкенда),
-// и аккуратно добавляет в БД тех, кого там ещё нет (по login), не трогая существующих.
-app.post('/api/sync-local-users', (req, res) => {
+app.post('/api/sync-local-users', async (req, res) => {
   try {
     const { users = [] } = req.body || {}
     let inserted = 0
-    const insertStmt = db.prepare(`
-      INSERT INTO users (id, login, passwordHash, nickname, roleName, vk, forum, avatar, warnings, isBanned, banReason, registeredAt)
-      VALUES (@id, @login, @passwordHash, @nickname, @roleName, @vk, @forum, @avatar, @warnings, @isBanned, @banReason, @registeredAt)
-    `)
 
     for (const u of users) {
       if (!u.login) continue
       const cleanLogin = String(u.login).trim().toLowerCase()
-      const exists = db.prepare('SELECT id FROM users WHERE login = ?').get(cleanLogin)
-      if (exists) continue
+      
+      const exists = await db.query('SELECT id FROM users WHERE login = $1', [cleanLogin])
+      if (exists.rows.length) continue
 
-      insertStmt.run({
-        id: u.id || uuid(),
-        login: cleanLogin,
-        passwordHash: '', // локальные записи без пароля — при первом входе им нужно будет зарегистрироваться заново
-        nickname: u.nickname || cleanLogin,
-        roleName: u.roleName || 'Игрок',
-        vk: u.vk || '',
-        forum: u.forum || '',
-        avatar: u.avatar || '',
-        warnings: u.warnings || 0,
-        isBanned: u.isBanned ? 1 : 0,
-        banReason: u.banReason || '',
-        registeredAt: u.registeredAt || new Date().toISOString(),
-      })
+      await db.query(`
+        INSERT INTO users (id, login, password_hash, nickname, role_name, vk, forum, avatar, warnings, is_banned, ban_reason, registered_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `, [
+        u.id || uuid(),
+        cleanLogin,
+        '', // без пароля — при первом входе потребуется регистрация
+        u.nickname || cleanLogin,
+        u.roleName || 'Игрок',
+        u.vk || '',
+        u.forum || '',
+        u.avatar || '',
+        u.warnings || 0,
+        Boolean(u.isBanned),
+        u.banReason || '',
+        u.registeredAt || new Date().toISOString()
+      ])
       inserted++
     }
     ok(res, { synced: inserted })
   } catch (err) {
     console.error(err)
-    bad(res, 500, 'Ошибка синхронизации')
+    bad(res, 500, 'Ошибка синхронизации локальных пользователей')
   }
 })
 
-// Временный служебный роут для ручного управления — защищён секретным ключом.
-// Не забудь удалить или закрыть после использования, это не для постоянной эксплуатации.
+// ── admin ─────────────────────────────────────────────────────
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'change-me'
 
-app.post('/api/admin/set-role', (req, res) => {
-  const { secret, login, roleName } = req.body || {}
-  if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
-  if (!login || !roleName) return bad(res, 400, 'Не хватает данных')
+app.post('/api/admin/set-role', async (req, res) => {
+  try {
+    const { secret, login, roleName } = req.body || {}
+    if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
+    if (!login || !roleName) return bad(res, 400, 'Не хватает данных')
 
-  const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login.trim().toLowerCase())
-  if (!user) return bad(res, 404, 'Пользователь не найден')
+    const result = await db.query(
+      'UPDATE users SET role_name = $1 WHERE LOWER(login) = $2 RETURNING *',
+      [roleName, login.trim().toLowerCase()]
+    )
 
-  db.prepare('UPDATE users SET roleName = ? WHERE id = ?').run(roleName, user.id)
-  ok(res, { success: true, user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)) })
+    if (!result.rows[0]) return bad(res, 404, 'Пользователь не найден')
+    ok(res, { success: true, user: publicUser(result.rows[0]) })
+  } catch (err) {
+    console.error(err)
+    bad(res, 500, 'Ошибка изменения роли')
+  }
 })
 
 app.post('/api/admin/reset-password', async (req, res) => {
-  const { secret, login, newPassword } = req.body || {}
-  if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
-  if (!login || !newPassword) return bad(res, 400, 'Не хватает данных')
+  try {
+    const { secret, login, newPassword } = req.body || {}
+    if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
+    if (!login || !newPassword) return bad(res, 400, 'Не хватает данных')
 
-  const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login.trim().toLowerCase())
-  if (!user) return bad(res, 404, 'Пользователь не найден')
+    const cleanLogin = login.trim().toLowerCase()
+    const userRes = await db.query('SELECT id FROM users WHERE login = $1', [cleanLogin])
+    if (!userRes.rows[0]) return bad(res, 404, 'Пользователь не найден')
 
-  const passwordHash = await bcrypt.hash(newPassword, 10)
-  db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(passwordHash, user.id)
-  ok(res, { success: true })
+    const passwordHash = await bcrypt.hash(newPassword, 10)
+    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userRes.rows[0].id])
+    ok(res, { success: true })
+  } catch (err) {
+    console.error(err)
+    bad(res, 500, 'Ошибка при сбросе пароля')
+  }
 })
 
-app.delete('/api/admin/users/:login', (req, res) => {
-  const { secret } = req.query
-  if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
+app.delete('/api/admin/users/:login', async (req, res) => {
+  try {
+    const { secret } = req.query
+    if (secret !== ADMIN_SECRET) return bad(res, 403, 'Неверный секрет')
 
-  const login = req.params.login.trim().toLowerCase()
-  const result = db.prepare('DELETE FROM users WHERE login = ?').run(login)
-  ok(res, { deleted: result.changes })
+    const login = req.params.login.trim().toLowerCase()
+    const result = await db.query('DELETE FROM users WHERE login = $1 RETURNING id', [login])
+    
+    ok(res, { deleted: result.rowCount })
+  } catch (err) {
+    console.error(err)
+    bad(res, 500, 'Ошибка при удалении пользователя')
+  }
 })
 
-
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  if (typeof initDatabase === 'function') {
+    await initDatabase()
+  }
   console.log(`StateCore API запущен на порту ${PORT}`)
 })

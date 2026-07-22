@@ -348,7 +348,7 @@ export default function Profile({ user, onUpdate }) {
     setTotpError('')
 
     try {
-      // 1. Сначала локальная проверка (или сразу отправка на сервер)
+      // 1. Локальная проверка TOTP
       const isValid = await verifyTOTP(tempSecret, totpInput)
       if (!isValid) {
         setTotpError('Неверный код. Проверьте время на телефоне')
@@ -356,20 +356,26 @@ export default function Profile({ user, onUpdate }) {
         return
       }
 
-      // 2. Формируем новый объект пользователя
+      // 2. Формируем объект локального состояния
       const updatedUser = { 
         ...(user || u), 
         twoFactorSecret: tempSecret, 
         twoFactorEnabled: true,
-        is_totp_enabled: true // Для синхронизации с PostgreSQL
+        is_totp_enabled: true 
       }
 
-      // 3. Сохраняем на сервере в PostgreSQL
+      // 3. Отправляем НА СЕРВЕР только релевантные поля для 2FA
       if (typeof updateUserOnServer === 'function') {
-        await updateUserOnServer(updatedUser)
+        await updateUserOnServer({
+          id: data.id,
+          twoFactorSecret: tempSecret,       // Проверь наименование в БД!
+          two_factor_secret: tempSecret,      // Дублируем под snake_case для надежности
+          twoFactorEnabled: true,
+          is_totp_enabled: true
+        })
       }
 
-      // 4. Обновляем сессию и стейты
+      // 4. Обновляем локальное хранилище и UI
       setSession(updatedUser)
       upsertUser(updatedUser)
       setTwoFactorEnabled(true)
@@ -379,7 +385,7 @@ export default function Profile({ user, onUpdate }) {
       if (onUpdate) onUpdate(updatedUser)
     } catch (err) {
       console.error('Ошибка при сохранении 2FA:', err)
-      setTotpError(err.message || 'Не удалось сохранить настройки 2FA на сервере')
+      setTotpError(err.message || 'Ошибка сервера (500). Проверьте бэкенд-логи на Render')
     } finally {
       setVerifying2Fa(false)
     }
