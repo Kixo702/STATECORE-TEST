@@ -103,6 +103,11 @@ export async function getFriends(userId) {
   return Array.isArray(data) ? data : (data.friends || [])
 }
 
+export async function updateUserOnServer(user) {
+  if (!user?.id) return
+  return updateUser(user.id, user)
+}
+
 export async function removeFriend(friendId) {
   return api(`/friends/${friendId}`, { method: 'DELETE' })
 }
