@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import banner from '../assets/banner.png'
 import {
   isLeaderOfFaction,
   getLeadershipDirection,
@@ -240,32 +239,31 @@ const SPHERES = [
   { id: 'bikers', label: 'Байкеры', hasSource: true },
 ]
 
-/* ───────── Общий каркас страницы (фон + баннер) ───────── */
+/* ───────── Общий каркас страницы (в стиле Dashboard) ───────── */
 function PageChrome({ children }) {
+  const [now, setNow] = useState(new Date())
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(t)
+  }, [])
+
+  const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  const dateStr = now.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' })
+
   return (
-    <>
-      <div
-        className="fixed inset-0 opacity-30 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle at 20% 20%, rgba(168,85,247,.25), transparent 40%),' +
-            'radial-gradient(circle at 80% 60%, rgba(239,68,68,.25), transparent 45%)',
-        }}
-      />
-
-      <div className="min-h-screen bg-[#0b0f17] text-white relative">
-        <div className="w-full bg-[#0b0f19] pt-4 pb-2 border-b border-white/5">
-          <div className="px-8">
-            <div className="relative w-full max-h-[140px] overflow-hidden rounded-2xl">
-              <img src={banner} alt="banner" className="w-full object-contain block" />
-              <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-[#0b0f19] to-transparent pointer-events-none" />
-            </div>
-          </div>
+    <div className="text-white min-h-screen" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
+      {/* STATUS STRIP */}
+      <div className="border-b border-white/5">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 h-10 flex items-center justify-between text-[11px] font-semibold tracking-wide text-white/35">
+          <div className="uppercase">{dateStr}, {timeStr}</div>
         </div>
-
-        <div className="p-4 sm:p-6 md:p-10 relative z-10">{children}</div>
       </div>
-    </>
+
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 py-8 sm:py-10">
+        {children}
+      </div>
+    </div>
   )
 }
 
@@ -273,15 +271,16 @@ function PageChrome({ children }) {
 function InDevelopmentCard({ sphereLabel }) {
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-black">Чёрный список · {sphereLabel}</h1>
-      <p className="text-gray-400 mt-1">Раздел для этой сферы пока не подключён</p>
+      <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Чёрный список</div>
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">{sphereLabel}</h1>
+      <p className="text-slate-400 max-w-lg">Раздел для этой сферы пока не подключён</p>
 
-      <div className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400">
+      <div className="mt-8 rounded-2xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-3">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 text-orange-300/80">
           <IconWrench />
         </div>
-        <div className="text-gray-300 font-semibold">В разработке</div>
-        <p className="text-gray-500 text-sm max-w-sm">
+        <div className="text-white font-black text-lg">В разработке</div>
+        <p className="text-slate-400 text-sm max-w-sm">
           Таблица или документ ЧС для этого направления ещё не подключены. Загляните позже.
         </p>
       </div>
@@ -293,18 +292,19 @@ function InDevelopmentCard({ sphereLabel }) {
 function DocsLinkCard({ sphereLabel, url }) {
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-black">Чёрный список · {sphereLabel}</h1>
-      <p className="text-gray-400 mt-1">Ведётся в документе — отдельной таблицы для этой сферы пока нет</p>
+      <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Чёрный список</div>
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">{sphereLabel}</h1>
+      <p className="text-slate-400 max-w-lg">Ведётся в документе — отдельной таблицы для этой сферы пока нет</p>
 
-      <div className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400">
+      <div className="mt-8 rounded-2xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-4">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 text-orange-300/80">
           <IconDoc />
         </div>
         <a
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-600/10 border border-purple-500/30 text-purple-200 font-semibold hover:bg-purple-500/25 transition"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 text-white font-black shadow-lg shadow-orange-500/20 hover:brightness-110 transition"
         >
           Открыть документ ЧС ↗
         </a>
