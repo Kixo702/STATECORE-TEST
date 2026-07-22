@@ -4,10 +4,12 @@ import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
-import { authenticator } from 'otplib/authenticator'
+import otplib from 'otplib'
+
 import qrcode from 'qrcode'
 import { db, initDatabase } from './db.js'
 
+const { authenticator } = otplib
 const app = express()
 const PORT = process.env.PORT || 5000
 const JWT_SECRET = process.env.JWT_SECRET || 'statecore_secret_key_change_me'
