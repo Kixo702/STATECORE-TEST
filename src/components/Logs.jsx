@@ -38,6 +38,11 @@ const IconLock = ({ size = 18 }) => (
     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
   </svg>
 )
+const IconWrench = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14.7 6.3a4 4 0 10-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>
+  </svg>
+)
 
 const TYPE_CONFIG = {
   leader: { label: 'Назначения', icon: <IconCrown size={18} />, main: '#34d399', bg: 'rgba(52,211,153,.06)', border: 'rgba(52,211,153,.15)', glow: 'rgba(52,211,153,.15)' },
@@ -47,7 +52,28 @@ const TYPE_CONFIG = {
   default: { label: 'Другое', icon: <IconFileText size={16} />, main: '#60a5fa', bg: 'rgba(96,165,250,.06)', border: 'rgba(96,165,250,.15)', glow: 'rgba(96,165,250,.15)' }
 }
 
-export default function Logs({ pageNumber = 1, setPageNumber = () => {} }) {
+// Сферы логов. hasSource=true — уже подключён реальный источник (таблица),
+// иначе показывается "в разработке"
+const SPHERES = [
+  { id: 'gov', label: 'Гос.', hasSource: true },
+  { id: 'bo', label: 'БО', hasSource: false },
+  { id: 'mafia', label: 'Мафия', hasSource: false },
+  { id: 'ghetto', label: 'Гетто', hasSource: false },
+  { id: 'bikers', label: 'Байкеры', hasSource: false },
+]
+
+// Сервера. hasSource=true — уже подключён реальный источник (таблица),
+// иначе показывается "в разработке"
+const SERVERS = [
+  { id: 'texas', label: 'Texas', hasSource: true },
+  { id: 'florida', label: 'Florida', hasSource: false },
+  { id: 'nevada', label: 'Nevada', hasSource: false },
+  { id: 'hawaii', label: 'Hawaii', hasSource: false },
+  { id: 'indiana', label: 'Indiana', hasSource: false },
+]
+
+/* ───────── Таблица логов лидеров Гос. Texas — прежняя логика, вынесена в отдельный компонент ───────── */
+function LogsGovTexasTable({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState('all') // Основной тип ('all', 'remove', 'warn'...)
   const [reasonFilter, setReasonFilter] = useState('all') // Фильтр конкретно по причинам снятия
@@ -229,111 +255,7 @@ export default function Logs({ pageNumber = 1, setPageNumber = () => {} }) {
   const getCfg = (type) => TYPE_CONFIG[type] || TYPE_CONFIG.default
 
   return (
-    <div style={{
-      fontFamily: "'Syne', 'Onest', 'Segoe UI', sans-serif",
-      color: '#e8edf5',
-      background: '#060810',
-      minHeight: '100vh',
-    }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700;800;900&display=swap');
-
-        @keyframes log-fadeUp  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes log-shimmer { 100% { transform: translateX(100%); } }
-
-        * { box-sizing: border-box; }
-        .log-container { max-width: 1600px; margin: 0 auto; padding: 40px 48px; }
-        
-        .log-input-wrap { position: relative; width: 100%; }
-        .log-input {
-          width: 100%; background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          padding: 16px 20px 16px 48px; color: #fff; font-size: 14px;
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          border-radius: 16px; font-family: inherit;
-        }
-        .log-input:focus {
-          outline: none; background: rgba(255, 255, 255, 0.04);
-          border-color: rgba(96, 165, 250, 0.5); box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.08);
-        }
-
-        /* Кнопки причин снятия */
-        .reason-grid {
-          display: flex;
-          gap: 10px;
-          overflow-x: auto;
-          padding-bottom: 6px;
-          margin-bottom: 24px;
-          white-space: nowrap;
-        }
-        .reason-grid::-webkit-scrollbar {
-          height: 6px;
-        }
-        .reason-grid::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.12);
-          border-radius: 999px;
-        }
-        .reason-card-btn {
-          background: linear-gradient(160deg, rgba(255,255,255,.01) 0%, rgba(8,10,18,.3) 100%);
-          border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 14px;
-          padding: 12px 14px; cursor: pointer; text-align: left; display: inline-flex; flex-direction: column;
-          justify-content: space-between; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-          min-width: 170px;
-          flex: 0 0 auto;
-        }
-        .reason-card-btn:hover {
-          background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); transform: translateY(-2px);
-        }
-        .reason-card-btn.active {
-          background: rgba(239, 68, 68, 0.04); border-color: rgba(239, 68, 68, 0.4);
-          box-shadow: 0 4px 20px rgba(239, 68, 68, 0.05);
-        }
-
-        .log-filter-btn {
-          padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
-          background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
-          color: rgba(255,255,255,0.5); cursor: pointer; display: flex; align-items: center; gap: 8px;
-          transition: all 0.2s ease; font-family: 'Onest', sans-serif;
-        }
-        .log-filter-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
-        .log-filter-btn.active {
-          background: rgba(96, 165, 250, 0.1); border-color: rgba(96, 165, 250, 0.3); color: #60a5fa;
-        }
-
-        .log-main-panel {
-          background: linear-gradient(160deg, rgba(13,17,30,.7) 0%, rgba(7,9,16,.9) 100%);
-          border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 24px;
-          padding: 32px; backdrop-filter: blur(20px); box-shadow: 0 30px 90px rgba(0,0,0,.4);
-        }
-
-        .log-row {
-          display: flex; align-items: center; justify-content: space-between;
-          background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03);
-          border-radius: 16px; padding: 18px 22px; gap: 16px;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .log-row:hover {
-          background: rgba(255, 255, 255, 0.025); border-color: rgba(255, 255, 255, 0.07); transform: translateX(4px);
-        }
-
-        .log-skeleton {
-          position: relative; overflow: hidden; background: rgba(255, 255, 255, 0.02); border-radius: 16px; height: 86px;
-        }
-        .log-skeleton::after {
-          position: absolute; top: 0; right: 0; bottom: 0; left: 0; transform: translateX(-100%);
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
-          animation: log-shimmer 1.5s infinite; content: '';
-        }
-
-        @media (max-width: 992px) {
-          .log-container { padding: 24px 20px; }
-          .log-row { flex-direction: column; align-items: flex-start; gap: 16px; }
-          .log-row-right { text-align: left !important; width: 100%; padding-left: 58px; }
-          .log-main-panel { padding: 20px; border-radius: 20px; }
-        }
-      `}</style>
-
-      <div className="log-container">
+    <>
         {/* ── HEADER ── */}
         <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'rgba(255,255,255,.25)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>
@@ -533,6 +455,208 @@ export default function Logs({ pageNumber = 1, setPageNumber = () => {} }) {
             </div>
           )}
         </div>
+    </>
+  )
+}
+
+/* ───────── Заглушка "в разработке" для сфер/серверов без подключённого источника ───────── */
+function InDevelopmentCard({ sphereLabel, serverLabel }) {
+  return (
+    <div>
+      <div style={{ marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'rgba(255,255,255,.25)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>
+          <span>Панель управления</span>
+          <span style={{ opacity: .35 }}><IconChevron /></span>
+          <span style={{ color: 'rgba(255,255,255,.4)' }}>Логи лидеров</span>
+        </div>
+        <h1 style={{ margin: 0, fontSize: '42px', fontWeight: 800, letterSpacing: '-1.5px', background: 'linear-gradient(125deg, #ffffff 30%, rgba(255,255,255,.5) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', fontFamily: 'Syne, sans-serif' }}>
+          {sphereLabel} · {serverLabel}
+        </h1>
+      </div>
+
+      <div className="log-main-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '14px', padding: '70px 32px' }}>
+        <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,.4)' }}>
+          <IconWrench />
+        </div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'rgba(255,255,255,.75)', fontFamily: 'Onest, sans-serif' }}>В разработке</div>
+        <p style={{ margin: 0, maxWidth: '360px', fontSize: '13px', lineHeight: 1.5, color: 'rgba(255,255,255,.35)', fontFamily: 'Onest, sans-serif' }}>
+          Логи для этой сферы/сервера ещё не подключены. Загляните позже.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ───────── ГЛАВНЫЙ ЭКСПОРТ ─────────
+   Общий фон/стили и фильтры по сфере и серверу. Реальные данные сейчас
+   подключены только для связки Гос. + Texas — остальные комбинации
+   показывают заглушку "в разработке".
+*/
+export default function Logs({ pageNumber = 1, setPageNumber = () => {} }) {
+  const [sphere, setSphere] = useState('gov')
+  const [server, setServer] = useState('texas')
+
+  const activeSphere = SPHERES.find((s) => s.id === sphere) || SPHERES[0]
+  const activeServer = SERVERS.find((s) => s.id === server) || SERVERS[0]
+  const hasSource = activeSphere.hasSource && activeServer.hasSource
+
+  useEffect(() => {
+    setPageNumber(1)
+  }, [sphere, server, setPageNumber])
+
+  return (
+    <div style={{
+      fontFamily: "'Syne', 'Onest', 'Segoe UI', sans-serif",
+      color: '#e8edf5',
+      background: '#060810',
+      minHeight: '100vh',
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700;800;900&display=swap');
+
+        @keyframes log-fadeUp  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes log-shimmer { 100% { transform: translateX(100%); } }
+
+        * { box-sizing: border-box; }
+        .log-container { max-width: 1600px; margin: 0 auto; padding: 40px 48px; }
+        
+        .log-input-wrap { position: relative; width: 100%; }
+        .log-input {
+          width: 100%; background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 16px 20px 16px 48px; color: #fff; font-size: 14px;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          border-radius: 16px; font-family: inherit;
+        }
+        .log-input:focus {
+          outline: none; background: rgba(255, 255, 255, 0.04);
+          border-color: rgba(96, 165, 250, 0.5); box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.08);
+        }
+
+        /* Кнопки причин снятия */
+        .reason-grid {
+          display: flex;
+          gap: 10px;
+          overflow-x: auto;
+          padding-bottom: 6px;
+          margin-bottom: 24px;
+          white-space: nowrap;
+        }
+        .reason-grid::-webkit-scrollbar {
+          height: 6px;
+        }
+        .reason-grid::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.12);
+          border-radius: 999px;
+        }
+        .reason-card-btn {
+          background: linear-gradient(160deg, rgba(255,255,255,.01) 0%, rgba(8,10,18,.3) 100%);
+          border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 14px;
+          padding: 12px 14px; cursor: pointer; text-align: left; display: inline-flex; flex-direction: column;
+          justify-content: space-between; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          min-width: 170px;
+          flex: 0 0 auto;
+        }
+        .reason-card-btn:hover {
+          background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); transform: translateY(-2px);
+        }
+        .reason-card-btn.active {
+          background: rgba(239, 68, 68, 0.04); border-color: rgba(239, 68, 68, 0.4);
+          box-shadow: 0 4px 20px rgba(239, 68, 68, 0.05);
+        }
+
+        .log-filter-btn {
+          padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
+          background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+          color: rgba(255,255,255,0.5); cursor: pointer; display: flex; align-items: center; gap: 8px;
+          transition: all 0.2s ease; font-family: 'Onest', sans-serif;
+        }
+        .log-filter-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .log-filter-btn.active {
+          background: rgba(96, 165, 250, 0.1); border-color: rgba(96, 165, 250, 0.3); color: #60a5fa;
+        }
+
+        .log-sphere-btn, .log-server-btn {
+          padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 700;
+          background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+          color: rgba(255,255,255,0.45); cursor: pointer;
+          transition: all 0.2s ease; font-family: 'Onest', sans-serif;
+        }
+        .log-sphere-btn:hover, .log-server-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .log-sphere-btn.active {
+          background: rgba(168, 85, 247, 0.12); border-color: rgba(168, 85, 247, 0.35); color: #c4b5fd;
+        }
+        .log-server-btn.active {
+          background: rgba(96, 165, 250, 0.1); border-color: rgba(96, 165, 250, 0.3); color: #60a5fa;
+        }
+
+        .log-main-panel {
+          background: linear-gradient(160deg, rgba(13,17,30,.7) 0%, rgba(7,9,16,.9) 100%);
+          border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 24px;
+          padding: 32px; backdrop-filter: blur(20px); box-shadow: 0 30px 90px rgba(0,0,0,.4);
+        }
+
+        .log-row {
+          display: flex; align-items: center; justify-content: space-between;
+          background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03);
+          border-radius: 16px; padding: 18px 22px; gap: 16px;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .log-row:hover {
+          background: rgba(255, 255, 255, 0.025); border-color: rgba(255, 255, 255, 0.07); transform: translateX(4px);
+        }
+
+        .log-skeleton {
+          position: relative; overflow: hidden; background: rgba(255, 255, 255, 0.02); border-radius: 16px; height: 86px;
+        }
+        .log-skeleton::after {
+          position: absolute; top: 0; right: 0; bottom: 0; left: 0; transform: translateX(-100%);
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+          animation: log-shimmer 1.5s infinite; content: '';
+        }
+
+        @media (max-width: 992px) {
+          .log-container { padding: 24px 20px; }
+          .log-row { flex-direction: column; align-items: flex-start; gap: 16px; }
+          .log-row-right { text-align: left !important; width: 100%; padding-left: 58px; }
+          .log-main-panel { padding: 20px; border-radius: 20px; }
+        }
+      `}</style>
+
+      <div className="log-container">
+        {/* ── ФИЛЬТРЫ ПО СФЕРЕ И СЕРВЕРУ ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,.3)', letterSpacing: '0.5px', textTransform: 'uppercase', fontFamily: 'Onest, sans-serif', minWidth: '60px' }}>Сфера</span>
+            {SPHERES.map((s) => (
+              <button
+                key={s.id}
+                className={`log-sphere-btn ${sphere === s.id ? 'active' : ''}`}
+                onClick={() => setSphere(s.id)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,.3)', letterSpacing: '0.5px', textTransform: 'uppercase', fontFamily: 'Onest, sans-serif', minWidth: '60px' }}>Сервер</span>
+            {SERVERS.map((s) => (
+              <button
+                key={s.id}
+                className={`log-server-btn ${server === s.id ? 'active' : ''}`}
+                onClick={() => setServer(s.id)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {hasSource ? (
+          <LogsGovTexasTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+        ) : (
+          <InDevelopmentCard sphereLabel={activeSphere.label} serverLabel={activeServer.label} />
+        )}
       </div>
     </div>
   )
