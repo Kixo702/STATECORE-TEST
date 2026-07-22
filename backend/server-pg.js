@@ -386,7 +386,20 @@ app.get('/api/users/:id', async (req, res) => {
 app.patch('/api/users/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params
-    const { nickname, role, roleName, isBanned, banReason, warns, avatar } = req.body
+    const { 
+      nickname, 
+      role, 
+      roleName, 
+      isBanned, 
+      banReason, 
+      warns, 
+      avatar,
+      twoFactorSecret,
+      totp_secret,
+      two_factor_secret,
+      twoFactorEnabled,
+      is_totp_enabled
+    } = req.body
 
     const fields = []
     const values = []
@@ -399,6 +412,19 @@ app.patch('/api/users/:id', authenticateToken, async (req, res) => {
     if (banReason !== undefined) { fields.push(`ban_reason = $${idx++}`); values.push(banReason); }
     if (warns !== undefined) { fields.push(`warns = $${idx++}`); values.push(warns); }
     if (avatar !== undefined) { fields.push(`avatar = $${idx++}`); values.push(avatar); }
+
+    // Поддержка 2FA
+    const secretVal = twoFactorSecret ?? totp_secret ?? two_factor_secret
+    if (secretVal !== undefined) { 
+      fields.push(`totp_secret = $${idx++}`); 
+      values.push(secretVal); 
+    }
+
+    const enabledVal = twoFactorEnabled ?? is_totp_enabled
+    if (enabledVal !== undefined) { 
+      fields.push(`is_totp_enabled = $${idx++}`); 
+      values.push(enabledVal); 
+    }
 
     if (fields.length === 0) {
       return bad(res, 400, 'Нет полей для обновления')
