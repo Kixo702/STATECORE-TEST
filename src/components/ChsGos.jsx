@@ -8,72 +8,53 @@ import {
   isDeputy,
 } from '../lib/roles'
 
-/* ───────── ИКОНКИ В СТИЛЕ DASHBOARD ───────── */
-const IC = {
-  search: (
-    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
-      <path d="M21 21l-4-4m1-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-  filter: (
-    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
-      <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-  doc: (
-    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none">
-      <path d="M6 2h9l5 5v15H6V2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M14 2v5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9 13h6M9 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  wrench: (
-    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none">
-      <path d="M14.7 6.3a4 4 0 10-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.6 2.6-2-2 2.6-2.6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  link: (
-    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none">
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  ),
-  shield: (
-    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  spin: (
-    <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 animate-spin">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeDasharray="56" strokeDashoffset="14" strokeLinecap="round" />
-    </svg>
-  ),
-}
+/* ───────── ICONS ───────── */
+const IconSearch = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M21 21l-4-4m1-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </svg>
+)
 
-/* ───────── ХЕЛПЕРЫ И ССЫЛКИ ───────── */
+const IconFilter = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M4 6h16M7 12h10M10 18h4"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </svg>
+)
+
+const IconDoc = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <path d="M6 2h9l5 5v15H6V2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M14 2v5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9 13h6M9 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+const IconWrench = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M14.7 6.3a4 4 0 10-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.6 2.6-2-2 2.6-2.6z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+/* ───────── HELPERS ───────── */
 const clean = (v) => v?.replace(/"/g, '').trim() || ''
 
-const normalizeExternalUrl = (value) => (/^https?:\/\//i.test(value) ? value : `https://${value}`)
-
-const confirmAndOpenExternal = (value) => {
-  const url = normalizeExternalUrl(value)
-  const ok = window.confirm(`Вы уверены, что хотите покинуть сайт и перейти на страницу «${url}»?`)
-  if (ok) window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-function ContactLink({ label, value, colorClass = "hover:text-orange-400" }) {
-  if (!value || value === '-') return null
-  return (
-    <button
-      onClick={() => confirmAndOpenExternal(value)}
-      className={`inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 ${colorClass} transition-colors underline decoration-dotted underline-offset-2 cursor-pointer`}
-    >
-      {IC.link}
-      {label}
-    </button>
-  )
-}
-
+// Корректный построчный парсер CSV (учитывает запятые внутри кавычек)
 const parseCSVLine = (line) => {
   const result = []
   let current = ''
@@ -100,8 +81,10 @@ const parseDate = (d) => {
   return new Date(`${year}-${month}-${day}`)
 }
 
+// "Срок" может быть числом дней либо "Навсегда" — тогда запись не имеет даты окончания
 const isPermanent = (term) => (term || '').toLowerCase().includes('навсегда')
 
+// Запись считается снятой, если в примечании есть отметка об апелляции/выводе из ЧС
 const LIFTED_RE = /вынесен|снят(а|о)?\s*(с|из)?\s*(чс|blacklist)|обжалован/i
 const isLifted = (note) => LIFTED_RE.test(note || '')
 
@@ -111,22 +94,31 @@ const isDateExpired = (term, endDate) => {
   return d ? d < new Date() : false
 }
 
+// Единый статус записи:
+// 'lifted'  — снята по апелляции (видно из примечания)
+// 'expired' — истёк срок (актуально только для не-"Навсегда" записей с датой)
+// 'active'  — действует (в т.ч. все "Навсегда"-записи без отметки о снятии)
 const getStatus = (p) => {
   if (isLifted(p.note)) return 'lifted'
   if (isDateExpired(p.term, p.endDate)) return 'expired'
   return 'active'
 }
 
+// Ссылка на документ ЧС БО — там список ведётся вручную в Google Docs,
+// отдельной таблицы (как у ЧС гос) для этого направления пока нет
 const CHSBO_DOCS_URL =
   'https://docs.google.com/document/d/1qVCFsoORgJY7y1q23te6ZGWoqlkiQDfHeA3xnYeTq3A/edit?tab=t.0'
 
+// Таблица ЧС мафий — исходная ссылка дана в виде pubhtml, для CSV-экспорта
+// меняем /pubhtml на /pub и добавляем output=csv (как и для BLACKLIST_URL в Sidebar)
 const CHSMAFIA_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vR1VeCFjnEockkuf3EFBZPnVAOfWqe8NjadnUv-2XyF2z12R_EwzPXzhr91nYK0pbcTYSTfAvkJp6co/pub?gid=1491874856&single=true&output=csv'
 
+// Степени ЧС мафий: цвет, подпись и срок в днях (null — навсегда)
 const MAFIA_LEVELS = [
-  { key: 'red', match: /красн/i, label: 'Красная степень', days: null, color: '248,113,113' },
-  { key: 'yellow', match: /жел|жёл/i, label: 'Жёлтая степень', days: 90, color: '251,146,60' },
-  { key: 'blue', match: /син/i, label: 'Синяя степень', days: 365, color: '56,189,248' },
+  { key: 'red', match: /красн/i, label: 'Красная степень', days: null, color: '239,68,68' },
+  { key: 'yellow', match: /жел|жёл/i, label: 'Жёлтая степень', days: 90, color: '234,179,8' },
+  { key: 'blue', match: /син/i, label: 'Синяя степень', days: 365, color: '59,130,246' },
 ]
 
 const getMafiaLevel = (term) => {
@@ -134,10 +126,19 @@ const getMafiaLevel = (term) => {
   return MAFIA_LEVELS.find((l) => l.match.test(t)) || null
 }
 
+// Статус записи ЧС мафий:
+// 'lifted'  — есть отметка об амнистии либо заполнена "Дата вынесения"
+// 'expired' — истёк срок степени (для Жёлтой/Синей), а "Дата вынесения" не проставлена
+// 'active'  — действует (в т.ч. Красная степень, которая всегда навсегда)
 const getMafiaStatus = (p) => {
   if (clean(p.amnesty)) return 'lifted'
+
   const end = parseDate(p.endDate)
-  if (end) return end <= new Date() ? 'lifted' : 'active'
+  if (end) {
+    // "Дата вынесения" уже наступила — ЧС реально снят.
+    // Если дата в будущем, это плановая дата окончания степени, а не снятие.
+    return end <= new Date() ? 'lifted' : 'active'
+  }
 
   const level = getMafiaLevel(p.term)
   if (level && level.days) {
@@ -151,6 +152,7 @@ const getMafiaStatus = (p) => {
   return 'active'
 }
 
+// Ожидаемая дата окончания степени, если "Дата вынесения" ещё не проставлена
 const mafiaExpectedEnd = (p, level) => {
   if (!level || !level.days) return null
   const added = parseDate(p.dateAdded)
@@ -160,9 +162,12 @@ const mafiaExpectedEnd = (p, level) => {
   return expiry.toLocaleDateString('ru-RU')
 }
 
+// Таблица ЧС Гетто — тот же документ, что и ЧС мафий, но другой лист (gid)
 const CHSGHETTO_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vR1VeCFjnEockkuf3EFBZPnVAOfWqe8NjadnUv-2XyF2z12R_EwzPXzhr91nYK0pbcTYSTfAvkJp6co/pub?gid=1797494060&single=true&output=csv'
 
+// В нике иногда встречается формат "СтарыйНик I НовыйНик" — второй ник
+// актуальный, первый — старый (до смены). Разделитель — " I " (заглавная I).
 const parseGhettoNickname = (raw) => {
   const v = (raw || '').trim()
   const parts = v.split(/\s+I\s+/)
@@ -172,6 +177,7 @@ const parseGhettoNickname = (raw) => {
   return { nickname: v, oldNickname: null }
 }
 
+// Колонка "в чёрном списке до:" — либо дата (ДД.ММ.ГГГГ), либо "навсегда"
 const parseGhettoUntil = (raw) => {
   const v = (raw || '').trim()
   if (!v) return { permanent: false, endDate: null, raw: v }
@@ -180,6 +186,8 @@ const parseGhettoUntil = (raw) => {
   return { permanent: false, endDate: m ? m[1] : null, raw: v }
 }
 
+// Колонка "снят ли ЧС или нет" — заполняется не всегда. Пусто/"нет"/"-" —
+// ЧС не снят, любое другое значение (например "да", "снят") — снят.
 const isGhettoLifted = (raw) => {
   const v = (raw || '').trim().toLowerCase()
   if (!v || v === '-') return false
@@ -196,12 +204,14 @@ const getGhettoStatus = (p) => {
   return 'active'
 }
 
+// Таблица ЧС Байкеров — тот же документ, ещё один лист (gid)
 const CHSBIKERS_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vR1VeCFjnEockkuf3EFBZPnVAOfWqe8NjadnUv-2XyF2z12R_EwzPXzhr91nYK0pbcTYSTfAvkJp6co/pub?gid=1668268846&single=true&output=csv'
 
+// Уровни ЧС Байкеров: цвет и подпись (в отличие от мафий — без фиксированного срока в днях)
 const BIKER_LEVELS = [
-  { key: 'high', match: /высок/i, label: 'Высокий уровень', color: '248,113,113' },
-  { key: 'medium', match: /средн/i, label: 'Средний уровень', color: '251,146,60' },
+  { key: 'high', match: /высок/i, label: 'Высокий уровень', color: '239,68,68' },
+  { key: 'medium', match: /средн/i, label: 'Средний уровень', color: '234,179,8' },
 ]
 
 const getBikerLevel = (level) => {
@@ -209,133 +219,110 @@ const getBikerLevel = (level) => {
   return BIKER_LEVELS.find((l) => l.match.test(t)) || null
 }
 
+// Статус записи ЧС Байкеров:
+// 'lifted' — "Дата вынесения" проставлена и уже наступила (ЧС реально снят)
+// 'active' — дата вынесения не наступила либо не проставлена вовсе
 const getBikerStatus = (p) => {
   const end = parseDate(p.endDate)
-  if (end) return end <= new Date() ? 'lifted' : 'active'
+  if (end) {
+    return end <= new Date() ? 'lifted' : 'active'
+  }
   return 'active'
 }
 
+// Сферы ЧС, доступные игроку через фильтр. hasSource=true — уже подключён
+// реальный источник (таблица или документ), иначе показывается "в разработке"
 const SPHERES = [
-  { id: 'gov', label: 'Государственные', hasSource: true },
-  { id: 'bo', label: 'Бизнес организации', hasSource: true },
-  { id: 'mafia', label: 'Синдикаты', hasSource: true },
-  { id: 'ghetto', label: 'Уличные группировки', hasSource: true },
-  { id: 'bikers', label: 'Байкерские клубы', hasSource: true },
+  { id: 'gov', label: 'Гос.', hasSource: true },
+  { id: 'bo', label: 'БО', hasSource: true },
+  { id: 'mafia', label: 'Мафия', hasSource: true },
+  { id: 'ghetto', label: 'Гетто', hasSource: true },
+  { id: 'bikers', label: 'Байкеры', hasSource: true },
 ]
 
-/* ───────── КАРКАС СТРАНИЦЫ (ТЕМАТИКА DASHBOARD) ───────── */
+/* ───────── Общий каркас страницы (фон + баннер) ───────── */
 function PageChrome({ children }) {
-  const [now, setNow] = useState(new Date())
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 30000)
-    return () => clearInterval(t)
-  }, [])
-
-  const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-  const dateStr = now.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' })
-
   return (
-    <div
-      className="text-white min-h-screen relative"
-      style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}
-    >
-      {/* Upper Status Strip */}
-      <div className="border-b border-white/5">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 h-10 flex items-center justify-between text-[11px] font-semibold tracking-wide text-white/35">
-          <div className="uppercase">
-            {dateStr}, {timeStr}
-          </div>
-          <div className="flex items-center gap-1.5 text-orange-400/80">
-            {IC.shield}
-            <span>STATECORE SECURITY SYSTEM</span>
+    <>
+      <div
+        className="fixed inset-0 opacity-30 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(circle at 20% 20%, rgba(168,85,247,.25), transparent 40%),' +
+            'radial-gradient(circle at 80% 60%, rgba(239,68,68,.25), transparent 45%)',
+        }}
+      />
+
+      <div className="min-h-screen bg-[#0b0f17] text-white relative">
+        <div className="w-full bg-[#0b0f19] pt-4 pb-2 border-b border-white/5">
+          <div className="px-8">
+            <div className="relative w-full max-h-[140px] overflow-hidden rounded-2xl">
+              <img src={banner} alt="banner" className="w-full object-contain block" />
+              <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-[#0b0f19] to-transparent pointer-events-none" />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Banner */}
-      <div className="w-full bg-[#0a0e18] border-b border-white/5 pt-4 pb-2">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10">
-          <div className="relative w-full max-h-[140px] overflow-hidden rounded-2xl border border-white/5">
-            <img src={banner} alt="banner" className="w-full object-contain block opacity-90" />
-            <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-[#0a0e18] to-transparent pointer-events-none" />
-          </div>
-        </div>
+        <div className="p-4 sm:p-6 md:p-10 relative z-10">{children}</div>
       </div>
-
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 py-8 relative z-10">{children}</div>
-    </div>
+    </>
   )
 }
 
-/* ───────── ЗАГЛУШКА В РАЗРАБОТКЕ ───────── */
+/* ───────── Заглушка "в разработке" для сфер без подключённого источника ───────── */
 function InDevelopmentCard({ sphereLabel }) {
   return (
-    <div className="animate-fade-in">
-      <div className="mb-6">
-        <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-1">
-          Черный список
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black">{sphereLabel}</h1>
-      </div>
+    <div>
+      <h1 className="text-2xl sm:text-3xl font-black">Чёрный список · {sphereLabel}</h1>
+      <p className="text-gray-400 mt-1">Раздел для этой сферы пока не подключён</p>
 
-      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.015] p-12 flex flex-col items-center text-center gap-3">
-        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400">
-          {IC.wrench}
+      <div className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400">
+          <IconWrench />
         </div>
-        <h3 className="text-lg font-bold text-slate-200 mt-2">Раздел в разработке</h3>
-        <p className="text-slate-400 text-sm max-w-sm">
-          Единая база взысканий для данного направления подключается. Загляните позже.
+        <div className="text-gray-300 font-semibold">В разработке</div>
+        <p className="text-gray-500 text-sm max-w-sm">
+          Таблица или документ ЧС для этого направления ещё не подключены. Загляните позже.
         </p>
       </div>
     </div>
   )
 }
 
-/* ───────── ССЫЛКА НА GOOGLE DOCS ───────── */
+/* ───────── Карточка со ссылкой на ЧС, который ведётся в документе (сейчас — БО) ───────── */
 function DocsLinkCard({ sphereLabel, url }) {
   return (
-    <div className="animate-fade-in">
-      <div className="mb-6">
-        <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-1">
-          Черный список
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black">{sphereLabel}</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Официальный Реестр занесённых лиц ведётся во внешнем регламентированном документе
-        </p>
-      </div>
+    <div>
+      <h1 className="text-2xl sm:text-3xl font-black">Чёрный список · {sphereLabel}</h1>
+      <p className="text-gray-400 mt-1">Ведётся в документе — отдельной таблицы для этой сферы пока нет</p>
 
-      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.015] p-12 flex flex-col items-center text-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
-          {IC.doc}
+      <div className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-4">
+        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400">
+          <IconDoc />
         </div>
-        <div className="max-w-md">
-          <h3 className="text-lg font-bold text-slate-100">Документ сферы {sphereLabel}</h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Нажмите на кнопку ниже для перехода к просмотру онлайн-документа
-          </p>
-        </div>
-        <button
-          onClick={() => confirmAndOpenExternal(url)}
-          className="mt-2 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 text-white font-bold text-xs uppercase tracking-wider hover:bg-orange-600 transition shadow-lg shadow-orange-500/20 cursor-pointer"
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-600/10 border border-purple-500/30 text-purple-200 font-semibold hover:bg-purple-500/25 transition"
         >
-          <span>Открыть Google Docs</span>
-          {IC.link}
-        </button>
+          Открыть документ ЧС ↗
+        </a>
       </div>
     </div>
   )
 }
 
-/* ───────── ТАБЛИЦА ЧС ГОС ───────── */
+/* ───────── Таблица ЧС гос — прежняя логика, вынесена в отдельный компонент ───────── */
 function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState([])
+
   const [filterOpen, setFilterOpen] = useState(false)
   const [filter, setFilter] = useState('ALL')
 
+  // Таблица ЧС гос — экспорт конкретного листа (gid) в CSV через gviz
   const CHSGOS_URL =
     'https://docs.google.com/spreadsheets/d/1U8Af3WFz7LafeJeSh8TACam9Rs7ACa_haUMJjRjfRTg/gviz/tq?tqx=out:csv&gid=1094292304'
 
@@ -348,6 +335,7 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
     try {
       const res = await fetch(`${CHSGOS_URL}&cacheBust=${Date.now()}`)
       const csv = await res.text()
+
       const lines = csv.split(/\r?\n/).filter((line) => line.trim() !== '')
       if (lines.length === 0) {
         setEntries([])
@@ -355,9 +343,10 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
       }
 
       const parsed = lines
-        .slice(1)
+        .slice(1) // пропускаем заголовок
         .map((line) => {
           const r = parseCSVLine(line)
+
           return {
             id: clean(r[0]),
             nickname: clean(r[1]),
@@ -383,11 +372,18 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase()
+
     return entries.filter((p) => {
       const matchSearch = p.nickname?.toLowerCase().includes(s)
+
       const status = getStatus(p)
       const statusOk =
-        filter === 'ALL' ? true : filter === 'ACTIVE' ? status === 'active' : status !== 'active'
+        filter === 'ALL'
+          ? true
+          : filter === 'ACTIVE'
+          ? status === 'active'
+          : status !== 'active' // INACTIVE: снят или истёк
+
       return matchSearch && statusOk
     })
   }, [entries, search, filter])
@@ -403,57 +399,61 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
   })
 
   useEffect(() => {
-    if (pageNumber !== currentPage) setPageNumber(currentPage)
+    if (pageNumber !== currentPage) {
+      setPageNumber(currentPage)
+    }
   }, [pageNumber, currentPage, setPageNumber])
 
   useEffect(() => {
     setPageNumber(1)
   }, [search, filter, setPageNumber])
 
-  const filterLabel = filter === 'ALL' ? 'Все статусы' : filter === 'ACTIVE' ? 'Активные' : 'Снятые / Истёкшие'
+  const filterLabel =
+    filter === 'ALL'
+      ? 'Все'
+      : filter === 'ACTIVE'
+      ? 'Активные'
+      : 'Неактивные'
 
   return (
     <>
+      {/* HEADER */}
       <div className="mb-8">
-        <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-1">
-          Дисциплинарный реестр
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black">Государственные структуры (ЧС Гос)</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Единый запрет на вступление и нахождение в структурах государственной исполнительной власти
+        <h1 className="text-2xl sm:text-3xl font-black">
+          Чёрный список гос. игроков (ЧС гос)
+        </h1>
+        <p className="text-gray-400 mt-1">
+          Запрет на вступление во все государственные фракции сервера
         </p>
       </div>
 
-      {/* CONTROL BAR */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-8 bg-white/[0.02] border border-white/5 rounded-2xl p-3">
-        <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2.5 rounded-xl w-full">
-          <span className="text-slate-400">{IC.search}</span>
+      {/* SEARCH + FILTER */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-xl w-full">
+          <IconSearch />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по никнейму..."
-            className="bg-transparent outline-none w-full text-xs text-slate-200 placeholder-slate-500 font-medium"
+            placeholder="Поиск..."
+            className="bg-transparent outline-none w-full"
           />
         </div>
 
-        <div className="relative z-20 shrink-0">
+        <div className="relative z-20">
           <button
             onClick={() => setFilterOpen((v) => !v)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-slate-300 hover:bg-white/10 transition"
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
           >
-            <div className="flex items-center gap-2">
-              {IC.filter}
-              <span>{filterLabel}</span>
-            </div>
-            <span className="text-slate-500 text-[10px]">▼</span>
+            <IconFilter />
+            {filterLabel}
           </button>
 
           {filterOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden bg-[#0d1120] border border-white/10 shadow-2xl z-50 p-1">
+            <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
               {[
-                { id: 'ALL', label: 'Все статусы' },
+                { id: 'ALL', label: 'Все' },
                 { id: 'ACTIVE', label: 'Активные' },
-                { id: 'INACTIVE', label: 'Неактивные / Снятые' },
+                { id: 'INACTIVE', label: 'Неактивные' },
               ].map((f) => (
                 <button
                   key={f.id}
@@ -461,8 +461,10 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
                     setFilter(f.id)
                     setFilterOpen(false)
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-                    filter === f.id ? 'bg-orange-500/20 text-orange-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition ${
+                    filter === f.id
+                      ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
+                      : ''
                   }`}
                 >
                   {f.label}
@@ -474,27 +476,22 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
       </div>
 
       {/* GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {loading ? (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
-            {IC.spin}
-            <span className="text-xs font-bold tracking-wider uppercase">Синхронизация данных...</span>
-          </div>
+          <div className="text-gray-400">Загрузка...</div>
         ) : filtered.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            Записи не найдены
-          </div>
+          <div className="text-gray-500">Ничего не найдено</div>
         ) : (
           pageItems.map((p) => {
             const permanent = isPermanent(p.term)
-            const status = getStatus(p)
+            const status = getStatus(p) // 'active' | 'lifted' | 'expired'
 
             const accentColor =
               status === 'lifted'
-                ? '56,189,248'
+                ? '96,165,250' // синий — снят по апелляции
                 : status === 'expired'
-                ? '34,197,94'
-                : '248,113,113'
+                ? '34,197,94' // зелёный — истёк по сроку
+                : '239,68,68' // красный — активен (в т.ч. навсегда)
 
             const badgeLabel =
               status === 'lifted'
@@ -505,65 +502,111 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
                 ? 'Навсегда'
                 : 'Активен'
 
+            const hasLinks = (p.vk && p.vk !== '-') || (p.forum && p.forum !== '-')
+
             return (
               <div
                 key={p.id}
-                className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-all duration-200"
+                className="group relative rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200 overflow-hidden"
               >
-                <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${accentColor})` }} />
+                {/* Тонкая статусная полоса слева */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-[3px]"
+                  style={{ background: `rgb(${accentColor})` }}
+                />
 
-                <div className="pl-5 pr-5 py-5">
+                <div className="pl-[22px] pr-5 py-5">
+                  {/* Заголовок */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="text-base font-black text-white truncate">{p.nickname}</h3>
-                      <p className="text-[10px] font-mono text-slate-500 tracking-wider">ID #{p.id || '—'}</p>
+                      <h3 className="text-[16px] font-bold text-white truncate">
+                        {p.nickname}
+                      </h3>
+                      <p className="text-[11px] text-gray-500 mt-0.5 font-mono tracking-tight">
+                        ID {p.id || '—'}
+                      </p>
                     </div>
 
                     <span
-                      className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md"
+                      className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                       style={{
                         color: `rgb(${accentColor})`,
                         background: `rgba(${accentColor},.12)`,
                       }}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: `rgb(${accentColor})` }} />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: `rgb(${accentColor})` }}
+                      />
                       {badgeLabel}
                     </span>
                   </div>
 
-                  <p className="mt-3 text-xs leading-relaxed text-slate-300 border-l-2 border-white/10 pl-3 italic">
+                  {/* Причина */}
+                  <p className="mt-3 text-[13px] leading-relaxed text-gray-300 border-l-2 border-white/[0.08] pl-3">
                     {p.reason || 'Причина не указана'}
                   </p>
 
-                  {p.note && <p className="mt-2 text-[11px] text-slate-500 pl-3">Примечание: {p.note}</p>}
+                  {p.note && (
+                    <p className="mt-1.5 text-[12px] text-gray-500 italic pl-3">
+                      {p.note}
+                    </p>
+                  )}
 
-                  <div className="mt-4 pt-3 border-t border-white/5 grid grid-cols-2 gap-2 text-xs">
+                  {/* Данные */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] grid grid-cols-2 gap-y-2.5 gap-x-4 text-[12px]">
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Внесён</div>
-                      <div className="text-slate-200 font-medium mt-0.5">{p.dateAdded || '—'}</div>
+                      <div className="text-gray-500">Внесён</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.dateAdded || '—'}
+                      </div>
                     </div>
 
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Срок</div>
-                      <div className="text-slate-200 font-medium mt-0.5">{p.term || '—'}</div>
+                      <div className="text-gray-500">Срок</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.term || '—'}
+                      </div>
                     </div>
 
                     <div className="col-span-2">
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Окончание</div>
-                      <div className="text-slate-200 font-medium mt-0.5">
-                        {permanent ? 'Бессрочно' : p.endDate || '—'}
+                      <div className="text-gray-500">Окончание</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {permanent ? 'N/A · бессрочно' : p.endDate || '—'}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between gap-2 text-xs">
+                  {/* Подвал: ссылки + автор */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-3">
-                      <ContactLink label="VK" value={p.vk} />
-                      <ContactLink label="Форум" value={p.forum} colorClass="hover:text-amber-400" />
+                      {p.vk && p.vk !== '-' && (
+                        <a
+                          href={p.vk.startsWith('http') ? p.vk : `https://${p.vk}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-medium text-gray-500 hover:text-blue-300 transition-colors"
+                        >
+                          VK ↗
+                        </a>
+                      )}
+                      {p.forum && p.forum !== '-' && (
+                        <a
+                          href={p.forum.startsWith('http') ? p.forum : `https://${p.forum}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-medium text-gray-500 hover:text-orange-300 transition-colors"
+                        >
+                          Форум ↗
+                        </a>
+                      )}
+                      {!hasLinks && (
+                        <span className="text-[11px] text-gray-600">Нет ссылок</span>
+                      )}
                     </div>
 
-                    <div className="text-[11px] text-slate-500">
-                      Внёс: <span className="text-slate-300 font-semibold">{p.admin || '—'}</span>
+                    <div className="text-[11px] text-gray-500">
+                      Внёс: <span className="text-gray-300 font-medium">{p.admin || '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -573,13 +616,12 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
         )}
       </div>
 
-      {/* PAGINATION */}
       {!loading && filtered.length > ITEMS_PER_PAGE && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
           <button
             onClick={() => setPageNumber(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition"
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
           >
             ←
           </button>
@@ -588,10 +630,10 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
             <button
               key={page}
               onClick={() => setPageNumber(page)}
-              className={`min-w-[36px] h-9 px-3 rounded-xl border text-xs font-bold transition ${
+              className={`min-w-10 px-3 py-2 rounded-xl border text-sm transition ${
                 page === currentPage
-                  ? 'border-orange-500/50 bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                  : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  ? 'border-purple-500/40 bg-purple-500/15 text-purple-200'
+                  : 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
               }`}
             >
               {page}
@@ -601,7 +643,7 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
           <button
             onClick={() => setPageNumber(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition"
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
           >
             →
           </button>
@@ -611,11 +653,16 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
   )
 }
 
-/* ───────── ТАБЛИЦА ЧС МАФИЙ ───────── */
+/* ───────── Таблица ЧС мафий ─────────
+   Раскладка колонок отличается от ЧС гос: данные с 8-й строки,
+   C — ник, D — амнистия, E — ВК, F — степень, G — дата внесения,
+   H — дата вынесения, I — причина, J — ник внёсшего.
+*/
 function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState([])
+
   const [filterOpen, setFilterOpen] = useState(false)
   const [filter, setFilter] = useState('ALL')
 
@@ -628,6 +675,7 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
     try {
       const res = await fetch(`${CHSMAFIA_URL}&cacheBust=${Date.now()}`)
       const csv = await res.text()
+
       const lines = csv.split(/\r?\n/).filter((line) => line.trim() !== '')
       if (lines.length === 0) {
         setEntries([])
@@ -635,9 +683,10 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
       }
 
       const parsed = lines
-        .slice(7)
+        .slice(7) // данные начинаются с 8-й строки
         .map((line, idx) => {
           const r = parseCSVLine(line)
+
           return {
             id: `mafia-${idx}`,
             nickname: clean(r[2]),
@@ -662,11 +711,18 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase()
+
     return entries.filter((p) => {
       const matchSearch = p.nickname?.toLowerCase().includes(s)
+
       const status = getMafiaStatus(p)
       const statusOk =
-        filter === 'ALL' ? true : filter === 'ACTIVE' ? status === 'active' : status !== 'active'
+        filter === 'ALL'
+          ? true
+          : filter === 'ACTIVE'
+          ? status === 'active'
+          : status !== 'active' // INACTIVE: снят или истёк
+
       return matchSearch && statusOk
     })
   }, [entries, search, filter])
@@ -682,56 +738,61 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
   })
 
   useEffect(() => {
-    if (pageNumber !== currentPage) setPageNumber(currentPage)
+    if (pageNumber !== currentPage) {
+      setPageNumber(currentPage)
+    }
   }, [pageNumber, currentPage, setPageNumber])
 
   useEffect(() => {
     setPageNumber(1)
   }, [search, filter, setPageNumber])
 
-  const filterLabel = filter === 'ALL' ? 'Все статусы' : filter === 'ACTIVE' ? 'Активные' : 'Снятые / Истёкшие'
+  const filterLabel =
+    filter === 'ALL'
+      ? 'Все'
+      : filter === 'ACTIVE'
+      ? 'Активные'
+      : 'Неактивные'
 
   return (
     <>
+      {/* HEADER */}
       <div className="mb-8">
-        <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-1">
-          Дисциплинарный реестр
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black">Преступные синдикаты (ЧС Мафий)</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Официальный список ограничений на участие в структурах мафиозных синдикатов
+        <h1 className="text-2xl sm:text-3xl font-black">
+          Чёрный список мафий (ЧС мафий)
+        </h1>
+        <p className="text-gray-400 mt-1">
+          Запрет на вступление во фракции мафий сервера
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-8 bg-white/[0.02] border border-white/5 rounded-2xl p-3">
-        <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2.5 rounded-xl w-full">
-          <span className="text-slate-400">{IC.search}</span>
+      {/* SEARCH + FILTER */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-xl w-full">
+          <IconSearch />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по никнейму..."
-            className="bg-transparent outline-none w-full text-xs text-slate-200 placeholder-slate-500 font-medium"
+            placeholder="Поиск..."
+            className="bg-transparent outline-none w-full"
           />
         </div>
 
-        <div className="relative z-20 shrink-0">
+        <div className="relative z-20">
           <button
             onClick={() => setFilterOpen((v) => !v)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-slate-300 hover:bg-white/10 transition"
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
           >
-            <div className="flex items-center gap-2">
-              {IC.filter}
-              <span>{filterLabel}</span>
-            </div>
-            <span className="text-slate-500 text-[10px]">▼</span>
+            <IconFilter />
+            {filterLabel}
           </button>
 
           {filterOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden bg-[#0d1120] border border-white/10 shadow-2xl z-50 p-1">
+            <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
               {[
-                { id: 'ALL', label: 'Все статусы' },
+                { id: 'ALL', label: 'Все' },
                 { id: 'ACTIVE', label: 'Активные' },
-                { id: 'INACTIVE', label: 'Неактивные / Снятые' },
+                { id: 'INACTIVE', label: 'Неактивные' },
               ].map((f) => (
                 <button
                   key={f.id}
@@ -739,8 +800,10 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
                     setFilter(f.id)
                     setFilterOpen(false)
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-                    filter === f.id ? 'bg-orange-500/20 text-orange-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition ${
+                    filter === f.id
+                      ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
+                      : ''
                   }`}
                 >
                   {f.label}
@@ -751,27 +814,23 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {loading ? (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
-            {IC.spin}
-            <span className="text-xs font-bold tracking-wider uppercase">Синхронизация данных...</span>
-          </div>
+          <div className="text-gray-400">Загрузка...</div>
         ) : filtered.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            Записи не найдены
-          </div>
+          <div className="text-gray-500">Ничего не найдено</div>
         ) : (
           pageItems.map((p) => {
             const level = getMafiaLevel(p.term)
-            const status = getMafiaStatus(p)
+            const status = getMafiaStatus(p) // 'active' | 'lifted' | 'expired'
 
             const accentColor =
               status === 'lifted'
-                ? '56,189,248'
+                ? '96,165,250' // синий — снят (амнистия/дата вынесения)
                 : status === 'expired'
-                ? '34,197,94'
-                : level?.color || '248,113,113'
+                ? '34,197,94' // зелёный — истёк по сроку степени
+                : level?.color || '239,68,68'
 
             const badgeLabel =
               status === 'lifted'
@@ -780,60 +839,99 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
                 ? 'Истёк'
                 : level?.label || p.term || 'Активен'
 
+            const hasLinks = p.vk && p.vk !== '-'
             const expectedEnd = mafiaExpectedEnd(p, level)
 
             return (
               <div
                 key={p.id}
-                className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-all duration-200"
+                className="group relative rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200 overflow-hidden"
               >
-                <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${accentColor})` }} />
+                {/* Тонкая статусная полоса слева */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-[3px]"
+                  style={{ background: `rgb(${accentColor})` }}
+                />
 
-                <div className="pl-5 pr-5 py-5">
+                <div className="pl-[22px] pr-5 py-5">
+                  {/* Заголовок */}
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-base font-black text-white truncate">{p.nickname}</h3>
+                    <div className="min-w-0">
+                      <h3 className="text-[16px] font-bold text-white truncate">
+                        {p.nickname}
+                      </h3>
+                    </div>
 
                     <span
-                      className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md"
+                      className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                       style={{
                         color: `rgb(${accentColor})`,
                         background: `rgba(${accentColor},.12)`,
                       }}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: `rgb(${accentColor})` }} />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: `rgb(${accentColor})` }}
+                      />
                       {badgeLabel}
                     </span>
                   </div>
 
-                  <p className="mt-3 text-xs leading-relaxed text-slate-300 border-l-2 border-white/10 pl-3 italic">
+                  {/* Причина */}
+                  <p className="mt-3 text-[13px] leading-relaxed text-gray-300 border-l-2 border-white/[0.08] pl-3">
                     {p.reason || 'Причина не указана'}
                   </p>
 
-                  {p.amnesty && <p className="mt-2 text-[11px] text-slate-500 pl-3">Амнистия: {p.amnesty}</p>}
+                  {p.amnesty && (
+                    <p className="mt-1.5 text-[12px] text-gray-500 italic pl-3">
+                      Амнистия: {p.amnesty}
+                    </p>
+                  )}
 
-                  <div className="mt-4 pt-3 border-t border-white/5 grid grid-cols-2 gap-2 text-xs">
+                  {/* Данные */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] grid grid-cols-2 gap-y-2.5 gap-x-4 text-[12px]">
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Внесён</div>
-                      <div className="text-slate-200 font-medium mt-0.5">{p.dateAdded || '—'}</div>
+                      <div className="text-gray-500">Внесён</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.dateAdded || '—'}
+                      </div>
                     </div>
 
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Степень</div>
-                      <div className="text-slate-200 font-medium mt-0.5">{p.term || '—'}</div>
+                      <div className="text-gray-500">Степень</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.term || '—'}
+                      </div>
                     </div>
 
                     <div className="col-span-2">
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Вынесен</div>
-                      <div className="text-slate-200 font-medium mt-0.5">
+                      <div className="text-gray-500">Вынесен</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
                         {p.endDate || (level && !level.days ? 'Бессрочно' : expectedEnd || '—')}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between gap-2 text-xs">
-                    <ContactLink label="VK" value={p.vk} />
-                    <div className="text-[11px] text-slate-500">
-                      Внёс: <span className="text-slate-300 font-semibold">{p.admin || '—'}</span>
+                  {/* Подвал: ссылки + автор */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      {p.vk && p.vk !== '-' && (
+                        <a
+                          href={p.vk.startsWith('http') ? p.vk : `https://${p.vk}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-medium text-gray-500 hover:text-blue-300 transition-colors"
+                        >
+                          VK ↗
+                        </a>
+                      )}
+                      {!hasLinks && (
+                        <span className="text-[11px] text-gray-600">Нет ссылок</span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-gray-500">
+                      Внёс: <span className="text-gray-300 font-medium">{p.admin || '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -848,7 +946,7 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
           <button
             onClick={() => setPageNumber(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition"
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
           >
             ←
           </button>
@@ -857,10 +955,10 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
             <button
               key={page}
               onClick={() => setPageNumber(page)}
-              className={`min-w-[36px] h-9 px-3 rounded-xl border text-xs font-bold transition ${
+              className={`min-w-10 px-3 py-2 rounded-xl border text-sm transition ${
                 page === currentPage
-                  ? 'border-orange-500/50 bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                  : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  ? 'border-purple-500/40 bg-purple-500/15 text-purple-200'
+                  : 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
               }`}
             >
               {page}
@@ -870,7 +968,7 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
           <button
             onClick={() => setPageNumber(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition"
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
           >
             →
           </button>
@@ -880,11 +978,16 @@ function ChsMafiaTable({ pageNumber = 1, setPageNumber = () => {} }) {
   )
 }
 
-/* ───────── ТАБЛИЦА ЧС ГЕТТО ───────── */
+/* ───────── Таблица ЧС Гетто ─────────
+   Раскладка колонок отличается от ЧС гос/мафий: данные с 3-й строки,
+   A — ник (возможен формат "СтарыйНик I НовыйНик"), B — ВК, C — в ЧС до
+   (дата либо "навсегда"), D — причина, E — кто внёс, F — снят ли ЧС.
+*/
 function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState([])
+
   const [filterOpen, setFilterOpen] = useState(false)
   const [filter, setFilter] = useState('ALL')
 
@@ -897,6 +1000,7 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
     try {
       const res = await fetch(`${CHSGHETTO_URL}&cacheBust=${Date.now()}`)
       const csv = await res.text()
+
       const lines = csv.split(/\r?\n/).filter((line) => line.trim() !== '')
       if (lines.length === 0) {
         setEntries([])
@@ -904,7 +1008,7 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
       }
 
       const parsed = lines
-        .slice(2)
+        .slice(2) // данные начинаются с 3-й строки
         .map((line, idx) => {
           const r = parseCSVLine(line)
           const { nickname, oldNickname } = parseGhettoNickname(clean(r[0]))
@@ -935,12 +1039,19 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase()
+
     return entries.filter((p) => {
       const matchSearch =
         p.nickname?.toLowerCase().includes(s) || p.oldNickname?.toLowerCase().includes(s)
+
       const status = getGhettoStatus(p)
       const statusOk =
-        filter === 'ALL' ? true : filter === 'ACTIVE' ? status === 'active' : status !== 'active'
+        filter === 'ALL'
+          ? true
+          : filter === 'ACTIVE'
+          ? status === 'active'
+          : status !== 'active' // INACTIVE: снят или истёк
+
       return matchSearch && statusOk
     })
   }, [entries, search, filter])
@@ -956,56 +1067,61 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
   })
 
   useEffect(() => {
-    if (pageNumber !== currentPage) setPageNumber(currentPage)
+    if (pageNumber !== currentPage) {
+      setPageNumber(currentPage)
+    }
   }, [pageNumber, currentPage, setPageNumber])
 
   useEffect(() => {
     setPageNumber(1)
   }, [search, filter, setPageNumber])
 
-  const filterLabel = filter === 'ALL' ? 'Все статусы' : filter === 'ACTIVE' ? 'Активные' : 'Снятые / Истёкшие'
+  const filterLabel =
+    filter === 'ALL'
+      ? 'Все'
+      : filter === 'ACTIVE'
+      ? 'Активные'
+      : 'Неактивные'
 
   return (
     <>
+      {/* HEADER */}
       <div className="mb-8">
-        <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-1">
-          Дисциплинарный реестр
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black">Уличные группировки (ЧС Гетто)</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Реестр заблокированных участников в сферах уличных банд и капт-составов
+        <h1 className="text-2xl sm:text-3xl font-black">
+          Чёрный список Гетто (ЧС Гетто)
+        </h1>
+        <p className="text-gray-400 mt-1">
+          Запрет на вступление во фракции Гетто сервера
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-8 bg-white/[0.02] border border-white/5 rounded-2xl p-3">
-        <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2.5 rounded-xl w-full">
-          <span className="text-slate-400">{IC.search}</span>
+      {/* SEARCH + FILTER */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-xl w-full">
+          <IconSearch />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по никнейму или старому нику..."
-            className="bg-transparent outline-none w-full text-xs text-slate-200 placeholder-slate-500 font-medium"
+            placeholder="Поиск..."
+            className="bg-transparent outline-none w-full"
           />
         </div>
 
-        <div className="relative z-20 shrink-0">
+        <div className="relative z-20">
           <button
             onClick={() => setFilterOpen((v) => !v)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-slate-300 hover:bg-white/10 transition"
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
           >
-            <div className="flex items-center gap-2">
-              {IC.filter}
-              <span>{filterLabel}</span>
-            </div>
-            <span className="text-slate-500 text-[10px]">▼</span>
+            <IconFilter />
+            {filterLabel}
           </button>
 
           {filterOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden bg-[#0d1120] border border-white/10 shadow-2xl z-50 p-1">
+            <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
               {[
-                { id: 'ALL', label: 'Все статусы' },
+                { id: 'ALL', label: 'Все' },
                 { id: 'ACTIVE', label: 'Активные' },
-                { id: 'INACTIVE', label: 'Неактивные / Снятые' },
+                { id: 'INACTIVE', label: 'Неактивные' },
               ].map((f) => (
                 <button
                   key={f.id}
@@ -1013,8 +1129,10 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
                     setFilter(f.id)
                     setFilterOpen(false)
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-                    filter === f.id ? 'bg-orange-500/20 text-orange-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition ${
+                    filter === f.id
+                      ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
+                      : ''
                   }`}
                 >
                   {f.label}
@@ -1025,26 +1143,22 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {loading ? (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
-            {IC.spin}
-            <span className="text-xs font-bold tracking-wider uppercase">Синхронизация данных...</span>
-          </div>
+          <div className="text-gray-400">Загрузка...</div>
         ) : filtered.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            Записи не найдены
-          </div>
+          <div className="text-gray-500">Ничего не найдено</div>
         ) : (
           pageItems.map((p) => {
-            const status = getGhettoStatus(p)
+            const status = getGhettoStatus(p) // 'active' | 'lifted' | 'expired'
 
             const accentColor =
               status === 'lifted'
-                ? '56,189,248'
+                ? '96,165,250' // синий — снят
                 : status === 'expired'
-                ? '34,197,94'
-                : '248,113,113'
+                ? '34,197,94' // зелёный — истёк по сроку
+                : '239,68,68' // красный — активен (в т.ч. навсегда)
 
             const badgeLabel =
               status === 'lifted'
@@ -1055,53 +1169,83 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
                 ? 'Навсегда'
                 : 'Активен'
 
+            const hasLinks = p.vk && p.vk !== '-'
+
             return (
               <div
                 key={p.id}
-                className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-all duration-200"
+                className="group relative rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200 overflow-hidden"
               >
-                <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${accentColor})` }} />
+                {/* Тонкая статусная полоса слева */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-[3px]"
+                  style={{ background: `rgb(${accentColor})` }}
+                />
 
-                <div className="pl-5 pr-5 py-5">
+                <div className="pl-[22px] pr-5 py-5">
+                  {/* Заголовок */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="text-base font-black text-white truncate">{p.nickname}</h3>
+                      <h3 className="text-[16px] font-bold text-white truncate">
+                        {p.nickname}
+                      </h3>
                       {p.oldNickname && (
-                        <p className="text-[11px] text-slate-500 mt-0.5 truncate font-medium">
-                          Пред. ник: {p.oldNickname}
+                        <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                          Старый ник: {p.oldNickname}
                         </p>
                       )}
                     </div>
 
                     <span
-                      className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md"
+                      className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                       style={{
                         color: `rgb(${accentColor})`,
                         background: `rgba(${accentColor},.12)`,
                       }}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: `rgb(${accentColor})` }} />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: `rgb(${accentColor})` }}
+                      />
                       {badgeLabel}
                     </span>
                   </div>
 
-                  <p className="mt-3 text-xs leading-relaxed text-slate-300 border-l-2 border-white/10 pl-3 italic">
+                  {/* Причина */}
+                  <p className="mt-3 text-[13px] leading-relaxed text-gray-300 border-l-2 border-white/[0.08] pl-3">
                     {p.reason || 'Причина не указана'}
                   </p>
 
-                  <div className="mt-4 pt-3 border-t border-white/5 grid grid-cols-2 gap-2 text-xs">
+                  {/* Данные */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] grid grid-cols-2 gap-y-2.5 gap-x-4 text-[12px]">
                     <div className="col-span-2">
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Действует до</div>
-                      <div className="text-slate-200 font-medium mt-0.5">
-                        {p.permanent ? 'Бессрочно' : p.endDate || p.untilRaw || '—'}
+                      <div className="text-gray-500">В ЧС до</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.permanent ? 'Навсегда' : p.endDate || p.untilRaw || '—'}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between gap-2 text-xs">
-                    <ContactLink label="VK" value={p.vk} />
-                    <div className="text-[11px] text-slate-500">
-                      Внёс: <span className="text-slate-300 font-semibold">{p.admin || '—'}</span>
+                  {/* Подвал: ссылки + автор */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      {p.vk && p.vk !== '-' && (
+                        <a
+                          href={p.vk.startsWith('http') ? p.vk : `https://${p.vk}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-medium text-gray-500 hover:text-blue-300 transition-colors"
+                        >
+                          VK ↗
+                        </a>
+                      )}
+                      {!hasLinks && (
+                        <span className="text-[11px] text-gray-600">Нет ссылок</span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-gray-500">
+                      Внёс: <span className="text-gray-300 font-medium">{p.admin || '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -1116,7 +1260,7 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
           <button
             onClick={() => setPageNumber(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition"
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
           >
             ←
           </button>
@@ -1125,10 +1269,10 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
             <button
               key={page}
               onClick={() => setPageNumber(page)}
-              className={`min-w-[36px] h-9 px-3 rounded-xl border text-xs font-bold transition ${
+              className={`min-w-10 px-3 py-2 rounded-xl border text-sm transition ${
                 page === currentPage
-                  ? 'border-orange-500/50 bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                  : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  ? 'border-purple-500/40 bg-purple-500/15 text-purple-200'
+                  : 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
               }`}
             >
               {page}
@@ -1138,7 +1282,7 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
           <button
             onClick={() => setPageNumber(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition"
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
           >
             →
           </button>
@@ -1148,11 +1292,16 @@ function ChsGhettoTable({ pageNumber = 1, setPageNumber = () => {} }) {
   )
 }
 
-/* ───────── ТАБЛИЦА ЧС БАЙКЕРОВ ───────── */
+/* ───────── Таблица ЧС Байкеров ─────────
+   Раскладка колонок: данные с 4-й строки, A — ник, B — ВК, C — уровень ЧС
+   (высокий/средний), D — дата внесения, E — дата вынесения,
+   F — "Столбец 1" (служебный/не используется), G — причина, H — кем внесён.
+*/
 function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState([])
+
   const [filterOpen, setFilterOpen] = useState(false)
   const [filter, setFilter] = useState('ALL')
 
@@ -1165,6 +1314,7 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
     try {
       const res = await fetch(`${CHSBIKERS_URL}&cacheBust=${Date.now()}`)
       const csv = await res.text()
+
       const lines = csv.split(/\r?\n/).filter((line) => line.trim() !== '')
       if (lines.length === 0) {
         setEntries([])
@@ -1172,9 +1322,10 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
       }
 
       const parsed = lines
-        .slice(3)
+        .slice(3) // данные начинаются с 4-й строки
         .map((line, idx) => {
           const r = parseCSVLine(line)
+
           return {
             id: `bikers-${idx}`,
             nickname: clean(r[0]),
@@ -1198,11 +1349,18 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase()
+
     return entries.filter((p) => {
       const matchSearch = p.nickname?.toLowerCase().includes(s)
+
       const status = getBikerStatus(p)
       const statusOk =
-        filter === 'ALL' ? true : filter === 'ACTIVE' ? status === 'active' : status !== 'active'
+        filter === 'ALL'
+          ? true
+          : filter === 'ACTIVE'
+          ? status === 'active'
+          : status !== 'active' // INACTIVE: снят
+
       return matchSearch && statusOk
     })
   }, [entries, search, filter])
@@ -1218,56 +1376,61 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
   })
 
   useEffect(() => {
-    if (pageNumber !== currentPage) setPageNumber(currentPage)
+    if (pageNumber !== currentPage) {
+      setPageNumber(currentPage)
+    }
   }, [pageNumber, currentPage, setPageNumber])
 
   useEffect(() => {
     setPageNumber(1)
   }, [search, filter, setPageNumber])
 
-  const filterLabel = filter === 'ALL' ? 'Все статусы' : filter === 'ACTIVE' ? 'Активные' : 'Снятые / Истёкшие'
+  const filterLabel =
+    filter === 'ALL'
+      ? 'Все'
+      : filter === 'ACTIVE'
+      ? 'Активные'
+      : 'Неактивные'
 
   return (
     <>
+      {/* HEADER */}
       <div className="mb-8">
-        <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-1">
-          Дисциплинарный реестр
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black">Байкерские клубы (ЧС Байкеров)</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Запрет на вступление и участие в структурах мотоклубов сервера
+        <h1 className="text-2xl sm:text-3xl font-black">
+          Чёрный список Байкеров (ЧС Байкеров)
+        </h1>
+        <p className="text-gray-400 mt-1">
+          Запрет на вступление во фракции байкеров сервера
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-8 bg-white/[0.02] border border-white/5 rounded-2xl p-3">
-        <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2.5 rounded-xl w-full">
-          <span className="text-slate-400">{IC.search}</span>
+      {/* SEARCH + FILTER */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-xl w-full">
+          <IconSearch />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по никнейму..."
-            className="bg-transparent outline-none w-full text-xs text-slate-200 placeholder-slate-500 font-medium"
+            placeholder="Поиск..."
+            className="bg-transparent outline-none w-full"
           />
         </div>
 
-        <div className="relative z-20 shrink-0">
+        <div className="relative z-20">
           <button
             onClick={() => setFilterOpen((v) => !v)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-slate-300 hover:bg-white/10 transition"
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
           >
-            <div className="flex items-center gap-2">
-              {IC.filter}
-              <span>{filterLabel}</span>
-            </div>
-            <span className="text-slate-500 text-[10px]">▼</span>
+            <IconFilter />
+            {filterLabel}
           </button>
 
           {filterOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden bg-[#0d1120] border border-white/10 shadow-2xl z-50 p-1">
+            <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
               {[
-                { id: 'ALL', label: 'Все статусы' },
+                { id: 'ALL', label: 'Все' },
                 { id: 'ACTIVE', label: 'Активные' },
-                { id: 'INACTIVE', label: 'Неактивные / Снятые' },
+                { id: 'INACTIVE', label: 'Неактивные' },
               ].map((f) => (
                 <button
                   key={f.id}
@@ -1275,8 +1438,10 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
                     setFilter(f.id)
                     setFilterOpen(false)
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-                    filter === f.id ? 'bg-orange-500/20 text-orange-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition ${
+                    filter === f.id
+                      ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
+                      : ''
                   }`}
                 >
                   {f.label}
@@ -1287,69 +1452,106 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {loading ? (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
-            {IC.spin}
-            <span className="text-xs font-bold tracking-wider uppercase">Синхронизация данных...</span>
-          </div>
+          <div className="text-gray-400">Загрузка...</div>
         ) : filtered.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            Записи не найдены
-          </div>
+          <div className="text-gray-500">Ничего не найдено</div>
         ) : (
           pageItems.map((p) => {
             const level = getBikerLevel(p.level)
-            const status = getBikerStatus(p)
+            const status = getBikerStatus(p) // 'active' | 'lifted'
 
             const accentColor =
-              status === 'lifted' ? '56,189,248' : level?.color || '248,113,113'
+              status === 'lifted'
+                ? '96,165,250' // синий — снят
+                : level?.color || '239,68,68'
 
-            const badgeLabel = status === 'lifted' ? 'Снят' : level?.label || p.level || 'Активен'
+            const badgeLabel =
+              status === 'lifted'
+                ? 'Снят'
+                : level?.label || p.level || 'Активен'
+
+            const hasLinks = p.vk && p.vk !== '-'
 
             return (
               <div
                 key={p.id}
-                className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-all duration-200"
+                className="group relative rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200 overflow-hidden"
               >
-                <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${accentColor})` }} />
+                {/* Тонкая статусная полоса слева */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-[3px]"
+                  style={{ background: `rgb(${accentColor})` }}
+                />
 
-                <div className="pl-5 pr-5 py-5">
+                <div className="pl-[22px] pr-5 py-5">
+                  {/* Заголовок */}
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-base font-black text-white truncate">{p.nickname}</h3>
+                    <div className="min-w-0">
+                      <h3 className="text-[16px] font-bold text-white truncate">
+                        {p.nickname}
+                      </h3>
+                    </div>
 
                     <span
-                      className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md"
+                      className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                       style={{
                         color: `rgb(${accentColor})`,
                         background: `rgba(${accentColor},.12)`,
                       }}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: `rgb(${accentColor})` }} />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: `rgb(${accentColor})` }}
+                      />
                       {badgeLabel}
                     </span>
                   </div>
 
-                  <p className="mt-3 text-xs leading-relaxed text-slate-300 border-l-2 border-white/10 pl-3 italic">
+                  {/* Причина */}
+                  <p className="mt-3 text-[13px] leading-relaxed text-gray-300 border-l-2 border-white/[0.08] pl-3">
                     {p.reason || 'Причина не указана'}
                   </p>
 
-                  <div className="mt-4 pt-3 border-t border-white/5 grid grid-cols-2 gap-2 text-xs">
+                  {/* Данные */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] grid grid-cols-2 gap-y-2.5 gap-x-4 text-[12px]">
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Внесён</div>
-                      <div className="text-slate-200 font-medium mt-0.5">{p.dateAdded || '—'}</div>
+                      <div className="text-gray-500">Внесён</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.dateAdded || '—'}
+                      </div>
                     </div>
 
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Вынесен</div>
-                      <div className="text-slate-200 font-medium mt-0.5">{p.endDate || '—'}</div>
+                      <div className="text-gray-500">Вынесен</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.endDate || '—'}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between gap-2 text-xs">
-                    <ContactLink label="VK" value={p.vk} />
-                    <div className="text-[11px] text-slate-500">
-                      Внёс: <span className="text-slate-300 font-semibold">{p.admin || '—'}</span>
+                  {/* Подвал: ссылки + автор */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      {p.vk && p.vk !== '-' && (
+                        <a
+                          href={p.vk.startsWith('http') ? p.vk : `https://${p.vk}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-medium text-gray-500 hover:text-blue-300 transition-colors"
+                        >
+                          VK ↗
+                        </a>
+                      )}
+                      {!hasLinks && (
+                        <span className="text-[11px] text-gray-600">Нет ссылок</span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-gray-500">
+                      Внёс: <span className="text-gray-300 font-medium">{p.admin || '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -1364,7 +1566,7 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
           <button
             onClick={() => setPageNumber(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition"
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
           >
             ←
           </button>
@@ -1373,10 +1575,10 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
             <button
               key={page}
               onClick={() => setPageNumber(page)}
-              className={`min-w-[36px] h-9 px-3 rounded-xl border text-xs font-bold transition ${
+              className={`min-w-10 px-3 py-2 rounded-xl border text-sm transition ${
                 page === currentPage
-                  ? 'border-orange-500/50 bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                  : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  ? 'border-purple-500/40 bg-purple-500/15 text-purple-200'
+                  : 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
               }`}
             >
               {page}
@@ -1386,7 +1588,7 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
           <button
             onClick={() => setPageNumber(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition"
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
           >
             →
           </button>
@@ -1396,7 +1598,16 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
   )
 }
 
-/* ───────── ОСНОВНОЙ ЭКСПОРТ ───────── */
+/* ───────── ГЛАВНЫЙ ЭКСПОРТ ─────────
+   Содержимое страницы зависит от роли пользователя:
+   - ГС/ЗГС БО и лидер Radio24            → только ссылка на документ ЧС БО
+   - ГС/ЗГС мафий                          → полная таблица ЧС мафий
+   - ГС/ЗГС Гетто                          → полная таблица ЧС Гетто
+   - ГС/ЗГС Байкеров                       → полная таблица ЧС Байкеров
+   - Игрок                                 → фильтр по сферам (Гос/БО/Мафия/Гетто/Байкеры работают)
+   - Все остальные (ГС/ЗГС Гос., полный
+     доступ, следящие, прочие лидеры)      → как раньше, полная таблица ЧС гос
+*/
 export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} }) {
   const [sphere, setSphere] = useState('gov')
 
@@ -1410,7 +1621,7 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
   if (isBoLeadership || isRadioLeader) {
     return (
       <PageChrome>
-        <DocsLinkCard sphereLabel="Бизнес организации (БО)" url={CHSBO_DOCS_URL} />
+        <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
       </PageChrome>
     )
   }
@@ -1444,36 +1655,27 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
 
     return (
       <PageChrome>
-        {/* Фильтр сфер в точном стиле Dashboard */}
-        <div className="flex flex-col gap-2 mb-8 bg-white/[0.02] border border-white/5 rounded-2xl p-4 sm:p-5">
-          <span className="text-[11px] font-extrabold tracking-[2px] uppercase text-white/35">
-            Сфера фракций
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {SPHERES.map((s) => {
-              const active = sphere === s.id
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => setSphere(s.id)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 ${
-                    active
-                      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
-                      : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              )
-            })}
-          </div>
+        <div className="mb-6 flex flex-wrap gap-2">
+          {SPHERES.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSphere(s.id)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${
+                sphere === s.id
+                  ? 'bg-gradient-to-r from-purple-500/25 to-purple-600/10 border-purple-500/40 text-purple-100'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
 
         {activeSphere.id === 'gov' && (
           <ChsGosTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
         )}
         {activeSphere.id === 'bo' && (
-          <DocsLinkCard sphereLabel="Бизнес организации (БО)" url={CHSBO_DOCS_URL} />
+          <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
         )}
         {activeSphere.id === 'mafia' && (
           <ChsMafiaTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
@@ -1484,7 +1686,9 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
         {activeSphere.id === 'bikers' && (
           <ChsBikersTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
         )}
-        {!activeSphere.hasSource && <InDevelopmentCard sphereLabel={activeSphere.label} />}
+        {!activeSphere.hasSource && (
+          <InDevelopmentCard sphereLabel={activeSphere.label} />
+        )}
       </PageChrome>
     )
   }
