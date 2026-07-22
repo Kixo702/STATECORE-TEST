@@ -4,9 +4,13 @@ import cors from 'cors'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
-import { authenticator } from 'otplib/authenticator'
 import qrcode from 'qrcode'
 import { db, initDatabase } from './db.js'
+
+// Импортируем createRequire для безопасной загрузки CommonJS пакетов в ESM
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const { authenticator } = require('otplib')
 
 const app = express()
 const PORT = process.env.PORT || 5000
