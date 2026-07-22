@@ -314,16 +314,13 @@ function DocsLinkCard({ sphereLabel, url }) {
 }
 
 /* ───────── Таблица ЧС гос — прежняя логика, вынесена в отдельный компонент ───────── */
-function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
+function ChsGosTable({ pageNumber = 1, setPageNumber = () => {}, serverId = 'texas' }) {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState([])
 
   const [filterOpen, setFilterOpen] = useState(false)
   const [filter, setFilter] = useState('ALL')
-
-  const [serverFilterOpen, setServerFilterOpen] = useState(false)
-  const [serverFilter, setServerFilter] = useState('texas')
 
   // Таблица ЧС гос — экспорт конкретного листа (gid) в CSV через gviz
   const CHSGOS_URL =
@@ -409,7 +406,7 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
 
   useEffect(() => {
     setPageNumber(1)
-  }, [search, filter, serverFilter, setPageNumber])
+  }, [search, filter, serverId, setPageNumber])
 
   const filterLabel =
     filter === 'ALL'
@@ -418,10 +415,10 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
       ? 'Активные'
       : 'Неактивные'
 
-  const activeServer = SERVERS.find((s) => s.id === serverFilter) || SERVERS[0]
+  const activeServer = SERVERS.find((s) => s.id === serverId) || SERVERS[0]
   // Таблица ЧС гос сейчас ведётся только для Техаса — для остальных
   // серверов данных пока нет, показываем заглушку "в разработке"
-  const serverHasData = serverFilter === 'texas'
+  const serverHasData = serverId === 'texas'
 
   return (
     <>
@@ -476,40 +473,6 @@ function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
                   }`}
                 >
                   {f.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="relative z-20">
-          <button
-            onClick={() => setServerFilterOpen((v) => !v)}
-            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
-          >
-            <IconFilter />
-            {activeServer.label}
-          </button>
-
-          {serverFilterOpen && (
-            <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
-              {SERVERS.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => {
-                    setServerFilter(s.id)
-                    setServerFilterOpen(false)
-                  }}
-                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition flex items-center justify-between gap-2 ${
-                    serverFilter === s.id
-                      ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
-                      : ''
-                  }`}
-                >
-                  <span>{s.label}</span>
-                  {s.id !== 'texas' && (
-                    <span className="text-[10px] text-gray-500">в разработке</span>
-                  )}
                 </button>
               ))}
             </div>
@@ -1660,9 +1623,17 @@ function ChsBikersTable({ pageNumber = 1, setPageNumber = () => {} }) {
      полный доступ, следящие, прочие
      лидеры)                               → фильтр по сферам
      (Гос/БО/Мафия/Гетто/Байкеры работают), виден всем одинаково
+   Фильтр по серверу — общий для всей страницы (не зависит от сферы и
+   стоит над её переключателем). Сейчас данные есть только для Texas —
+   остальные сервера показывают заглушку "в разработке" вне зависимости
+   от выбранной сферы.
 */
 export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} }) {
   const [sphere, setSphere] = useState('gov')
+  const [serverFilterOpen, setServerFilterOpen] = useState(false)
+  const [serverId, setServerId] = useState('texas')
+  const activeServer = SERVERS.find((s) => s.id === serverId) || SERVERS[0]
+  const serverHasData = serverId === 'texas'
 
   const direction = getLeadershipDirection(user)
   const isBoLeadership = (isChief(user) || isDeputy(user)) && direction === 'bo'
@@ -1671,10 +1642,52 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
   const isBikersLeadership = (isChief(user) || isDeputy(user)) && direction === 'bikers'
   const isRadioLeader = isLeaderOfFaction(user, 'radio24')
 
+  // Общий выпадающий список фильтра по серверу — общий для любой ветки ниже
+  const ServerFilter = (
+    <div className="relative z-20 inline-block mb-4">
+      <button
+        onClick={() => setServerFilterOpen((v) => !v)}
+        className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
+      >
+        <IconFilter />
+        {activeServer.label}
+      </button>
+
+      {serverFilterOpen && (
+        <div className="absolute left-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
+          {SERVERS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => {
+                setServerId(s.id)
+                setServerFilterOpen(false)
+              }}
+              className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition flex items-center justify-between gap-2 ${
+                serverId === s.id
+                  ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
+                  : ''
+              }`}
+            >
+              <span>{s.label}</span>
+              {s.id !== 'texas' && (
+                <span className="text-[10px] text-gray-500">в разработке</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   if (isBoLeadership || isRadioLeader) {
     return (
       <PageChrome>
-        <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
+        {ServerFilter}
+        {serverHasData ? (
+          <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
+        ) : (
+          <InDevelopmentCard sphereLabel={`БО — ${activeServer.label}`} />
+        )}
       </PageChrome>
     )
   }
@@ -1682,7 +1695,12 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
   if (isMafiaLeadership) {
     return (
       <PageChrome>
-        <ChsMafiaTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+        {ServerFilter}
+        {serverHasData ? (
+          <ChsMafiaTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+        ) : (
+          <InDevelopmentCard sphereLabel={`Мафия — ${activeServer.label}`} />
+        )}
       </PageChrome>
     )
   }
@@ -1690,7 +1708,12 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
   if (isGhettoLeadership) {
     return (
       <PageChrome>
-        <ChsGhettoTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+        {ServerFilter}
+        {serverHasData ? (
+          <ChsGhettoTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+        ) : (
+          <InDevelopmentCard sphereLabel={`Гетто — ${activeServer.label}`} />
+        )}
       </PageChrome>
     )
   }
@@ -1698,7 +1721,12 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
   if (isBikersLeadership) {
     return (
       <PageChrome>
-        <ChsBikersTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+        {ServerFilter}
+        {serverHasData ? (
+          <ChsBikersTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+        ) : (
+          <InDevelopmentCard sphereLabel={`Байкеры — ${activeServer.label}`} />
+        )}
       </PageChrome>
     )
   }
@@ -1707,6 +1735,8 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
 
   return (
     <PageChrome>
+      {ServerFilter}
+
       <div className="mb-6 flex flex-wrap gap-2">
         {SPHERES.map((s) => (
           <button
@@ -1723,23 +1753,29 @@ export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} 
         ))}
       </div>
 
-      {activeSphere.id === 'gov' && (
-        <ChsGosTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
-      )}
-      {activeSphere.id === 'bo' && (
-        <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
-      )}
-      {activeSphere.id === 'mafia' && (
-        <ChsMafiaTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
-      )}
-      {activeSphere.id === 'ghetto' && (
-        <ChsGhettoTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
-      )}
-      {activeSphere.id === 'bikers' && (
-        <ChsBikersTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
-      )}
-      {!activeSphere.hasSource && (
-        <InDevelopmentCard sphereLabel={activeSphere.label} />
+      {!serverHasData ? (
+        <InDevelopmentCard sphereLabel={`${activeSphere.label} — ${activeServer.label}`} />
+      ) : (
+        <>
+          {activeSphere.id === 'gov' && (
+            <ChsGosTable pageNumber={pageNumber} setPageNumber={setPageNumber} serverId={serverId} />
+          )}
+          {activeSphere.id === 'bo' && (
+            <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
+          )}
+          {activeSphere.id === 'mafia' && (
+            <ChsMafiaTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+          )}
+          {activeSphere.id === 'ghetto' && (
+            <ChsGhettoTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+          )}
+          {activeSphere.id === 'bikers' && (
+            <ChsBikersTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+          )}
+          {!activeSphere.hasSource && (
+            <InDevelopmentCard sphereLabel={activeSphere.label} />
+          )}
+        </>
       )}
     </PageChrome>
   )
