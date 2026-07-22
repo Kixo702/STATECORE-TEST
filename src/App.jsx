@@ -256,7 +256,7 @@ export default function App() {
           {activePage === 'dashboard' && <Dashboard user={user} onLogout={handleLogout} />}
           {activePage === 'organizations' && <Organizations user={user} />}
           {activePage === 'blacklist' && <Blacklist pageNumber={pageNumber} setPageNumber={setPageNumber} />}
-          {activePage === 'chsgos' && <ChsGos pageNumber={pageNumber} setPageNumber={setPageNumber} />}
+          {activePage === 'chsgos' && <ChsGos user={user} pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'logs' && <Logs pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'activity' && <LeaderActivity user={user} />}
           {activePage === 'leaderAnalytics' && <LeaderAnalytics />}

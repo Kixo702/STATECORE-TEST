@@ -224,8 +224,14 @@ export function canViewMenu(user, menuId) {
   const id = menuId.toLowerCase()
 
   // ГС/ЗГС любого направления, кроме "Гос." — пока что видят только
-  // мониторинг и анти-блат (faq и база знаний и так всегда видны в сайдбаре)
+  // мониторинг и анти-блат (faq и база знаний и так всегда видны в сайдбаре).
+  // Исключение: ГС/ЗГС БО дополнительно видят свой раздел ЧС (chsgos) —
+  // остальные направления пока не подключены, добавляются по мере готовности.
   if (isRestrictedLeadership(user)) {
+    const direction = getLeadershipDirection(user)
+    if (direction === 'bo') {
+      return id === 'dashboard' || id === 'cadreaudit' || id === 'chsgos'
+    }
     return id === 'dashboard' || id === 'cadreaudit'
   }
 
@@ -244,7 +250,7 @@ export function canViewMenu(user, menuId) {
 
   // Игрок
   if (isPlayer(user)) {
-    return ['logs', 'blacklist'].includes(id)
+    return ['logs', 'blacklist', 'chsgos'].includes(id)
   }
 
   // Остальной стафф (лидеры, следящие, полный доступ)

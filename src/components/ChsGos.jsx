@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import banner from '../assets/banner.png'
+import {
+  isPlayer,
+  isLeaderOfFaction,
+  getLeadershipDirection,
+  isChief,
+  isDeputy,
+} from '../lib/roles'
 
 /* ───────── ICONS ───────── */
 const IconSearch = () => (
@@ -20,6 +27,26 @@ const IconFilter = () => (
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
+    />
+  </svg>
+)
+
+const IconDoc = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <path d="M6 2h9l5 5v15H6V2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M14 2v5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9 13h6M9 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+const IconWrench = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M14.7 6.3a4 4 0 10-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.6 2.6-2-2 2.6-2.6z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
   </svg>
 )
@@ -77,8 +104,96 @@ const getStatus = (p) => {
   return 'active'
 }
 
-/* ───────── MAIN ───────── */
-export default function ChsGos({ pageNumber = 1, setPageNumber = () => {} }) {
+// Ссылка на документ ЧС БО — там список ведётся вручную в Google Docs,
+// отдельной таблицы (как у ЧС гос) для этого направления пока нет
+const CHSBO_DOCS_URL =
+  'https://docs.google.com/document/d/1qVCFsoORgJY7y1q23te6ZGWoqlkiQDfHeA3xnYeTq3A/edit?tab=t.0'
+
+// Сферы ЧС, доступные игроку через фильтр. hasSource=true — уже подключён
+// реальный источник (таблица или документ), иначе показывается "в разработке"
+const SPHERES = [
+  { id: 'gov', label: 'Гос.', hasSource: true },
+  { id: 'bo', label: 'БО', hasSource: true },
+  { id: 'mafia', label: 'Мафия', hasSource: false },
+  { id: 'ghetto', label: 'Гетто', hasSource: false },
+  { id: 'bikers', label: 'Байкеры', hasSource: false },
+]
+
+/* ───────── Общий каркас страницы (фон + баннер) ───────── */
+function PageChrome({ children }) {
+  return (
+    <>
+      <div
+        className="fixed inset-0 opacity-30 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(circle at 20% 20%, rgba(168,85,247,.25), transparent 40%),' +
+            'radial-gradient(circle at 80% 60%, rgba(239,68,68,.25), transparent 45%)',
+        }}
+      />
+
+      <div className="min-h-screen bg-[#0b0f17] text-white relative">
+        <div className="w-full bg-[#0b0f19] pt-4 pb-2 border-b border-white/5">
+          <div className="px-8">
+            <div className="relative w-full max-h-[140px] overflow-hidden rounded-2xl">
+              <img src={banner} alt="banner" className="w-full object-contain block" />
+              <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-[#0b0f19] to-transparent pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-6 md:p-10 relative z-10">{children}</div>
+      </div>
+    </>
+  )
+}
+
+/* ───────── Заглушка "в разработке" для сфер без подключённого источника ───────── */
+function InDevelopmentCard({ sphereLabel }) {
+  return (
+    <div>
+      <h1 className="text-2xl sm:text-3xl font-black">Чёрный список · {sphereLabel}</h1>
+      <p className="text-gray-400 mt-1">Раздел для этой сферы пока не подключён</p>
+
+      <div className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400">
+          <IconWrench />
+        </div>
+        <div className="text-gray-300 font-semibold">В разработке</div>
+        <p className="text-gray-500 text-sm max-w-sm">
+          Таблица или документ ЧС для этого направления ещё не подключены. Загляните позже.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ───────── Карточка со ссылкой на ЧС, который ведётся в документе (сейчас — БО) ───────── */
+function DocsLinkCard({ sphereLabel, url }) {
+  return (
+    <div>
+      <h1 className="text-2xl sm:text-3xl font-black">Чёрный список · {sphereLabel}</h1>
+      <p className="text-gray-400 mt-1">Ведётся в документе — отдельной таблицы для этой сферы пока нет</p>
+
+      <div className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.015] p-10 flex flex-col items-center text-center gap-4">
+        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400">
+          <IconDoc />
+        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-600/10 border border-purple-500/30 text-purple-200 font-semibold hover:bg-purple-500/25 transition"
+        >
+          Открыть документ ЧС ↗
+        </a>
+      </div>
+    </div>
+  )
+}
+
+/* ───────── Таблица ЧС гос — прежняя логика, вынесена в отдельный компонент ───────── */
+function ChsGosTable({ pageNumber = 1, setPageNumber = () => {} }) {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [entries, setEntries] = useState([])
@@ -181,269 +296,301 @@ export default function ChsGos({ pageNumber = 1, setPageNumber = () => {} }) {
 
   return (
     <>
-      {/* BACKGROUND */}
-      <div
-        className="fixed inset-0 opacity-30 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle at 20% 20%, rgba(168,85,247,.25), transparent 40%),' +
-            'radial-gradient(circle at 80% 60%, rgba(239,68,68,.25), transparent 45%)',
-        }}
-      />
+      {/* HEADER */}
+      <div className="mb-8">
+        <h1 className="text-2xl sm:text-3xl font-black">
+          Чёрный список гос. игроков (ЧС гос)
+        </h1>
+        <p className="text-gray-400 mt-1">
+          Запрет на вступление во все государственные фракции сервера
+        </p>
+      </div>
 
-      {/* MAIN WRAPPER */}
-      <div className="min-h-screen bg-[#0b0f17] text-white relative">
-        {/* BANNER HEADER */}
-        <div className="w-full bg-[#0b0f19] pt-4 pb-2 border-b border-white/5">
-          <div className="px-8">
-            <div className="relative w-full max-h-[140px] overflow-hidden rounded-2xl">
-              <img
-                src={banner}
-                alt="banner"
-                className="w-full object-contain block"
-              />
-
-              <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-[#0b0f19] to-transparent pointer-events-none" />
-            </div>
-          </div>
+      {/* SEARCH + FILTER */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-xl w-full">
+          <IconSearch />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск..."
+            className="bg-transparent outline-none w-full"
+          />
         </div>
 
-        {/* CONTENT */}
-        <div className="p-4 sm:p-6 md:p-10 relative z-10">
-          {/* HEADER */}
-          <div className="mb-8">
-            <h1 className="text-2xl sm:text-3xl font-black">
-              Чёрный список гос. игроков (ЧС гос)
-            </h1>
-            <p className="text-gray-400 mt-1">
-              Запрет на вступление во все государственные фракции сервера
-            </p>
-          </div>
+        <div className="relative z-20">
+          <button
+            onClick={() => setFilterOpen((v) => !v)}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
+          >
+            <IconFilter />
+            {filterLabel}
+          </button>
 
-          {/* SEARCH + FILTER */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-6">
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-xl w-full">
-              <IconSearch />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Поиск..."
-                className="bg-transparent outline-none w-full"
-              />
-            </div>
-
-            <div className="relative z-20">
-              <button
-                onClick={() => setFilterOpen((v) => !v)}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
-              >
-                <IconFilter />
-                {filterLabel}
-              </button>
-
-              {filterOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
-                  {[
-                    { id: 'ALL', label: 'Все' },
-                    { id: 'ACTIVE', label: 'Активные' },
-                    { id: 'INACTIVE', label: 'Неактивные' },
-                  ].map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => {
-                        setFilter(f.id)
-                        setFilterOpen(false)
-                      }}
-                      className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition ${
-                        filter === f.id
-                          ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
-                          : ''
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* GRID */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {loading ? (
-              <div className="text-gray-400">Загрузка...</div>
-            ) : filtered.length === 0 ? (
-              <div className="text-gray-500">Ничего не найдено</div>
-            ) : (
-              pageItems.map((p) => {
-                const permanent = isPermanent(p.term)
-                const status = getStatus(p) // 'active' | 'lifted' | 'expired'
-
-                const accentColor =
-                  status === 'lifted'
-                    ? '96,165,250' // синий — снят по апелляции
-                    : status === 'expired'
-                    ? '34,197,94' // зелёный — истёк по сроку
-                    : '239,68,68' // красный — активен (в т.ч. навсегда)
-
-                const badgeLabel =
-                  status === 'lifted'
-                    ? 'Снят'
-                    : status === 'expired'
-                    ? 'Истёк'
-                    : permanent
-                    ? 'Навсегда'
-                    : 'Активен'
-
-                const hasLinks = (p.vk && p.vk !== '-') || (p.forum && p.forum !== '-')
-
-                return (
-                  <div
-                    key={p.id}
-                    className="group relative rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200 overflow-hidden"
-                  >
-                    {/* Тонкая статусная полоса слева */}
-                    <div
-                      className="absolute left-0 top-0 bottom-0 w-[3px]"
-                      style={{ background: `rgb(${accentColor})` }}
-                    />
-
-                    <div className="pl-[22px] pr-5 py-5">
-                      {/* Заголовок */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="text-[16px] font-bold text-white truncate">
-                            {p.nickname}
-                          </h3>
-                          <p className="text-[11px] text-gray-500 mt-0.5 font-mono tracking-tight">
-                            ID {p.id || '—'}
-                          </p>
-                        </div>
-
-                        <span
-                          className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                          style={{
-                            color: `rgb(${accentColor})`,
-                            background: `rgba(${accentColor},.12)`,
-                          }}
-                        >
-                          <span
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ background: `rgb(${accentColor})` }}
-                          />
-                          {badgeLabel}
-                        </span>
-                      </div>
-
-                      {/* Причина */}
-                      <p className="mt-3 text-[13px] leading-relaxed text-gray-300 border-l-2 border-white/[0.08] pl-3">
-                        {p.reason || 'Причина не указана'}
-                      </p>
-
-                      {p.note && (
-                        <p className="mt-1.5 text-[12px] text-gray-500 italic pl-3">
-                          {p.note}
-                        </p>
-                      )}
-
-                      {/* Данные */}
-                      <div className="mt-4 pt-3.5 border-t border-white/[0.06] grid grid-cols-2 gap-y-2.5 gap-x-4 text-[12px]">
-                        <div>
-                          <div className="text-gray-500">Внесён</div>
-                          <div className="text-gray-200 font-medium mt-0.5">
-                            {p.dateAdded || '—'}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-gray-500">Срок</div>
-                          <div className="text-gray-200 font-medium mt-0.5">
-                            {p.term || '—'}
-                          </div>
-                        </div>
-
-                        <div className="col-span-2">
-                          <div className="text-gray-500">Окончание</div>
-                          <div className="text-gray-200 font-medium mt-0.5">
-                            {permanent ? 'N/A · бессрочно' : p.endDate || '—'}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Подвал: ссылки + автор */}
-                      <div className="mt-4 pt-3.5 border-t border-white/[0.06] flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-3">
-                          {p.vk && p.vk !== '-' && (
-                            <a
-                              href={p.vk.startsWith('http') ? p.vk : `https://${p.vk}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[11px] font-medium text-gray-500 hover:text-blue-300 transition-colors"
-                            >
-                              VK ↗
-                            </a>
-                          )}
-                          {p.forum && p.forum !== '-' && (
-                            <a
-                              href={p.forum.startsWith('http') ? p.forum : `https://${p.forum}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[11px] font-medium text-gray-500 hover:text-orange-300 transition-colors"
-                            >
-                              Форум ↗
-                            </a>
-                          )}
-                          {!hasLinks && (
-                            <span className="text-[11px] text-gray-600">Нет ссылок</span>
-                          )}
-                        </div>
-
-                        <div className="text-[11px] text-gray-500">
-                          Внёс: <span className="text-gray-300 font-medium">{p.admin || '—'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          {!loading && filtered.length > ITEMS_PER_PAGE && (
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-              <button
-                onClick={() => setPageNumber(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
-              >
-                ←
-              </button>
-
-              {visiblePages.map((page) => (
+          {filterOpen && (
+            <div className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden bg-[#111827] border border-white/10 shadow-2xl z-50">
+              {[
+                { id: 'ALL', label: 'Все' },
+                { id: 'ACTIVE', label: 'Активные' },
+                { id: 'INACTIVE', label: 'Неактивные' },
+              ].map((f) => (
                 <button
-                  key={page}
-                  onClick={() => setPageNumber(page)}
-                  className={`min-w-10 px-3 py-2 rounded-xl border text-sm transition ${
-                    page === currentPage
-                      ? 'border-purple-500/40 bg-purple-500/15 text-purple-200'
-                      : 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
+                  key={f.id}
+                  onClick={() => {
+                    setFilter(f.id)
+                    setFilterOpen(false)
+                  }}
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition ${
+                    filter === f.id
+                      ? 'bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-500'
+                      : ''
                   }`}
                 >
-                  {page}
+                  {f.label}
                 </button>
               ))}
-
-              <button
-                onClick={() => setPageNumber(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
-              >
-                →
-              </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {loading ? (
+          <div className="text-gray-400">Загрузка...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-gray-500">Ничего не найдено</div>
+        ) : (
+          pageItems.map((p) => {
+            const permanent = isPermanent(p.term)
+            const status = getStatus(p) // 'active' | 'lifted' | 'expired'
+
+            const accentColor =
+              status === 'lifted'
+                ? '96,165,250' // синий — снят по апелляции
+                : status === 'expired'
+                ? '34,197,94' // зелёный — истёк по сроку
+                : '239,68,68' // красный — активен (в т.ч. навсегда)
+
+            const badgeLabel =
+              status === 'lifted'
+                ? 'Снят'
+                : status === 'expired'
+                ? 'Истёк'
+                : permanent
+                ? 'Навсегда'
+                : 'Активен'
+
+            const hasLinks = (p.vk && p.vk !== '-') || (p.forum && p.forum !== '-')
+
+            return (
+              <div
+                key={p.id}
+                className="group relative rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200 overflow-hidden"
+              >
+                {/* Тонкая статусная полоса слева */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-[3px]"
+                  style={{ background: `rgb(${accentColor})` }}
+                />
+
+                <div className="pl-[22px] pr-5 py-5">
+                  {/* Заголовок */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-[16px] font-bold text-white truncate">
+                        {p.nickname}
+                      </h3>
+                      <p className="text-[11px] text-gray-500 mt-0.5 font-mono tracking-tight">
+                        ID {p.id || '—'}
+                      </p>
+                    </div>
+
+                    <span
+                      className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                      style={{
+                        color: `rgb(${accentColor})`,
+                        background: `rgba(${accentColor},.12)`,
+                      }}
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: `rgb(${accentColor})` }}
+                      />
+                      {badgeLabel}
+                    </span>
+                  </div>
+
+                  {/* Причина */}
+                  <p className="mt-3 text-[13px] leading-relaxed text-gray-300 border-l-2 border-white/[0.08] pl-3">
+                    {p.reason || 'Причина не указана'}
+                  </p>
+
+                  {p.note && (
+                    <p className="mt-1.5 text-[12px] text-gray-500 italic pl-3">
+                      {p.note}
+                    </p>
+                  )}
+
+                  {/* Данные */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] grid grid-cols-2 gap-y-2.5 gap-x-4 text-[12px]">
+                    <div>
+                      <div className="text-gray-500">Внесён</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.dateAdded || '—'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-gray-500">Срок</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {p.term || '—'}
+                      </div>
+                    </div>
+
+                    <div className="col-span-2">
+                      <div className="text-gray-500">Окончание</div>
+                      <div className="text-gray-200 font-medium mt-0.5">
+                        {permanent ? 'N/A · бессрочно' : p.endDate || '—'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Подвал: ссылки + автор */}
+                  <div className="mt-4 pt-3.5 border-t border-white/[0.06] flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      {p.vk && p.vk !== '-' && (
+                        <a
+                          href={p.vk.startsWith('http') ? p.vk : `https://${p.vk}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-medium text-gray-500 hover:text-blue-300 transition-colors"
+                        >
+                          VK ↗
+                        </a>
+                      )}
+                      {p.forum && p.forum !== '-' && (
+                        <a
+                          href={p.forum.startsWith('http') ? p.forum : `https://${p.forum}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-medium text-gray-500 hover:text-orange-300 transition-colors"
+                        >
+                          Форум ↗
+                        </a>
+                      )}
+                      {!hasLinks && (
+                        <span className="text-[11px] text-gray-600">Нет ссылок</span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-gray-500">
+                      Внёс: <span className="text-gray-300 font-medium">{p.admin || '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {!loading && filtered.length > ITEMS_PER_PAGE && (
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+          <button
+            onClick={() => setPageNumber(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
+          >
+            ←
+          </button>
+
+          {visiblePages.map((page) => (
+            <button
+              key={page}
+              onClick={() => setPageNumber(page)}
+              className={`min-w-10 px-3 py-2 rounded-xl border text-sm transition ${
+                page === currentPage
+                  ? 'border-purple-500/40 bg-purple-500/15 text-purple-200'
+                  : 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+
+          <button
+            onClick={() => setPageNumber(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition"
+          >
+            →
+          </button>
+        </div>
+      )}
     </>
+  )
+}
+
+/* ───────── ГЛАВНЫЙ ЭКСПОРТ ─────────
+   Содержимое страницы зависит от роли пользователя:
+   - ГС/ЗГС БО и лидер Радио24            → только ссылка на документ ЧС БО
+   - Игрок                                 → фильтр по сферам (Гос/БО работают, остальные "в разработке")
+   - Все остальные (ГС/ЗГС Гос., полный
+     доступ, следящие, прочие лидеры)      → как раньше, полная таблица ЧС гос
+*/
+export default function ChsGos({ user, pageNumber = 1, setPageNumber = () => {} }) {
+  const [sphere, setSphere] = useState('gov')
+
+  const direction = getLeadershipDirection(user)
+  const isBoLeadership = (isChief(user) || isDeputy(user)) && direction === 'bo'
+  const isRadioLeader = isLeaderOfFaction(user, 'radio24')
+
+  if (isBoLeadership || isRadioLeader) {
+    return (
+      <PageChrome>
+        <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
+      </PageChrome>
+    )
+  }
+
+  if (isPlayer(user)) {
+    const activeSphere = SPHERES.find((s) => s.id === sphere) || SPHERES[0]
+
+    return (
+      <PageChrome>
+        <div className="mb-6 flex flex-wrap gap-2">
+          {SPHERES.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSphere(s.id)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${
+                sphere === s.id
+                  ? 'bg-gradient-to-r from-purple-500/25 to-purple-600/10 border-purple-500/40 text-purple-100'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {activeSphere.id === 'gov' && (
+          <ChsGosTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+        )}
+        {activeSphere.id === 'bo' && (
+          <DocsLinkCard sphereLabel="БО" url={CHSBO_DOCS_URL} />
+        )}
+        {!activeSphere.hasSource && activeSphere.id !== 'gov' && activeSphere.id !== 'bo' && (
+          <InDevelopmentCard sphereLabel={activeSphere.label} />
+        )}
+      </PageChrome>
+    )
+  }
+
+  return (
+    <PageChrome>
+      <ChsGosTable pageNumber={pageNumber} setPageNumber={setPageNumber} />
+    </PageChrome>
   )
 }
