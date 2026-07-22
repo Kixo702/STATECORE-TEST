@@ -15,6 +15,12 @@ import { getNickRequests, reviewNickRequest } from '../lib/requests'
 import { setSession, removeUser } from '../lib/userStore'
 import { getUsers, updateUser, deleteUser } from '../lib/api'
 
+// Хелпер для надежного получения аватара пользователя
+function getAvatar(u) {
+  if (!u) return null
+  return u.avatarUrl || u.avatar || null
+}
+
 // Оформление групп фракций в выпадающих списках ролей
 const FACTION_CATEGORY_META = {
   gov:    { group: 'Госструктуры', color: '#3b82f6' },
@@ -24,8 +30,7 @@ const FACTION_CATEGORY_META = {
   radio:  { group: 'Радио',        color: '#06b6d4' },
 }
 
-// Оформление направлений для ролей ГС/ЗГС (совпадает по духу с FACTION_CATEGORY_META,
-// но включает направление "БО", которого нет во фракциях-лидерах)
+// Оформление направлений для ролей ГС/ЗГС
 const DIRECTION_META = {
   gov:    { color: '#3b82f6' },
   mafia:  { color: '#dc2626' },
@@ -34,16 +39,12 @@ const DIRECTION_META = {
   bikers: { color: '#eab308' },
 }
 
-// Роли-лидеры генерируются по всем фракциям из lib/roles.js —
-// добавление новой фракции туда автоматически добавит роль и сюда
 const LEADER_ROLES = getAllLeaderRoles().map((f) => ({
   value: f.roleName,
   color: FACTION_CATEGORY_META[f.category]?.color || '#06b6d4',
   group: FACTION_CATEGORY_META[f.category]?.group || 'Лидеры',
 }))
 
-// ГС/ЗГС по направлениям — тоже генерируются из lib/roles.js, чтобы новое
-// направление не пришлось дублировать здесь вручную
 const LEADERSHIP_ROLES = [
   ...Object.entries(CHIEF_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({
     value: roleName,
@@ -62,10 +63,6 @@ const ROLES = [
   ...LEADER_ROLES,
   { value: 'Следящий', color: '#8b5cf6', group: 'Роли' },
   ...LEADERSHIP_ROLES,
-  // Старые докатегорийные роли ГС/ЗГС — оставлены в списке отдельной группой
-  // только для совместимости с уже назначенными аккаунтами (сортировка,
-  // отображение цвета и т.п.). Для новых назначений используйте роли
-  // из группы "Руководство" выше.
   { value: 'Заместитель Главного Следящего', color: '#f59e0b', group: 'Роли (устаревшие)' },
   { value: 'Главный Следящий', color: '#f59e0b', group: 'Роли (устаревшие)' },
   { value: 'Разработчик', color: '#22c55e', group: 'Роли' },
@@ -93,7 +90,6 @@ function fmtDate(iso) {
   } catch { return iso }
 }
 
-// Группирует список ролей по полю group, сохраняя порядок первого появления группы
 function groupRoles(roles, query = '') {
   const filtered = query.trim()
     ? roles.filter(r => r.value.toLowerCase().includes(query.trim().toLowerCase()))
@@ -112,7 +108,6 @@ function groupRoles(roles, query = '') {
   return { filtered, grouped }
 }
 
-// Список ролей для выпадающих меню: группировка по фракциям + поиск
 function RoleOptionsList({ roles, onPick, activeValue, showAllOption, onPickAll }) {
   const [q, setQ] = useState('')
   const showSearch = roles.length > 10
@@ -166,6 +161,35 @@ function getPlayerUid(id) {
   return `SC-${id.replace(/-/g, '').toUpperCase().slice(0, 6)}`
 }
 
+// Компонент аватарки с защитой от ошибок загрузки
+function UserAvatar({ user, color, size = 36, borderRadius = 9 }) {
+  const [imgError, setImgError] = useState(false)
+  const avatarUrl = getAvatar(user)
+  const accentRgb = hexToRgb(color)
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius, overflow: 'hidden',
+      background: `rgba(${accentRgb},.15)`,
+      border: `1px solid rgba(${accentRgb},.3)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: Math.round(size * 0.4), fontWeight: 800, color,
+      flexShrink: 0,
+    }}>
+      {avatarUrl && !imgError ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          onError={() => setImgError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        (user?.nickname || user?.login || '?')[0].toUpperCase()
+      )}
+    </div>
+  )
+}
+
 // ── Icons ───────────────────
 const IC = {
   bell:      <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
@@ -178,8 +202,6 @@ const IC = {
   ban:       <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7"/><line x1="5.5" y1="5.5" x2="18.5" y2="18.5" stroke="currentColor" strokeWidth="1.7"/></svg>,
   link:      <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
   cal:       <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8"/></svg>,
-  check:     <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  spin:      <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeDasharray="56" strokeDashoffset="14" strokeLinecap="round"/></svg>,
   trash:     <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 }
 
@@ -203,13 +225,13 @@ export default function Users({ currentUser }) {
   const canReviewNick = canReviewNickRequests(currentUser)
   const canDeleteAccount = canEditRolesPerm
 
-  const [page, setPage] = useState('list') // 'list' | 'requests'
+  const [page, setPage] = useState('list')
   const [search, setSearch] = useState('')
   const [filterRole, setFilterRole] = useState('Все')
   const [filterRoleOpen, setFilterRoleOpen] = useState(false)
   const [filterMenuPos, setFilterMenuPos] = useState(null)
   const filterBtnRef = useRef(null)
-  const [pendingRole, setPendingRole] = useState({}) // userId → newRole
+  const [pendingRole, setPendingRole] = useState({})
   const [roleMenuOpen, setRoleMenuOpen] = useState(null)
   const [roleMenuPos, setRoleMenuPos] = useState(null)
   const roleBtnRefs = useRef({})
@@ -227,7 +249,7 @@ export default function Users({ currentUser }) {
 
   const [saving, setSaving] = useState(null)
   const [saved, setSaved] = useState(null)
-  const [confirmModal, setConfirmModal] = useState(null) // { kind, user, role?, ban? }
+  const [confirmModal, setConfirmModal] = useState(null)
   const [profileModalId, setProfileModalId] = useState(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
@@ -246,7 +268,6 @@ export default function Users({ currentUser }) {
 
   const pendingNickRequests = useMemo(() => nickRequests.filter(r => r.status === 'pending'), [nickRequests])
 
-  // ── Пользователи из бэкенда ──────────────
   const [allUsers, setAllUsers] = useState([])
   const [usersLoading, setUsersLoading] = useState(true)
   const [usersError, setUsersError] = useState(null)
@@ -290,7 +311,6 @@ export default function Users({ currentUser }) {
     setPendingRole(p => ({ ...p, [userId]: newRole }))
   }
 
-  // Обновлено: теперь функция может гибко принимать роль напрямую (для вызова из модалки)
   const handleSaveRole = (u, targetRole = null) => {
     const newRole = targetRole || pendingRole[u.id]
     if (!newRole || newRole === (u.roleName || 'Игрок')) return
@@ -338,27 +358,21 @@ export default function Users({ currentUser }) {
     try {
       if (kind === 'role') {
         const prevRole = u.roleName || 'Игрок'
-
-        // Оптимистично обновляем стейт интерфейса сразу
         setAllUsers(prev => prev.map(item => item.id === u.id ? { ...item, roleName: newRole } : item))
-
         await writeUsers({ id: u.id, patch: { roleName: newRole } })
         pushLog(u.id, `Роль изменена: «${prevRole}» → «${newRole}» (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
         setPendingRole(p => { const n = { ...p }; delete n[u.id]; return n })
       } else if (kind === 'reprimand') {
         const nextWarnings = (u.warnings || 0) + 1
         setAllUsers(prev => prev.map(item => item.id === u.id ? { ...item, warnings: nextWarnings } : item))
-        
         await writeUsers({ id: u.id, patch: { warnings: nextWarnings } })
         pushLog(u.id, `Выдан выговор (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
       } else if (kind === 'removeLeader') {
         setAllUsers(prev => prev.map(item => item.id === u.id ? { ...item, roleName: 'Игрок' } : item))
-
         await writeUsers({ id: u.id, patch: { roleName: 'Игрок' } })
         pushLog(u.id, `Статус лидера снят (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
       } else if (kind === 'ban') {
         setAllUsers(prev => prev.map(item => item.id === u.id ? { ...item, isBanned: ban } : item))
-
         await writeUsers({ id: u.id, patch: { isBanned: ban, banReason: ban ? 'Забанен администратором' : '' } })
         pushLog(u.id, ban ? `Пользователь забанен (${currentUser?.nickname || currentUser?.login || 'модератор'})` : `Пользователь разбанен (${currentUser?.nickname || currentUser?.login || 'модератор'})`)
       } else if (kind === 'delete') {
@@ -373,7 +387,7 @@ export default function Users({ currentUser }) {
       setSaved(`${u.id}_${Math.random().toString(36).slice(2, 8)}`)
     } catch (e) {
       console.error(e)
-      loadUsers() // Откатываем интерфейс при ошибке
+      loadUsers()
       setUsersError(e?.message || (kind === 'delete' ? 'Не удалось удалить аккаунт' : 'Не удалось сохранить изменения'))
     } finally {
       setSaving(null)
@@ -408,7 +422,6 @@ export default function Users({ currentUser }) {
     @keyframes u-spin   { to{transform:rotate(360deg)} }
     @keyframes u-pop    { 0%{transform:scale(.7);opacity:0} 60%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
     @keyframes u-shimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
-    @keyframes u-success { 0%{transform:scale(0);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
 
     .u-input {
       background: rgba(255,255,255,.05);
@@ -795,7 +808,6 @@ export default function Users({ currentUser }) {
             const isSaving = saving === u.id
             const isMe = u.id === currentUser?.id
             const targetIsLeader = isLeader(u)
-            const accentRgb = hexToRgb(roleColor(currentRole))
 
             return (
               <div
@@ -806,20 +818,7 @@ export default function Users({ currentUser }) {
                 <div className="absolute left-0 top-0 bottom-0" style={{ width: 3, background: roleColor(currentRole) }} />
 
                 {/* Avatar */}
-                <div style={{
-                  width: 36, height: 36, borderRadius: 9, overflow: 'hidden',
-                  background: `rgba(${accentRgb},.15)`,
-                  border: `1px solid rgba(${accentRgb},.3)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 800, color: roleColor(currentRole),
-                  flexShrink: 0,
-                }}>
-                  {u.avatar ? (
-                    <img src={u.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    (u.nickname || u.login || '?')[0].toUpperCase()
-                  )}
-                </div>
+                <UserAvatar user={u} color={roleColor(currentRole)} size={36} borderRadius={9} />
 
                 {/* User info */}
                 <div style={{ overflow: 'hidden', cursor: 'pointer' }} onClick={() => setProfileModalId(u.id)}>
@@ -1066,7 +1065,6 @@ function ModeratorPanel({
   const currentRole = user.roleName || 'Игрок'
   const selectedRole = pendingRole[user.id] ?? currentRole
   const roleChanged = selectedRole !== currentRole
-  const accentRgb = hexToRgb(roleColor(currentRole))
 
   const hasAnyModAction = !isMe && (canEditRolesPerm || canReprimand || canBan || canDelete || (canRemoveLead && targetIsLeader))
 
@@ -1120,18 +1118,9 @@ function ModeratorPanel({
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-              <div style={{
-                width: 52, height: 52, borderRadius: 14, overflow: 'hidden', flexShrink: 0,
-                background: `rgba(${accentRgb},.15)`, border: `1px solid rgba(${accentRgb},.3)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 18, fontWeight: 800, color: roleColor(currentRole),
-              }}>
-                {user.avatar ? (
-                  <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  (user.nickname || user.login || '?')[0].toUpperCase()
-                )}
-              </div>
+              {/* Avatar */}
+              <UserAvatar user={user} color={roleColor(currentRole)} size={52} borderRadius={14} />
+
               <div style={{ minWidth: 0 }}>
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 7,
