@@ -7,6 +7,7 @@ import icGov     from '../assets/org-icons/gov.png'
 import icArmy    from '../assets/org-icons/army.png'
 import icFbi     from '../assets/org-icons/fbi.png'
 import icMedical from '../assets/org-icons/medical.png'
+import R24 from '../assets/org-icons/r24.png'
 
 const ORG_ICONS = {
   'LSPD':  icPolice,
@@ -18,6 +19,7 @@ const ORG_ICONS = {
   'MCLS': icMedical,
   'MCSF': icMedical,
   'MCLV': icMedical,
+  'Radio24': R24,
 }
 
 // ── SVG Icons ────────────────────────────────────────────────
