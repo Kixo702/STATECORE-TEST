@@ -132,7 +132,12 @@ const READY_SERVER_ID = 'texas'
 const READY_COMBOS = [
   { server: 'texas', sphere: 'gov' },
   { server: 'texas', sphere: 'bo' },
+  { server: 'texas', sphere: 'mafia' },
 ]
+
+// Мафии: фиксированные строки лидеров в таблице (см. MAFIA_SHEETS_URL) —
+// у каждой из 3 организаций лидер всегда сидит в одной и той же строке.
+const MAFIA_LEADER_ROWS = [14, 16, 18]
 
 // БО: колонка C в таблице хранит только должность (нужен только "Директор"),
 // а не название организации — поэтому имя карточки сопоставляем вручную по
@@ -145,8 +150,12 @@ const BO_ORG_NAMES = {
 export default function Organizations({ user }) {
   const GOV_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
   const BO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE89xZb9RxVOSfXbtQ4-fyu-FH9r-5ntI4AdPI6xPqmzRh0jVYd9qITXDCpWCEC0RFptElukEjhvD5/pub?gid=0&single=true&output=csv'
+  const MAFIA_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRhlLfLsJs2k5DwBm3Lu7B4EuH3b-5kZNNHMGZHhyfpb00XyuPcOIppSFuAGRQXzNR7fFYsPbM6CPuy/pub?gid=0&single=true&output=csv'
   const GOV_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhZYSsvPt0QdbyYiAEfvyfu8XVQwOPeYapuG0HwV8CCngctz43msP9K_o4C-ck13Hy/exec'
   const BO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbza0Kft9sI27q3OQtotzItO8unNViHN5yi8H8RU7xElghaSbOjJ9HYdak7u8J_XYvTH/exec'
+  // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы мафий
+  // (получишь после деплоя скрипта из раздела "Скрипт для таблицы Мафии" в инструкции)
+  const MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzqDYgdh9slCyQ-PIXuUPwcNG7niKH5OSJyn_ulnaGDld2hktctStzaVsXAAxl-Bv_a/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
@@ -227,12 +236,40 @@ export default function Organizations({ user }) {
     return parsed
   }
 
+  // Мафии: 3 организации, каждая занимает свою фиксированную строку
+  // (14 / 16 / 18). Колонки: D-ник, F-название, H-вк, J-контроль бизнесов,
+  // L-баллы лидера, O/P-выговоры, R/T-даты, V/W-чекбоксы выполнения ГРП.
+  const loadMafia = async () => {
+    const res = await fetch(`${MAFIA_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const csv = await res.text()
+    const rows = csv.split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
+    const c = s => s?.replace(/"/g, '').trim() || ''
+    const isTrue = s => ['TRUE', 'ИСТИНА', '1', 'TRUE'].includes((s || '').toUpperCase())
+    return MAFIA_LEADER_ROWS.map(rowNum => {
+      const row = rows[rowNum - 1] || []
+      return {
+        id: rowNum,
+        name: c(row[5]) || `Мафия (стр. ${rowNum})`,               // F
+        leader: c(row[3]) || 'Вакантно',                            // D
+        vk: c(row[7]) || '—',                                        // H
+        biz: c(row[9]) || '—',                                        // J — контроль бизнесов
+        points: c(row[11]) || '—',                                     // L — баллы лидера
+        strict: Number((c(row[14]) || '0/3').split('/')[0]) || 0,     // O
+        oral:   Number((c(row[15]) || '0/3').split('/')[0]) || 0,     // P
+        appointDate: c(row[17]) || '-',                                // R
+        expiryDate:  c(row[19]) || '-',                                // T
+        grp1: isTrue(c(row[21])),                                       // V
+        grp2: isTrue(c(row[22])),                                       // W
+      }
+    })
+  }
+
   const load = async () => {
     if (!isReady) return
     setRefreshing(true)
     if (orgs.length === 0) setLoading(true)
     try {
-      const parsed = sphereId === 'bo' ? await loadBo() : await loadGov()
+      const parsed = sphereId === 'bo' ? await loadBo() : sphereId === 'mafia' ? await loadMafia() : await loadGov()
       setOrgs(parsed)
       setSel(prev => prev ? (parsed.find(o => o.name === prev.name) ?? null) : null)
     } catch (e) { console.error(e) }
@@ -242,7 +279,7 @@ export default function Organizations({ user }) {
   const send = async payload => {
     setBusy(true)
     try {
-      const url = sphereId === 'bo' ? BO_SCRIPT_URL : GOV_SCRIPT_URL
+      const url = sphereId === 'bo' ? BO_SCRIPT_URL : sphereId === 'mafia' ? MAFIA_SCRIPT_URL : GOV_SCRIPT_URL
       await fetch(url, {
         method: 'POST', mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
@@ -449,7 +486,9 @@ export default function Organizations({ user }) {
               {isReady
                 ? (sphereId === 'bo'
                     ? 'Управление и контроль бизнес организаций'
-                    : 'Управление и контроль государственных структур')
+                    : sphereId === 'mafia'
+                      ? 'Управление и контроль мафиозных группировок'
+                      : 'Управление и контроль государственных структур')
                 : `${SPHERES.find(s => s.id === sphereId)?.label} · ${SERVERS.find(s => s.id === serverId)?.label}`}
             </p>
           </div>
@@ -657,6 +696,17 @@ export default function Organizations({ user }) {
                         </div>
                       </div>
 
+                      {sphereId === 'mafia' && !isVacant && (
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
+                            Бизнесы · {org.biz}
+                          </span>
+                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
+                            Баллы · {org.points}
+                          </span>
+                        </div>
+                      )}
+
                       <div style={{ display: 'flex', gap: '6px' }}>
                         {[
                           { label: `СВ · ${org.strict}/3`, active: org.strict > 0, color: '#f87171', border: 'rgba(248,113,113,.25)', bg: 'rgba(248,113,113,.08)' },
@@ -735,6 +785,19 @@ export default function Organizations({ user }) {
                     </div>
                   </div>
                 </div>
+
+                {sphereId === 'mafia' && !vacant && (
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Контроль бизнесов</div>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.biz}</div>
+                    </div>
+                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Баллы лидера</div>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.points}</div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="org-divider" />
 
@@ -829,6 +892,30 @@ export default function Organizations({ user }) {
                         </div>
                       ))}
                     </div>
+
+                    {sphereId === 'mafia' && (
+                      <>
+                        <div className="org-section-label">Выполнение ГРП</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+                          {[
+                            { key: 'grp1', label: '1-я ГРП за срок', type: 'TOGGLE_GRP1', checked: sel.grp1 },
+                            { key: 'grp2', label: '2-я ГРП за срок', type: 'TOGGLE_GRP2', checked: sel.grp2 },
+                          ].map(g => (
+                            <label
+                              key={g.key}
+                              style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px 14px', cursor: 'pointer', fontFamily: 'Onest, sans-serif', fontSize: '13px', color: g.checked ? '#eef2f8' : 'rgba(255,255,255,.45)' }}
+                            >
+                              <input
+                                type="checkbox" checked={g.checked}
+                                onChange={() => send({ type: g.type, rowId: sel.id })}
+                                style={{ width: '16px', height: '16px', accentColor: selAccent.main, cursor: 'pointer' }}
+                              />
+                              {g.label}
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
 
                     <button
                       className="org-btn"
