@@ -605,7 +605,17 @@ export default function Organizations({ user }) {
                           display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .25s',
                         }}>
                           {orgIcon ? (
-                            <img src={orgIcon} alt={org.name} width={24} height={24} style={{ objectFit: 'contain', filter: isSel ? 'none' : 'brightness(.5) saturate(0)', transition: 'all .25s' }} />
+                            <img 
+                              src={orgIcon} 
+                              alt={org.name} 
+                              width={org.name === 'Радио24' ? 32 : 24} 
+                              height={org.name === 'Радио24' ? 32 : 24} 
+                              style={{ 
+                                objectFit: 'contain', 
+                                filter: isSel ? 'none' : 'brightness(.5) saturate(0)', 
+                                transition: 'all .25s' 
+                              }} 
+                            />
                           ) : (
                             <span style={{ color: isSel ? accent.main : 'rgba(255,255,255,.2)', transition: 'all .25s' }}><IconShield size={18} /></span>
                           )}
