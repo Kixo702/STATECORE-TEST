@@ -155,7 +155,7 @@ export default function Organizations({ user }) {
   const BO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbza0Kft9sI27q3OQtotzItO8unNViHN5yi8H8RU7xElghaSbOjJ9HYdak7u8J_XYvTH/exec'
   // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы мафий
   // (получишь после деплоя скрипта из раздела "Скрипт для таблицы Мафии" в инструкции)
-  const MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzqDYgdh9slCyQ-PIXuUPwcNG7niKH5OSJyn_ulnaGDld2hktctStzaVsXAAxl-Bv_a/exec'
+  const MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSyQHwsIouA4yU_CqI0WZRX3m0kfPQBfjnuock_mmSJXQYvaoRZivuUQSWLowHwjZw/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
