@@ -19,7 +19,7 @@ const ORG_ICONS = {
   'MCLS': icMedical,
   'MCSF': icMedical,
   'MCLV': icMedical,
-  'Radio24': R24,
+  'Радио24': R24,
 }
 
 // ── SVG Icons ────────────────────────────────────────────────
