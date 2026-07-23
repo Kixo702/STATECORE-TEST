@@ -176,7 +176,7 @@ export default function Organizations({ user }) {
   const BIKERS_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHseJAxV3J2Pyc5-2uvKT97k6Gmf01Oc5uddvZFXlP7FxdbSom1lNMWLsDar0SF66gT5ObWlIzQbaN/pub?gid=0&single=true&output=csv'
   // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы байкеров
   // (задеплой скрипт из раздела "Скрипт для таблицы Байкеры" в инструкции)
-  const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyniuV5BFS_SuJkOR8aSR3TOINk3seAL6QW97HKhhb9jVcTX5Vgly8DLsAZAZqxjIopBw/exec'
+  const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIMACv0scPzBapr1QMDgoQDqYya3vjRaDJ_FBfbHO63AGIG4IMvV2QZ-eVunzcJ96OQQ/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
