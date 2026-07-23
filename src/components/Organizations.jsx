@@ -123,18 +123,31 @@ const SPHERES = [
   { id: 'bo',     label: 'Бизнес организации' },
 ]
 
-// Пока данные подключены только для Государственных структур сервера Texas —
-// остальные комбинации сервер×сфера считаются "в разработке".
+// Пока данные подключены только для Государственных структур и Бизнес
+// организаций сервера Texas — остальные комбинации сервер×сфера считаются
+// "в разработке".
 const READY_SERVER_ID = 'texas'
-const READY_SPHERE_ID = 'gov'
+const READY_COMBOS = [
+  { server: 'texas', sphere: 'gov' },
+  { server: 'texas', sphere: 'bo' },
+]
+
+// БО: колонка C в таблице хранит только должность (нужен только "Директор"),
+// а не название организации — поэтому имя карточки сопоставляем вручную по
+// номеру строки. При добавлении новых организаций с директором сюда нужно
+// добавить соответствующую строку.
+const BO_ORG_NAMES = {
+  9: 'Радио24',
+}
 
 export default function Organizations({ user }) {
-  const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
+  const GOV_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
+  const BO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR1VeCFjnEockkuf3EFBZPnVAOfWqe8NjadnUv-2XyF2z12R_EwzPXzhr91nYK0pbcTYSTfAvkJp6co/pub?gid=1404478710&single=true&output=csv'
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhZYSsvPt0QdbyYiAEfvyfu8XVQwOPeYapuG0HwV8CCngctz43msP9K_o4C-ck13Hy/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
-  const [sphereId, setSphereId] = useState(READY_SPHERE_ID)
-  const isReady = serverId === READY_SERVER_ID && sphereId === READY_SPHERE_ID
+  const [sphereId, setSphereId] = useState('gov')
+  const isReady = READY_COMBOS.some(c => c.server === serverId && c.sphere === sphereId)
 
   const [orgs, setOrgs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -174,25 +187,49 @@ export default function Organizations({ user }) {
     setFExpiry(addDays(fAppoint, sel?.name === 'GOV' ? 30 : 28))
   }, [fAppoint, sel?.name])
 
+  const loadGov = async () => {
+    const res = await fetch(`${GOV_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const csv = await res.text()
+    const rows = csv.split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
+    const c = s => s?.replace(/"/g, '').trim() || ''
+    return rows.slice(5, 14).map((row, i) => ({
+      id: i + 6,
+      name: c(row[3]),
+      leader: c(row[2]) || 'Вакантно',
+      vk: c(row[4]) || '—',
+      strict: Number((c(row[8]) || '0/3').split('/')[0]) || 0,
+      oral:   Number((c(row[9]) || '0/3').split('/')[0]) || 0,
+    }))
+  }
+
+  const loadBo = async () => {
+    const res = await fetch(`${BO_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const csv = await res.text()
+    const rows = csv.split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
+    const c = s => s?.replace(/"/g, '').trim() || ''
+    const parsed = []
+    rows.forEach((row, i) => {
+      // Должности идут через строку в колонке C — нам нужны только "Директор"
+      if (c(row[2]) !== 'Директор') return
+      const rowNumber = i + 1 // 1-based номер строки в таблице
+      parsed.push({
+        id: rowNumber,
+        name: BO_ORG_NAMES[rowNumber] || `Организация (стр. ${rowNumber})`,
+        leader: c(row[4]) || 'Вакантно', // E
+        vk: c(row[6]) || '—',            // G
+        strict: Number((c(row[10]) || '0/3').split('/')[0]) || 0, // K
+        oral:   Number((c(row[12]) || '0/3').split('/')[0]) || 0, // M
+      })
+    })
+    return parsed
+  }
+
   const load = async () => {
     if (!isReady) return
     setRefreshing(true)
     if (orgs.length === 0) setLoading(true)
     try {
-      const res = await fetch(`${SHEETS_URL}&cacheBust=${Date.now()}`)
-      const csv = await res.text()
-      const rows = csv.split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
-      const parsed = rows.slice(5, 14).map((row, i) => {
-        const c = s => s?.replace(/"/g, '').trim() || ''
-        return {
-          id: i + 6,
-          name: c(row[3]),
-          leader: c(row[2]) || 'Вакантно',
-          vk: c(row[4]) || '—',
-          strict: Number((c(row[8]) || '0/3').split('/')[0]) || 0,
-          oral:   Number((c(row[9]) || '0/3').split('/')[0]) || 0,
-        }
-      })
+      const parsed = sphereId === 'bo' ? await loadBo() : await loadGov()
       setOrgs(parsed)
       setSel(prev => prev ? (parsed.find(o => o.name === prev.name) ?? null) : null)
     } catch (e) { console.error(e) }
@@ -406,7 +443,9 @@ export default function Organizations({ user }) {
             </h1>
             <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'rgba(255,255,255,.35)', fontWeight: 500 }}>
               {isReady
-                ? 'Управление и контроль государственных структур'
+                ? (sphereId === 'bo'
+                    ? 'Управление и контроль бизнес организаций'
+                    : 'Управление и контроль государственных структур')
                 : `${SPHERES.find(s => s.id === sphereId)?.label} · ${SERVERS.find(s => s.id === serverId)?.label}`}
             </p>
           </div>
@@ -493,7 +532,7 @@ export default function Organizations({ user }) {
               Раздел в разработке
             </div>
             <div style={{ fontSize: '13px', color: 'rgba(255,255,255,.35)', maxWidth: '420px', margin: '0 auto', lineHeight: 1.6 }}>
-              «{SPHERES.find(s => s.id === sphereId)?.label}» на сервере «{SERVERS.find(s => s.id === serverId)?.label}» пока не подключены к реестру организаций. Сейчас доступны только «Государственные структуры» на сервере «Texas».
+              «{SPHERES.find(s => s.id === sphereId)?.label}» на сервере «{SERVERS.find(s => s.id === serverId)?.label}» пока не подключены к реестру организаций. Сейчас доступны только «Государственные структуры» и «Бизнес организации» на сервере «Texas».
             </div>
           </div>
         ) : (
