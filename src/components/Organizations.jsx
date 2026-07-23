@@ -100,6 +100,15 @@ const fmtDate = iso => {
   const [y, m, day] = iso.split('-')
   return `${day}.${m}.${y}`
 }
+// Обратное преобразование: "дд.мм.гггг" -> "гггг-мм-дд" (для <input type="date">).
+// Возвращает null, если строка не похожа на дату (например "-" для вакантной строки).
+const parseDateToISO = str => {
+  if (!str) return null
+  const m = str.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
+  if (!m) return null
+  const [, day, month, year] = m
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+}
 
 // ── Accent colors per org index ──────────────────────────────
 const ORG_ACCENTS = [
@@ -167,7 +176,7 @@ export default function Organizations({ user }) {
   const BIKERS_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHseJAxV3J2Pyc5-2uvKT97k6Gmf01Oc5uddvZFXlP7FxdbSom1lNMWLsDar0SF66gT5ObWlIzQbaN/pub?gid=0&single=true&output=csv'
   // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы байкеров
   // (задеплой скрипт из раздела "Скрипт для таблицы Байкеры" в инструкции)
-  const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-CDn7F8p7ilqxuzNb7C9vLflEaI0K87BMz7Fz3007BWjo6SZesKFcp_cKwuYaKJv1Wg/exec'
+  const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyniuV5BFS_SuJkOR8aSR3TOINk3seAL6QW97HKhhb9jVcTX5Vgly8DLsAZAZqxjIopBw/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
@@ -210,6 +219,18 @@ export default function Organizations({ user }) {
   useEffect(() => {
     setFExpiry(addDays(fAppoint, sel?.name === 'GOV' ? 30 : 28))
   }, [fAppoint, sel?.name])
+
+  // При выборе организации подставляем в поля формы реально сохранённые
+  // даты назначения/снятия лидера (а не дефолтные "сегодня" / "+28 дней").
+  // Для вакантной организации оставляем дефолт — там ещё нет сохранённых дат.
+  useEffect(() => {
+    if (!sel || sel.leader === 'Вакантно') return
+    const appointISO = parseDateToISO(sel.appointDate)
+    const expiryISO  = parseDateToISO(sel.expiryDate)
+    if (appointISO) setFAppoint(appointISO)
+    if (expiryISO)  setFExpiry(expiryISO)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel?.id, sel?.name])
 
   const loadGov = async () => {
     const res = await fetch(`${GOV_SHEETS_URL}&cacheBust=${Date.now()}`)
@@ -785,8 +806,8 @@ export default function Organizations({ user }) {
 
                       <div style={{ display: 'flex', gap: '6px' }}>
                         {[
-                          { label: `${sphereId === 'bikers' ? 'В' : 'СВ'} · ${org.strict}/3`, active: org.strict > 0, color: '#f87171', border: 'rgba(248,113,113,.25)', bg: 'rgba(248,113,113,.08)' },
-                          { label: `${sphereId === 'bikers' ? 'П' : 'УВ'} · ${org.oral}/3`, active: org.oral > 0, color: '#fbbf24', border: 'rgba(251,191,36,.2)', bg: 'rgba(251,191,36,.06)' },
+                          { label: `${sphereId === 'bikers' ? 'В' : 'СВ'} · ${org.strict}/${sphereId === 'bikers' ? 5 : 3}`, active: org.strict > 0, color: '#f87171', border: 'rgba(248,113,113,.25)', bg: 'rgba(248,113,113,.08)' },
+                          { label: `${sphereId === 'bikers' ? 'П' : 'УВ'} · ${org.oral}/${sphereId === 'bikers' ? 5 : 3}`, active: org.oral > 0, color: '#fbbf24', border: 'rgba(251,191,36,.2)', bg: 'rgba(251,191,36,.06)' },
                         ].map(b => (
                           <span key={b.label} style={{
                             padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800,
