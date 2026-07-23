@@ -112,11 +112,29 @@ const ORG_ACCENTS = [
   { main: '#f472b6', glow: 'rgba(244,114,182,.25)',  light: 'rgba(244,114,182,.08)',  dark: 'rgba(244,114,182,.04)' },
 ]
 
-import { canRemoveLeader } from '../lib/roles'
+import { canRemoveLeader, SERVERS } from '../lib/roles'
+
+// ── Фильтр по сфере ──────────────────────────────────────────
+const SPHERES = [
+  { id: 'gov',    label: 'Государственные структуры' },
+  { id: 'ghetto', label: 'Гетто' },
+  { id: 'mafia',  label: 'Мафии' },
+  { id: 'bikers', label: 'Байкеры' },
+  { id: 'bo',     label: 'Бизнес организации' },
+]
+
+// Пока данные подключены только для Государственных структур сервера Texas —
+// остальные комбинации сервер×сфера считаются "в разработке".
+const READY_SERVER_ID = 'texas'
+const READY_SPHERE_ID = 'gov'
 
 export default function Organizations({ user }) {
   const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhZYSsvPt0QdbyYiAEfvyfu8XVQwOPeYapuG0HwV8CCngctz43msP9K_o4C-ck13Hy/exec'
+
+  const [serverId, setServerId] = useState(READY_SERVER_ID)
+  const [sphereId, setSphereId] = useState(READY_SPHERE_ID)
+  const isReady = serverId === READY_SERVER_ID && sphereId === READY_SPHERE_ID
 
   const [orgs, setOrgs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -141,12 +159,23 @@ export default function Organizations({ user }) {
     closeWarnModal()
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    if (!isReady) {
+      setOrgs([])
+      setSel(null)
+      setLoading(false)
+      setRefreshing(false)
+      return
+    }
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId, sphereId])
   useEffect(() => {
     setFExpiry(addDays(fAppoint, sel?.name === 'GOV' ? 30 : 28))
   }, [fAppoint, sel?.name])
 
   const load = async () => {
+    if (!isReady) return
     setRefreshing(true)
     if (orgs.length === 0) setLoading(true)
     try {
@@ -368,42 +397,106 @@ export default function Organizations({ user }) {
             <div className="org-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'rgba(255,255,255,.25)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>
               <span>Реестр</span>
               <span style={{ opacity: .35 }}><IconChevron /></span>
-              <span style={{ color: 'rgba(255,255,255,.4)' }}>Государственные структуры</span>
+              <span style={{ color: 'rgba(255,255,255,.4)' }}>{SERVERS.find(s => s.id === serverId)?.label}</span>
+              <span style={{ opacity: .35 }}><IconChevron /></span>
+              <span style={{ color: 'rgba(255,255,255,.4)' }}>{SPHERES.find(s => s.id === sphereId)?.label}</span>
             </div>
             <h1 className="org-title" style={{ margin: 0, fontSize: '42px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1, background: 'linear-gradient(125deg, #ffffff 30%, rgba(255,255,255,.5) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', fontFamily: 'Syne, sans-serif' }}>
               Организации
             </h1>
             <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'rgba(255,255,255,.35)', fontWeight: 500 }}>
-              Управление и контроль государственных структур
+              {isReady
+                ? 'Управление и контроль государственных структур'
+                : `${SPHERES.find(s => s.id === sphereId)?.label} · ${SERVERS.find(s => s.id === serverId)?.label}`}
             </p>
           </div>
 
-          <button
-            onClick={load}
-            className="org-btn org-header-refresh"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
-              color: 'rgba(255,255,255,.6)', padding: '12px 22px', borderRadius: '12px',
-              fontSize: '11px', letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Onest, sans-serif',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,.08)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'
-              e.currentTarget.style.color = '#fff'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,.04)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,.08)'
-              e.currentTarget.style.color = 'rgba(255,255,255,.6)'
-            }}
-          >
-            <IconRefresh spinning={refreshing} />
-            Обновить
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <select
+              className="org-input"
+              value={serverId}
+              onChange={e => setServerId(e.target.value)}
+              style={{
+                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
+                color: 'rgba(255,255,255,.75)', padding: '12px 16px', borderRadius: '12px',
+                fontSize: '11px', letterSpacing: '1px', fontWeight: 700, textTransform: 'uppercase',
+                fontFamily: 'Onest, sans-serif', cursor: 'pointer',
+              }}
+            >
+              {SERVERS.map(s => (
+                <option key={s.id} value={s.id} style={{ background: '#0e1220', color: '#eef2f8' }}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="org-input"
+              value={sphereId}
+              onChange={e => setSphereId(e.target.value)}
+              style={{
+                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
+                color: 'rgba(255,255,255,.75)', padding: '12px 16px', borderRadius: '12px',
+                fontSize: '11px', letterSpacing: '1px', fontWeight: 700, textTransform: 'uppercase',
+                fontFamily: 'Onest, sans-serif', cursor: 'pointer',
+              }}
+            >
+              {SPHERES.map(s => (
+                <option key={s.id} value={s.id} style={{ background: '#0e1220', color: '#eef2f8' }}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={load}
+              className="org-btn org-header-refresh"
+              disabled={!isReady}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
+                color: 'rgba(255,255,255,.6)', padding: '12px 22px', borderRadius: '12px',
+                fontSize: '11px', letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Onest, sans-serif',
+                opacity: isReady ? 1 : .4, cursor: isReady ? 'pointer' : 'not-allowed',
+              }}
+              onMouseEnter={e => {
+                if (!isReady) return
+                e.currentTarget.style.background = 'rgba(255,255,255,.08)'
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,.04)'
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,.08)'
+                e.currentTarget.style.color = 'rgba(255,255,255,.6)'
+              }}
+            >
+              <IconRefresh spinning={refreshing} />
+              Обновить
+            </button>
+          </div>
         </div>
 
-        {/* ── GRID + PANEL ── */}
+        {/* ── NOT READY: IN DEVELOPMENT ── */}
+        {!isReady ? (
+          <div style={{
+            background: 'linear-gradient(160deg, rgba(13,17,30,.98) 0%, rgba(7,9,16,1) 100%)',
+            border: '1px solid rgba(255,255,255,.06)', borderRadius: '24px',
+            padding: '80px 24px', textAlign: 'center',
+            boxShadow: '0 30px 90px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04)',
+            animation: 'org-fadeUp .35s cubic-bezier(0.16, 1, 0.3, 1) both',
+          }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'rgba(251,191,36,.7)' }}>
+              <IconWarn />
+            </div>
+            <div style={{ fontSize: '16px', color: '#eef2f8', fontWeight: 800, letterSpacing: '.3px', fontFamily: 'Syne, sans-serif', marginBottom: '8px' }}>
+              Раздел в разработке
+            </div>
+            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,.35)', maxWidth: '420px', margin: '0 auto', lineHeight: 1.6 }}>
+              «{SPHERES.find(s => s.id === sphereId)?.label}» на сервере «{SERVERS.find(s => s.id === serverId)?.label}» пока не подключены к реестру организаций. Сейчас доступны только «Государственные структуры» на сервере «Texas».
+            </div>
+          </div>
+        ) : (
         <div className="org-layout">
           {/* ── ORG CARDS ── */}
           <div>
@@ -710,6 +803,7 @@ export default function Organizations({ user }) {
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* ── WARN NOTE MODAL ── */}
