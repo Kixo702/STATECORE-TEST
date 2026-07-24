@@ -201,7 +201,31 @@ const IC = {
   dot:     <svg viewBox="0 0 8 8" className="w-2 h-2" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>,
 }
 
-
+// Вставьте этот компонент перед export default function Dashboard
+function StatCard({ card, delay = 0 }) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
+      style={{ animation: `db-statPop .3s cubic-bezier(.34,1.4,.64,1) both`, animationDelay: `${delay}ms` }}
+    >
+      <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${card.accent})` }} />
+      <div className="flex items-center gap-4 pl-5 pr-5 py-5">
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: `rgba(${card.accent},.12)`, color: `rgb(${card.accent})` }}
+        >
+          {card.icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-extrabold tracking-[1.5px] uppercase" style={{ color: `rgb(${card.accent})` }}>
+            {card.title}
+          </p>
+          <h3 className="text-2xl font-black mt-0.5 truncate">{card.value}</h3>
+        </div>
+      </div>
+    </div>
+  )
+}
 // ── Dashboard ─────────────────────────────────────────────────
 export default function Dashboard({ user, onLogout, onOpenProfile }) {
   // Статистика по организациям/лидерам/вакансиям теперь считается реально —
