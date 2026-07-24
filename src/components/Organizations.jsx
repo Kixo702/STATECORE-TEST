@@ -185,7 +185,7 @@ export default function Organizations({ user }) {
   const GHETTO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlRt1hpLQy_7Z7G1PxISAmhgHcc9qS1QX4od1kG4BpM9x1QzPBffKNsA1J3FJwFoXo1rhxyJsGpIHF/pub?gid=0&single=true&output=csv'
   // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы гетто
   // (задеплой скрипт из раздела "Скрипт для таблицы Гетто" в инструкции)
-  const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwo-XzD7QflRIst0Qdi-63Il2qjn2wduvtIiksTjq-uz6CtydM94LWqz2WmoEMwaPPE/exec'
+  const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjeEaoYUBLQxu0GESATvDYtpKeRjM2VY0ICjB86Saqr7BBbIP80RcBImYFcD0vNPq4/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')

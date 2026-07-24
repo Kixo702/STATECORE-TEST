@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { SERVERS } from '../lib/roles'
 
 /*
   ── Активность лидеров ──────────────────────────────────────────
@@ -20,17 +21,57 @@ import { useEffect, useMemo, useState } from 'react'
   «+ Добавить неделю» и вставьте gid вкладки (или ссылку на неё).
 */
 
+// ── Фильтр по сфере (аналогично Organizations.jsx) ──
+const SPHERES = [
+  { id: 'gov',    label: 'Государственные структуры' },
+  { id: 'ghetto', label: 'Гетто' },
+  { id: 'mafia',  label: 'Мафии' },
+  { id: 'bikers', label: 'Байкеры' },
+  { id: 'bo',     label: 'Бизнес организации' },
+]
+
+// Пока активность подключена только для Государственных структур и Гетто
+// сервера Texas — остальные комбинации сервер×сфера считаются "в разработке".
+const READY_SERVER_ID = 'texas'
+const READY_COMBOS = [
+  { server: 'texas', sphere: 'gov' },
+  { server: 'texas', sphere: 'ghetto' },
+]
+
 // ── Google Sheets API v4 (вместо «Публикации в интернет» — без кеша Google,
 //    данные приходят актуальными сразу после записи) ──
-const SPREADSHEET_ID = '1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M'
-const SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
-const DEFAULT_GID = '1783162861'
+// Гос. структуры
+const GOV_SPREADSHEET_ID = '1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M'
+const GOV_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
+const GOV_DEFAULT_GID = '1783162861'
+const GOV_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhZYSsvPt0QdbyYiAEfvyfu8XVQwOPeYapuG0HwV8CCngctz43msP9K_o4C-ck13Hy/exec'
 
-// ── Apps Script (doPost) — запись времени и создание новой недели ──
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhZYSsvPt0QdbyYiAEfvyfu8XVQwOPeYapuG0HwV8CCngctz43msP9K_o4C-ck13Hy/exec'
+// Гетто (отдельный файл таблицы)
+const GHETTO_SPREADSHEET_ID = '1dQ2uO7RW7PvcTmrrEImotXifRmYhxIQjCDlciwr4NGU'
+const GHETTO_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
+const GHETTO_DEFAULT_GID = '1372544393'
+const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjeEaoYUBLQxu0GESATvDYtpKeRjM2VY0ICjB86Saqr7BBbIP80RcBImYFcD0vNPq4/exec'
 
-async function postToScript(payload) {
-  const res = await fetch(SCRIPT_URL, {
+// Настройки текущей выбранной сферы — резолвятся по sphereId в компоненте
+function getSphereConfig(sphereId) {
+  if (sphereId === 'ghetto') {
+    return {
+      spreadsheetId: GHETTO_SPREADSHEET_ID,
+      apiKey: GHETTO_SHEETS_API_KEY,
+      defaultGid: GHETTO_DEFAULT_GID,
+      scriptUrl: GHETTO_SCRIPT_URL,
+    }
+  }
+  return {
+    spreadsheetId: GOV_SPREADSHEET_ID,
+    apiKey: GOV_SHEETS_API_KEY,
+    defaultGid: GOV_DEFAULT_GID,
+    scriptUrl: GOV_SCRIPT_URL,
+  }
+}
+
+async function postToScript(scriptUrl, payload) {
+  const res = await fetch(scriptUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload),
@@ -98,9 +139,9 @@ function getCurrentWeekRangeStr() {
   return `${fmtDateRu(monday)} - ${fmtDateRu(sunday)}`
 }
 
-async function sheetsApiGet(path, params) {
-  const url = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}${path}`)
-  url.searchParams.set('key', SHEETS_API_KEY)
+async function sheetsApiGet(spreadsheetId, apiKey, path, params) {
+  const url = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}${path}`)
+  url.searchParams.set('key', apiKey)
   for (const [k, v] of Object.entries(params || {})) url.searchParams.set(k, v)
   const res = await fetch(url.toString(), { cache: 'no-store' })
   const json = await res.json().catch(() => null)
@@ -112,17 +153,19 @@ async function sheetsApiGet(path, params) {
 }
 
 // gid → название листа (Sheets API читает данные по имени листа, не по gid).
-// Кешируем в памяти на время сессии — список вкладок меняется редко,
-// а лишний запрос метаданных на каждую загрузку недели не нужен.
-const sheetTitleByGidCache = new Map()
-async function resolveSheetTitle(gid) {
-  if (sheetTitleByGidCache.has(gid)) return sheetTitleByGidCache.get(gid)
-  const meta = await sheetsApiGet('', { fields: 'sheets.properties' })
+// Кешируем в памяти на время сессии, отдельно по каждой таблице —
+// список вкладок меняется редко, а лишний запрос метаданных на каждую
+// загрузку недели не нужен.
+const sheetTitleByGidCache = new Map() // key: `${spreadsheetId}:${gid}`
+async function resolveSheetTitle(spreadsheetId, apiKey, gid) {
+  const cacheKey = `${spreadsheetId}:${gid}`
+  if (sheetTitleByGidCache.has(cacheKey)) return sheetTitleByGidCache.get(cacheKey)
+  const meta = await sheetsApiGet(spreadsheetId, apiKey, '', { fields: 'sheets.properties' })
   const sheets = meta.sheets || []
   for (const sh of sheets) {
-    sheetTitleByGidCache.set(String(sh.properties.sheetId), sh.properties.title)
+    sheetTitleByGidCache.set(`${spreadsheetId}:${sh.properties.sheetId}`, sh.properties.title)
   }
-  const title = sheetTitleByGidCache.get(String(gid))
+  const title = sheetTitleByGidCache.get(cacheKey)
   if (!title) throw new Error('Не удалось найти вкладку с таким gid в таблице')
   return title
 }
@@ -135,12 +178,12 @@ const NICK_COL = 1
 const FRACTION_COL = 2
 const DAY_START_COL = 4
 
-async function fetchWeek(gid) {
-  const sheetTitle = await resolveSheetTitle(gid)
+async function fetchGovWeek(gid) {
+  const sheetTitle = await resolveSheetTitle(GOV_SPREADSHEET_ID, GOV_SHEETS_API_KEY, gid)
   // FORMATTED_VALUE (по умолчанию) отдаёт то же, что видно глазами в таблице —
   // «2:45:00», «Неактив» и т.п., как раньше отдавал CSV-экспорт
   const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:N2000`
-  const data = await sheetsApiGet(`/values/${encodeURIComponent(range)}`, {
+  const data = await sheetsApiGet(GOV_SPREADSHEET_ID, GOV_SHEETS_API_KEY, `/values/${encodeURIComponent(range)}`, {
     valueRenderOption: 'FORMATTED_VALUE',
   })
   const rows = data.values || []
@@ -254,6 +297,114 @@ async function fetchWeek(gid) {
   }
 }
 
+/* ───────── Парсинг одной недели — Гетто ─────────
+   Разметка блока недели в листе "activity" (отдельный файл таблицы):
+     строка 11        — 7 дат недели, по одной в колонках G,I,K,M,O,Q,S
+     строка 12        — 7 названий дней недели в тех же колонках
+     строки 14/16/18/20/22 (и далее со сдвигом при новой неделе) — лидеры:
+       C — фракция, E — ник лидера, G,I,K,M,O,Q,S — время по дням, U — итог
+   Следующий блок недели (после «Создать новую неделю») сдвинут вниз на то
+   же число строк, что и текущий — поэтому ищем блок недели так же, как
+   в гос. структурах: сначала по текущей дате, иначе — самый верхний. */
+const GHETTO_FRACTION_COL = 2   // C (0-based)
+const GHETTO_NICK_COL = 4       // E (0-based)
+const GHETTO_DAY_COLS = [6, 8, 10, 12, 14, 16, 18] // G,I,K,M,O,Q,S (0-based)
+const GHETTO_LEADER_ROW_OFFSETS = [3, 5, 7, 9, 11] // 14,16,18,20,22 относительно строки дат (11)
+
+async function fetchGhettoWeek(gid) {
+  const sheetTitle = await resolveSheetTitle(GHETTO_SPREADSHEET_ID, GHETTO_SHEETS_API_KEY, gid)
+  const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:U2000`
+  const data = await sheetsApiGet(GHETTO_SPREADSHEET_ID, GHETTO_SHEETS_API_KEY, `/values/${encodeURIComponent(range)}`, {
+    valueRenderOption: 'FORMATTED_VALUE',
+  })
+  const rows = data.values || []
+  if (rows.length === 0) throw new Error('Таблица пуста')
+
+  const dateRe = /\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}/
+  const currentWeekRange = getCurrentWeekRangeStr()
+  const [currentMondayStr] = currentWeekRange.split(' - ')
+
+  // Строка дат недели — та, где в одной из колонок G,I,K,M,O,Q,S стоит дата.
+  // 1) Сначала ищем блок текущей недели (дата понедельника совпадает).
+  // 2) Иначе берём самый верхний блок с датами вообще.
+  let dateRowIdx = -1
+  let fallbackDateRowIdx = -1
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const hasDate = GHETTO_DAY_COLS.some((c) => dateRe.test(clean(row[c])))
+    if (!hasDate) continue
+    if (fallbackDateRowIdx === -1) fallbackDateRowIdx = i
+    if (clean(row[GHETTO_DAY_COLS[0]]) === currentMondayStr) {
+      dateRowIdx = i
+      break
+    }
+  }
+  if (dateRowIdx === -1) dateRowIdx = fallbackDateRowIdx
+  if (dateRowIdx === -1) throw new Error('Не удалось найти строку с датами недели (колонки G,I,K,M,O,Q,S)')
+
+  const dayNameRowIdx = dateRowIdx + 1
+  const dateRow = rows[dateRowIdx] || []
+  const dayNameRow = rows[dayNameRowIdx] || []
+  const dayDates = GHETTO_DAY_COLS.map((c) => clean(dateRow[c]) || '')
+  const dayNames = GHETTO_DAY_COLS.map((c) => clean(dayNameRow[c]) || '')
+
+  const title = dayDates[0] && dayDates[6] ? `${dayDates[0]} - ${dayDates[6]}` : 'Неделя'
+
+  const leaders = []
+  for (const offset of GHETTO_LEADER_ROW_OFFSETS) {
+    const r = dateRowIdx + offset
+    const row = rows[r]
+    if (!row) continue
+    const nickname = clean(row[GHETTO_NICK_COL])
+    if (!nickname) continue // вакантная строка — не показываем в списке активности
+
+    const fraction = clean(row[GHETTO_FRACTION_COL])
+    const days = GHETTO_DAY_COLS.map((c) => classifyCell(row[c]))
+
+    const okCount = days.filter((d) => d.type === 'ok').length
+    const failCount = days.filter((d) => d.type === 'fail').length
+    const inactiveCount = days.filter((d) => d.type === 'inactive').length
+    const noneCount = days.filter((d) => d.type === 'none').length
+    const excludedCount = days.filter((d) => d.type === 'excluded').length
+    const totalSeconds = days.reduce((s, d) => s + ((d.type === 'ok' || d.type === 'fail') ? d.seconds : 0), 0)
+
+    leaders.push({
+      rowId: r + 1, // 1-based строка листа
+      nickname, fraction, days,
+      okCount, failCount, inactiveCount, noneCount, excludedCount,
+      totalSeconds,
+      warnings: computeWarnings(failCount),
+    })
+  }
+
+  // Границы блока для CREATE_WEEK: от строки дат до последней строки лидеров
+  const blockStartRow = dateRowIdx + 1
+  const blockEndRow = dateRowIdx + GHETTO_LEADER_ROW_OFFSETS[GHETTO_LEADER_ROW_OFFSETS.length - 1] + 1
+
+  const totals = leaders.reduce((acc, l) => {
+    acc.ok += l.okCount
+    acc.fail += l.failCount
+    acc.inactive += l.inactiveCount
+    acc.none += l.noneCount
+    acc.seconds += l.totalSeconds
+    return acc
+  }, { ok: 0, fail: 0, inactive: 0, none: 0, seconds: 0 })
+
+  const activeCells = totals.ok + totals.fail
+  const avgSeconds = activeCells > 0 ? totals.seconds / activeCells : 0
+  const topLeaders = [...leaders].sort((a, b) => b.totalSeconds - a.totalSeconds).slice(0, 3)
+
+  return {
+    title, dayDates, dayNames, leaders, totals, avgSeconds, topLeaders,
+    blockStartRow, blockEndRow,
+  }
+}
+
+// Единая точка входа — выбирает парсер в зависимости от выбранной сферы
+async function fetchWeek(sphereId, gid) {
+  return sphereId === 'ghetto' ? fetchGhettoWeek(gid) : fetchGovWeek(gid)
+}
+
 // Применяет правку одной ячейки к уже загруженным данным недели локально,
 // без похода на сервер — чтобы интерфейс обновился мгновенно, не дожидаясь,
 // пока кеш Google "Публикации в интернет" догонит только что сделанную запись.
@@ -310,7 +461,11 @@ const DAY_TYPE_STYLE = {
 }
 
 export default function LeaderActivity() {
-  const [weeks, setWeeks] = useState([{ id: 0, gid: DEFAULT_GID, label: 'Загрузка…', status: 'loading', data: null, error: '' }])
+  const [serverId, setServerId] = useState(READY_SERVER_ID)
+  const [sphereId, setSphereId] = useState('gov')
+  const isReady = READY_COMBOS.some((c) => c.server === serverId && c.sphere === sphereId)
+
+  const [weeks, setWeeks] = useState([{ id: 0, gid: getSphereConfig('gov').defaultGid, label: 'Загрузка…', status: 'loading', data: null, error: '' }])
   const [activeId, setActiveId] = useState(0)
   const [search, setSearch] = useState('')
 
@@ -340,7 +495,7 @@ export default function LeaderActivity() {
       setWeeks((prev) => prev.map((w) => (w.id === id ? { ...w, status: 'loading', error: '' } : w)))
     }
     try {
-      const data = await fetchWeek(gid)
+      const data = await fetchWeek(sphereId, gid)
       setWeeks((prev) => prev.map((w) => (w.id === id ? { ...w, status: 'ready', data, label: data.title } : w)))
       return data
     } catch (e) {
@@ -351,23 +506,32 @@ export default function LeaderActivity() {
     }
   }
 
+  // При смене сервера/сферы — сбрасываем недели и загружаем заново под новую сферу
   useEffect(() => {
-    loadWeek(0, DEFAULT_GID)
+    if (!isReady) {
+      setWeeks([])
+      return
+    }
+    const gid = getSphereConfig(sphereId).defaultGid
+    setActiveId(0)
+    setWeeks([{ id: 0, gid, label: 'Загрузка…', status: 'loading', data: null, error: '' }])
+    loadWeek(0, gid)
     // тихий повторный запрос через 2.5с — подчищает устаревший кеш Google,
     // если он попался при самой первой загрузке страницы
-    const t = setTimeout(() => { loadWeek(0, DEFAULT_GID, { silent: true }) }, 2500)
+    const t = setTimeout(() => { loadWeek(0, gid, { silent: true }) }, 2500)
     return () => clearTimeout(t)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId, sphereId, isReady])
 
   const activeWeek = weeks.find((w) => w.id === activeId) || weeks[0]
 
   // Сохраняет значение одной ячейки (и через модалку, и через контекстное меню):
   // шлёт в Apps Script, тут же применяет правку локально, потом тихо сверяется с сервером.
   const commitCellValue = async (rowId, dayIndex, rawValue) => {
-    await postToScript({
+    await postToScript(getSphereConfig(sphereId).scriptUrl, {
       type: 'SET_DAY_TIME',
       rowId,
-      dayCol: dayIndex, // 0..6 — скрипт сам переведёт в колонку E..K
+      dayCol: dayIndex, // 0..6 — скрипт сам переведёт в колонку по сфере
       value: rawValue,
     })
     const weekId = activeWeek.id
@@ -491,11 +655,15 @@ export default function LeaderActivity() {
     setCreateError('')
     setCreatingWeek(true)
     try {
-      await postToScript({
+      // У гетто блок недели компактнее (строки 11..22 = 12 строк),
+      // у гос. структур — свой стандартный отступ в 20 строк.
+      // Отступ = размер блока, чтобы новый блок вставал сразу под старым, без наложения.
+      const offset = sphereId === 'ghetto' ? (d.blockEndRow - d.blockStartRow + 1) : 20
+      await postToScript(getSphereConfig(sphereId).scriptUrl, {
         type: 'CREATE_WEEK',
         startRow: d.blockStartRow,
         endRow: d.blockEndRow,
-        offset: 20,
+        offset,
       })
       await loadWeek(activeWeek.id, activeWeek.gid)
     } catch (e) {
@@ -565,13 +733,61 @@ export default function LeaderActivity() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 py-8 sm:py-10">
 
         {/* ── HEADER ─────────────────────────────────────── */}
-        <div className="mb-8">
-          <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Панель управления · Дисциплина</div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">Активность лидеров</h1>
-          <p className="text-slate-400 max-w-lg">Автоматический подсчёт дневной нормы (2:30:00) и выговоров по данным таблицы</p>
+        <div className="mb-8 flex items-start justify-between flex-wrap gap-5">
+          <div>
+            <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Панель управления · Дисциплина</div>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">Активность лидеров</h1>
+            <p className="text-slate-400 max-w-lg">
+              {sphereId === 'ghetto'
+                ? 'Автоматический подсчёт дневной нормы (2:30:00) и выговоров по активности лидеров гетто'
+                : 'Автоматический подсчёт дневной нормы (2:30:00) и выговоров по данным таблицы'}
+            </p>
+          </div>
+
+          {/* ── ФИЛЬТРЫ: СЕРВЕР / СФЕРА ───────────────────── */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <select
+              className="la-input rounded-xl text-[11px] font-bold uppercase tracking-wide px-4 py-2.5 cursor-pointer"
+              value={serverId}
+              onChange={(e) => setServerId(e.target.value)}
+            >
+              {SERVERS.map((s) => (
+                <option key={s.id} value={s.id} style={{ background: '#0e1220', color: '#eef2f8' }}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="la-input rounded-xl text-[11px] font-bold uppercase tracking-wide px-4 py-2.5 cursor-pointer"
+              value={sphereId}
+              onChange={(e) => setSphereId(e.target.value)}
+            >
+              {SPHERES.map((s) => (
+                <option key={s.id} value={s.id} style={{ background: '#0e1220', color: '#eef2f8' }}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
+        {/* ── РАЗДЕЛ В РАЗРАБОТКЕ (сервер×сфера ещё не подключены) ── */}
+        {!isReady && (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-8 sm:p-10 text-center mb-10">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-500/10 text-amber-400 mx-auto mb-4">
+              <span className="w-5 h-5 block">{IC.clock}</span>
+            </div>
+            <div className="text-base font-black text-slate-100 mb-2">Раздел в разработке</div>
+            <div className="text-sm text-white/40 max-w-md mx-auto">
+              «{SPHERES.find((s) => s.id === sphereId)?.label}» на сервере «{SERVERS.find((s) => s.id === serverId)?.label}»
+              {' '}пока не подключены к активности лидеров. Сейчас доступны «Государственные структуры» и «Гетто» на сервере «Texas».
+            </div>
+          </div>
+        )}
+
         {/* ── БАННЕР ТЕКУЩЕЙ НЕДЕЛИ ───────────────────────── */}
+        {isReady && (<>
         <div
           className="relative overflow-hidden rounded-2xl border border-orange-500/20 mb-8 p-5 sm:p-6"
           style={{ background: 'linear-gradient(120deg, rgba(249,115,22,.14) 0%, rgba(249,115,22,.02) 65%)' }}
@@ -803,6 +1019,7 @@ export default function LeaderActivity() {
             </div>
           </>
         )}
+        </>)}
 
         {/* ── МОДАЛКА РЕДАКТОРА ВРЕМЕНИ ──────────────────── */}
         {editCell && (
