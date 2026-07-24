@@ -45,7 +45,7 @@ const PAGE_TITLES = {
   profileUsers: 'Профиль пользователя',
   faq: 'FAQ и помощь',
   knowledge: 'База знаний',
-  interview: 'Генератор собеседований',
+  interview: 'Собеседования',
 }
 
 function resolvePageFromPath(pathname) {
