@@ -430,7 +430,7 @@ app.patch('/api/users/:id', authenticateToken, async (req, res) => {
       banReason, 
       warns, 
       avatar,
-      lastSeen, // <-- 1. ДОБАВЬТЕ ЕГО СЮДА
+      lastSeen,
       twoFactorSecret,
       totp_secret,
       two_factor_secret,
@@ -449,14 +449,9 @@ app.patch('/api/users/:id', authenticateToken, async (req, res) => {
     if (banReason !== undefined) { fields.push(`ban_reason = $${idx++}`); values.push(banReason); }
     if (warns !== undefined) { fields.push(`warns = $${idx++}`); values.push(warns); }
     if (avatar !== undefined) { fields.push(`avatar = $${idx++}`); values.push(avatar); }
+    if (lastSeen !== undefined) { fields.push(`last_seen = $${idx++}`); values.push(lastSeen); }
 
-    // <-- 2. ДОБАВЬТЕ ОБРАБОТКУ ПОЛЯ В БАЗУ ДАННЫХ
-    if (lastSeen !== undefined) { 
-      fields.push(`last_seen = $${idx++}`); 
-      values.push(lastSeen); 
-    }
-
-    // Поддержка 2FA
+    // 2FA Поля (адаптация наименований под PostgreSQL столбцы)
     const secretVal = twoFactorSecret ?? totp_secret ?? two_factor_secret
     if (secretVal !== undefined) { 
       fields.push(`totp_secret = $${idx++}`); 
@@ -469,22 +464,31 @@ app.patch('/api/users/:id', authenticateToken, async (req, res) => {
       values.push(enabledVal); 
     }
 
+    // Если нет передаваемых полей — возвращаем 400
     if (fields.length === 0) {
       return bad(res, 400, 'Нет полей для обновления')
     }
 
+    // Добавляем ID в конец массива параметров
     values.push(id)
+    
+    // Переменная idx уже имеет нужный порядковый номер для ID!
     const queryText = `UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`
 
     const result = await db.query(queryText, values)
+    
     if (result.rows.length === 0) {
       return bad(res, 404, 'Пользователь не найден')
     }
 
     return ok(res, { user: publicUser(result.rows[0]) })
   } catch (error) {
+    // Невалидный UUID или ошибка структуры базы
+    if (error.code === '22P02') {
+      return bad(res, 400, 'Некорректный формат ID')
+    }
     console.error('Ошибка обновления пользователя:', error)
-    return bad(res, 500, 'Не удалось обновить данные')
+    return bad(res, 500, `Не удалось обновить данные: ${error.message}`)
   }
 })
 
