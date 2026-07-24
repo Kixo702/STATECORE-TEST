@@ -29,12 +29,14 @@ export async function initDatabase() {
       ban_reason TEXT NOT NULL DEFAULT '',
       totp_secret TEXT,
       is_totp_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      last_seen TIMESTAMPTZ,
       registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     -- Миграция для имеющихся баз данных (если таблица users уже существовала)
     ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
 
     CREATE TABLE IF NOT EXISTS user_devices (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -99,6 +101,7 @@ export function publicUser(row) {
     ban_reason: banReason,
     is_totp_enabled: isTotpEnabled,
     registered_at: registeredAt,
+    last_seen: lastSeen,
     ...rest
   } = row
   return {
@@ -108,5 +111,6 @@ export function publicUser(row) {
     banReason,
     isTotpEnabled: Boolean(isTotpEnabled),
     registeredAt,
+    lastSeen,
   }
 }
