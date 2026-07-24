@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, Fragment } from 'react'
+import { SERVERS } from '../lib/roles'
 
 /*
   ── Аналитика и рейтинг лидеров ─────────────────────────────────────
@@ -13,12 +14,52 @@ import { useEffect, useMemo, useState, useCallback, Fragment } from 'react'
    • 2 red-дня = 1 устный выговор (УВ). 3 УВ = 1 строгий выговор (СВ).
   Если понадобится смотреть не текущую, а другую неделю — поменяй GID
   так же, как это делается в LeaderActivity («+ Добавить неделю»).
+
+  Подключено 4 сферы (те же таблицы, что и в LeaderActivity.jsx):
+  Государственные организации, Гетто, Бизнес-организации (Radio24) и
+  Байкерские клубы. Мафия пока не подключена нигде — раздел остаётся
+  «скоро».
 */
 
 // ── Google Sheets API v4 (тот же источник, что и у «Активности лидеров») ──
-const SPREADSHEET_ID = '1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M'
-const SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
-const DEFAULT_GID = '1783162861'
+// Гос. структуры
+const GOV_SPREADSHEET_ID = '1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M'
+const GOV_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
+const GOV_DEFAULT_GID = '1783162861'
+
+// Гетто (отдельный файл таблицы)
+const GHETTO_SPREADSHEET_ID = '1dQ2uO7RW7PvcTmrrEImotXifRmYhxIQjCDlciwr4NGU'
+const GHETTO_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
+const GHETTO_DEFAULT_GID = '1372544393'
+
+// Бизнес-организации (пока только одна организация — Radio24)
+const BO_SPREADSHEET_ID = '1CR2DOmDkMJ3fRednRVM7uqB0T-8ToZVaUWS1VVHxhgs'
+const BO_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
+const BO_DEFAULT_GID = '1374044771'
+
+// Байкеры (лист активности "activity" — разметка идентична Гетто)
+const BIKERS_SPREADSHEET_ID = '19vdk2aBOtPfi61GMsT0HuqosMFxlZMIDV_Td1pnY5cM'
+const BIKERS_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
+const BIKERS_DEFAULT_GID = '1194412241'
+
+// Настройки текущей выбранной сферы. kind определяет, каким парсером
+// читать таблицу: 'gov' — блоки недель с текстовым заголовком
+// «Активность лидеров [... - ...]» в одном листе; 'ghetto' — блоки
+// с датами по колонкам G,I,K,M,O,Q,S и несколькими лидерами подряд
+// (Гетто и Байкеры — разметка одинаковая); 'bo' — та же разметка дат,
+// но с одним лидером и именем/временем в разных строках (Radio24).
+function getSphereConfig(sphereId) {
+  if (sphereId === 'ghetto') {
+    return { spreadsheetId: GHETTO_SPREADSHEET_ID, apiKey: GHETTO_SHEETS_API_KEY, defaultGid: GHETTO_DEFAULT_GID, kind: 'ghetto' }
+  }
+  if (sphereId === 'bo') {
+    return { spreadsheetId: BO_SPREADSHEET_ID, apiKey: BO_SHEETS_API_KEY, defaultGid: BO_DEFAULT_GID, kind: 'bo' }
+  }
+  if (sphereId === 'bikers') {
+    return { spreadsheetId: BIKERS_SPREADSHEET_ID, apiKey: BIKERS_SHEETS_API_KEY, defaultGid: BIKERS_DEFAULT_GID, kind: 'ghetto' }
+  }
+  return { spreadsheetId: GOV_SPREADSHEET_ID, apiKey: GOV_SHEETS_API_KEY, defaultGid: GOV_DEFAULT_GID, kind: 'gov' }
+}
 
 const NORM_SECONDS = 2 * 3600 + 30 * 60 // 2:30:00 — дневная норма
 
@@ -131,9 +172,9 @@ function extractWeekRangeFromRows(rows) {
   return null
 }
 
-async function sheetsApiGet(path, params) {
-  const url = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}${path}`)
-  url.searchParams.set('key', SHEETS_API_KEY)
+async function sheetsApiGet(spreadsheetId, apiKey, path, params) {
+  const url = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}${path}`)
+  url.searchParams.set('key', apiKey)
   for (const [k, v] of Object.entries(params || {})) url.searchParams.set(k, v)
   const res = await fetch(url.toString(), { cache: 'no-store' })
   const json = await res.json().catch(() => null)
@@ -144,15 +185,16 @@ async function sheetsApiGet(path, params) {
   return json
 }
 
-const sheetTitleByGidCache = new Map()
-async function resolveSheetTitle(gid) {
-  if (sheetTitleByGidCache.has(gid)) return sheetTitleByGidCache.get(gid)
-  const meta = await sheetsApiGet('', { fields: 'sheets.properties' })
+const sheetTitleByGidCache = new Map() // key: `${spreadsheetId}:${gid}`
+async function resolveSheetTitle(spreadsheetId, apiKey, gid) {
+  const cacheKey = `${spreadsheetId}:${gid}`
+  if (sheetTitleByGidCache.has(cacheKey)) return sheetTitleByGidCache.get(cacheKey)
+  const meta = await sheetsApiGet(spreadsheetId, apiKey, '', { fields: 'sheets.properties' })
   const sheets = meta.sheets || []
   for (const sh of sheets) {
-    sheetTitleByGidCache.set(String(sh.properties.sheetId), sh.properties.title)
+    sheetTitleByGidCache.set(`${spreadsheetId}:${sh.properties.sheetId}`, sh.properties.title)
   }
-  const title = sheetTitleByGidCache.get(String(gid))
+  const title = sheetTitleByGidCache.get(cacheKey)
   if (!title) throw new Error('Не удалось найти вкладку с таким gid в таблице')
   return title
 }
@@ -166,7 +208,7 @@ async function resolveSheetTitle(gid) {
 // одной недели, нужно один раз выкачать весь лист целиком и найти в
 // нём ВСЕ такие блоки, а не искать их по вкладкам/gid — вкладок с
 // неделями просто не существует.
-function parseAllWeekBlocks(rows) {
+function parseAllWeekBlocksGov(rows) {
   const blocks = []
   let i = 0
   while (i < rows.length) {
@@ -251,44 +293,184 @@ function parseAllWeekBlocks(rows) {
   return blocks
 }
 
-let allBlocksCache = null
-let allBlocksPromise = null
-async function fetchAllWeekBlocks() {
-  if (allBlocksCache && allBlocksCache.length > 0) return allBlocksCache
-  if (allBlocksPromise) return allBlocksPromise
-  allBlocksPromise = (async () => {
-    const sheetTitle = await resolveSheetTitle(DEFAULT_GID)
-    const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:N5000`
-    const data = await sheetsApiGet(`/values/${encodeURIComponent(range)}`, { valueRenderOption: 'FORMATTED_VALUE' })
+/* ───────── История по неделям — Гетто / Байкеры (разметка листа "activity") ─────────
+   В отличие от гос. структур, тут нет текстового заголовка блока — вместо
+   этого каждая неделя опознаётся по строке с 7 датами в колонках
+   G,I,K,M,O,Q,S. Блоки лидеров идут со сдвигом [3,5,7,9,11] строк от
+   строки дат (как и в текущей неделе в LeaderActivity.jsx). Сканируем
+   ВЕСЬ лист и находим все такие блоки подряд (новые всегда сверху). */
+const GHETTO_STYLE_DAY_COLS = [6, 8, 10, 12, 14, 16, 18] // G,I,K,M,O,Q,S (0-based)
+const GHETTO_STYLE_FRACTION_COL = 2 // C (0-based)
+const GHETTO_STYLE_NICK_COL = 4     // E (0-based)
+const GHETTO_STYLE_LEADER_ROW_OFFSETS = [3, 5, 7, 9, 11] // 14,16,18,20,22 относительно строки дат
+
+function parseAllWeekBlocksGhetto(rows) {
+  const dateRe = /\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}/
+  const blocks = []
+  let i = 0
+  const lastOffset = GHETTO_STYLE_LEADER_ROW_OFFSETS[GHETTO_STYLE_LEADER_ROW_OFFSETS.length - 1]
+
+  while (i < rows.length) {
+    const row = rows[i] || []
+    const hasDate = GHETTO_STYLE_DAY_COLS.some((c) => dateRe.test(clean(row[c])))
+    if (!hasDate) { i += 1; continue }
+
+    const dayNameRow = rows[i + 1] || []
+    const dayDates = GHETTO_STYLE_DAY_COLS.map((c) => clean(row[c]) || '')
+    const dayNames = GHETTO_STYLE_DAY_COLS.map((c) => clean(dayNameRow[c]) || '')
+    const refDate = new Date()
+    const dayDateObjs = dayDates.map((s) => parseCellDate(s, refDate))
+    const weekStart = dayDateObjs[0] || null
+    const weekEnd = dayDateObjs[6] || null
+    const title = dayDates[0] && dayDates[6] ? `${dayDates[0]} - ${dayDates[6]}` : 'Неделя'
+
+    const leaders = []
+    for (const offset of GHETTO_STYLE_LEADER_ROW_OFFSETS) {
+      const r = i + offset
+      const leaderRow = rows[r]
+      if (!leaderRow) continue
+      const nickname = clean(leaderRow[GHETTO_STYLE_NICK_COL])
+      if (!nickname) continue // вакантная строка
+
+      const fraction = clean(leaderRow[GHETTO_STYLE_FRACTION_COL])
+      const days = GHETTO_STYLE_DAY_COLS.map((c) => classifyCell(leaderRow[c]))
+      const okCount = days.filter((d) => d.type === 'ok').length
+      const failCount = days.filter((d) => d.type === 'fail').length
+      const inactiveCount = days.filter((d) => d.type === 'inactive').length
+      const noneCount = days.filter((d) => d.type === 'none').length
+      const excludedCount = days.filter((d) => d.type === 'excluded').length
+      const totalSeconds = days.reduce((s, d) => s + ((d.type === 'ok' || d.type === 'fail') ? d.seconds : 0), 0)
+
+      leaders.push({
+        rowId: r + 1,
+        nickname, fraction, days,
+        okCount, failCount, inactiveCount, noneCount, excludedCount,
+        totalSeconds,
+        warnings: computeWarnings(failCount),
+      })
+    }
+
+    if (leaders.length > 0 && weekStart && weekEnd) {
+      blocks.push({ title, dayDates, dayNames, dayDateObjs, weekStart, weekEnd, leaders })
+    }
+
+    // Следующий блок ищем сразу после последней строки лидеров текущего —
+    // не задвоим блок и не наткнёмся на случайную дату внутри него.
+    i = i + lastOffset + 1
+  }
+  return blocks
+}
+
+/* ───────── История по неделям — Бизнес-организации (Radio24) ─────────
+   Та же разметка дат, что у Гетто/Байкеров, но лидер один, а ник и время
+   лежат в разных строках относительно строки дат (см. LeaderActivity.jsx). */
+const BO_NAME_COL = 4 // E (0-based)
+const BO_NAME_ROW_OFFSET = 3   // 11 = 8 + 3
+const BO_TIME_ROW_OFFSET = 4   // 12 = 8 + 4
+const BO_BLOCK_LAST_ROW_OFFSET = 6 // 14 = 8 + 6
+const BO_ORG_NAME = 'Radio24'
+
+function parseAllWeekBlocksBo(rows) {
+  const dateRe = /\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}/
+  const blocks = []
+  let i = 0
+
+  while (i < rows.length) {
+    const row = rows[i] || []
+    const hasDate = GHETTO_STYLE_DAY_COLS.some((c) => dateRe.test(clean(row[c])))
+    if (!hasDate) { i += 1; continue }
+
+    const dayNameRow = rows[i + 1] || []
+    const dayDates = GHETTO_STYLE_DAY_COLS.map((c) => clean(row[c]) || '')
+    const dayNames = GHETTO_STYLE_DAY_COLS.map((c) => clean(dayNameRow[c]) || '')
+    const refDate = new Date()
+    const dayDateObjs = dayDates.map((s) => parseCellDate(s, refDate))
+    const weekStart = dayDateObjs[0] || null
+    const weekEnd = dayDateObjs[6] || null
+    const title = dayDates[0] && dayDates[6] ? `${dayDates[0]} - ${dayDates[6]}` : 'Неделя'
+
+    const nameRow = rows[i + BO_NAME_ROW_OFFSET] || []
+    const timeRow = rows[i + BO_TIME_ROW_OFFSET] || []
+    const nickname = clean(nameRow[BO_NAME_COL])
+
+    const leaders = []
+    if (nickname) {
+      const days = GHETTO_STYLE_DAY_COLS.map((c) => classifyCell(timeRow[c]))
+      const okCount = days.filter((d) => d.type === 'ok').length
+      const failCount = days.filter((d) => d.type === 'fail').length
+      const inactiveCount = days.filter((d) => d.type === 'inactive').length
+      const noneCount = days.filter((d) => d.type === 'none').length
+      const excludedCount = days.filter((d) => d.type === 'excluded').length
+      const totalSeconds = days.reduce((s, d) => s + ((d.type === 'ok' || d.type === 'fail') ? d.seconds : 0), 0)
+
+      leaders.push({
+        rowId: i + BO_NAME_ROW_OFFSET + 1,
+        nickname, fraction: BO_ORG_NAME, days,
+        okCount, failCount, inactiveCount, noneCount, excludedCount,
+        totalSeconds,
+        warnings: computeWarnings(failCount),
+      })
+    }
+
+    if (leaders.length > 0 && weekStart && weekEnd) {
+      blocks.push({ title, dayDates, dayNames, dayDateObjs, weekStart, weekEnd, leaders })
+    }
+
+    i = i + BO_BLOCK_LAST_ROW_OFFSET + 1
+  }
+  return blocks
+}
+
+function parseAllWeekBlocksForKind(kind, rows) {
+  if (kind === 'ghetto') return parseAllWeekBlocksGhetto(rows)
+  if (kind === 'bo') return parseAllWeekBlocksBo(rows)
+  return parseAllWeekBlocksGov(rows)
+}
+
+// Кэш блоков истории — отдельно по каждой сфере (таблице), т.к. и данные,
+// и разметка листов разные.
+const allBlocksCacheBySphere = new Map() // sphereId -> blocks[]
+const allBlocksPromiseBySphere = new Map() // sphereId -> Promise
+async function fetchAllWeekBlocks(sphereId, gid) {
+  const cached = allBlocksCacheBySphere.get(sphereId)
+  if (cached && cached.length > 0) return cached
+  if (allBlocksPromiseBySphere.has(sphereId)) return allBlocksPromiseBySphere.get(sphereId)
+
+  const cfg = getSphereConfig(sphereId)
+  const promise = (async () => {
+    const sheetTitle = await resolveSheetTitle(cfg.spreadsheetId, cfg.apiKey, gid)
+    const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:U5000`
+    const data = await sheetsApiGet(cfg.spreadsheetId, cfg.apiKey, `/values/${encodeURIComponent(range)}`, { valueRenderOption: 'FORMATTED_VALUE' })
     const rows = data.values || []
-    const blocks = parseAllWeekBlocks(rows)
+    const blocks = parseAllWeekBlocksForKind(cfg.kind, rows)
     blocks.sort((a, b) => b.weekStart - a.weekStart)
     if (blocks.length === 0) {
-      console.warn('[LeaderAnalytics] в листе не найдено ни одного блока недели')
+      console.warn(`[LeaderAnalytics] (${sphereId}) в листе не найдено ни одного блока недели`)
     } else {
-      console.info(`[LeaderAnalytics] найдено блоков недель в листе: ${blocks.length}`)
+      console.info(`[LeaderAnalytics] (${sphereId}) найдено блоков недель в листе: ${blocks.length}`)
     }
-    allBlocksCache = blocks
+    allBlocksCacheBySphere.set(sphereId, blocks)
     return blocks
   })()
+  allBlocksPromiseBySphere.set(sphereId, promise)
   try {
-    return await allBlocksPromise
+    return await promise
   } finally {
-    allBlocksPromise = null
+    allBlocksPromiseBySphere.delete(sphereId)
   }
 }
 
 // Собирает историю конкретного лидера за N дней назад от сегодня по
-// всем найденным блокам-неделям в листе. Если в таблице нет данных
-// так глубоко — просто возвращает то, что реально нашлось (без
-// «пустых» дней-заглушек).
-async function getLeaderHistory(nickname, days) {
+// всем найденным блокам-неделям в листе выбранной сферы. Если в таблице
+// нет данных так глубоко — просто возвращает то, что реально нашлось
+// (без «пустых» дней-заглушек).
+async function getLeaderHistory(nickname, days, sphereId, gid) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const cutoff = addDays(today, -(days - 1))
 
   let blocks = []
   try {
-    blocks = await fetchAllWeekBlocks()
+    blocks = await fetchAllWeekBlocks(sphereId, gid)
   } catch (e) {
     console.warn('[LeaderAnalytics] fetchAllWeekBlocks упал:', e.message)
     blocks = []
@@ -407,10 +589,10 @@ function parseWeekHeader(rows) {
   return { title: title || 'Неделя', dayNameRowIdx, dataStartRowIdx, dayDates, dayNames, dayDateObjs, weekStart, weekEnd }
 }
 
-async function fetchWeek(gid) {
-  const sheetTitle = await resolveSheetTitle(gid)
+async function fetchGovWeek(cfg, gid) {
+  const sheetTitle = await resolveSheetTitle(cfg.spreadsheetId, cfg.apiKey, gid)
   const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:N2000`
-  const data = await sheetsApiGet(`/values/${encodeURIComponent(range)}`, { valueRenderOption: 'FORMATTED_VALUE' })
+  const data = await sheetsApiGet(cfg.spreadsheetId, cfg.apiKey, `/values/${encodeURIComponent(range)}`, { valueRenderOption: 'FORMATTED_VALUE' })
   const rows = data.values || []
   if (rows.length === 0) throw new Error('Таблица пуста')
 
@@ -452,6 +634,133 @@ async function fetchWeek(gid) {
     weekEnd: header.weekEnd,
     leaders,
   }
+}
+
+/* ───────── Текущая неделя — Гетто / Байкеры ─────────
+   Ищем строку дат текущей недели (пн этой недели совпадает), иначе —
+   самый верхний блок с датами вообще (новые недели создаются сверху). */
+async function fetchGhettoStyleWeek(cfg, gid) {
+  const sheetTitle = await resolveSheetTitle(cfg.spreadsheetId, cfg.apiKey, gid)
+  const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:U2000`
+  const data = await sheetsApiGet(cfg.spreadsheetId, cfg.apiKey, `/values/${encodeURIComponent(range)}`, { valueRenderOption: 'FORMATTED_VALUE' })
+  const rows = data.values || []
+  if (rows.length === 0) throw new Error('Таблица пуста')
+
+  const dateRe = /\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}/
+  const currentWeekRange = getCurrentWeekRangeStr()
+  const [currentMondayStr] = currentWeekRange.split(' - ')
+
+  let dateRowIdx = -1
+  let fallbackDateRowIdx = -1
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const hasDate = GHETTO_STYLE_DAY_COLS.some((c) => dateRe.test(clean(row[c])))
+    if (!hasDate) continue
+    if (fallbackDateRowIdx === -1) fallbackDateRowIdx = i
+    if (clean(row[GHETTO_STYLE_DAY_COLS[0]]) === currentMondayStr) { dateRowIdx = i; break }
+  }
+  if (dateRowIdx === -1) dateRowIdx = fallbackDateRowIdx
+  if (dateRowIdx === -1) throw new Error('Не удалось найти строку с датами недели (колонки G,I,K,M,O,Q,S)')
+
+  const dayNameRow = rows[dateRowIdx + 1] || []
+  const dateRow = rows[dateRowIdx] || []
+  const dayDates = GHETTO_STYLE_DAY_COLS.map((c) => clean(dateRow[c]) || '')
+  const dayNames = GHETTO_STYLE_DAY_COLS.map((c) => clean(dayNameRow[c]) || '')
+  const title = dayDates[0] && dayDates[6] ? `${dayDates[0]} - ${dayDates[6]}` : 'Неделя'
+
+  const leaders = []
+  for (const offset of GHETTO_STYLE_LEADER_ROW_OFFSETS) {
+    const r = dateRowIdx + offset
+    const row = rows[r]
+    if (!row) continue
+    const nickname = clean(row[GHETTO_STYLE_NICK_COL])
+    if (!nickname) continue
+
+    const fraction = clean(row[GHETTO_STYLE_FRACTION_COL])
+    const days = GHETTO_STYLE_DAY_COLS.map((c) => classifyCell(row[c]))
+    const okCount = days.filter((d) => d.type === 'ok').length
+    const failCount = days.filter((d) => d.type === 'fail').length
+    const inactiveCount = days.filter((d) => d.type === 'inactive').length
+    const noneCount = days.filter((d) => d.type === 'none').length
+    const excludedCount = days.filter((d) => d.type === 'excluded').length
+    const totalSeconds = days.reduce((s, d) => s + ((d.type === 'ok' || d.type === 'fail') ? d.seconds : 0), 0)
+
+    leaders.push({
+      rowId: r + 1,
+      nickname, fraction, days,
+      okCount, failCount, inactiveCount, noneCount, excludedCount,
+      totalSeconds,
+      warnings: computeWarnings(failCount),
+    })
+  }
+
+  const dayDateObjs = dayDates.map((s) => parseCellDate(s, new Date()))
+  return { title, dayDates, dayNames, dayDateObjs, weekStart: dayDateObjs[0] || null, weekEnd: dayDateObjs[6] || null, leaders }
+}
+
+/* ───────── Текущая неделя — Бизнес-организации (Radio24) ───────── */
+async function fetchBoWeek(cfg, gid) {
+  const sheetTitle = await resolveSheetTitle(cfg.spreadsheetId, cfg.apiKey, gid)
+  const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:U2000`
+  const data = await sheetsApiGet(cfg.spreadsheetId, cfg.apiKey, `/values/${encodeURIComponent(range)}`, { valueRenderOption: 'FORMATTED_VALUE' })
+  const rows = data.values || []
+  if (rows.length === 0) throw new Error('Таблица пуста')
+
+  const dateRe = /\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}/
+  const currentWeekRange = getCurrentWeekRangeStr()
+  const [currentMondayStr] = currentWeekRange.split(' - ')
+
+  let dateRowIdx = -1
+  let fallbackDateRowIdx = -1
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const hasDate = GHETTO_STYLE_DAY_COLS.some((c) => dateRe.test(clean(row[c])))
+    if (!hasDate) continue
+    if (fallbackDateRowIdx === -1) fallbackDateRowIdx = i
+    if (clean(row[GHETTO_STYLE_DAY_COLS[0]]) === currentMondayStr) { dateRowIdx = i; break }
+  }
+  if (dateRowIdx === -1) dateRowIdx = fallbackDateRowIdx
+  if (dateRowIdx === -1) throw new Error('Не удалось найти строку с датами недели (колонки G,I,K,M,O,Q,S)')
+
+  const dayNameRow = rows[dateRowIdx + 1] || []
+  const dateRow = rows[dateRowIdx] || []
+  const dayDates = GHETTO_STYLE_DAY_COLS.map((c) => clean(dateRow[c]) || '')
+  const dayNames = GHETTO_STYLE_DAY_COLS.map((c) => clean(dayNameRow[c]) || '')
+  const title = dayDates[0] && dayDates[6] ? `${dayDates[0]} - ${dayDates[6]}` : 'Неделя'
+
+  const nameRow = rows[dateRowIdx + BO_NAME_ROW_OFFSET] || []
+  const timeRow = rows[dateRowIdx + BO_TIME_ROW_OFFSET] || []
+  const nickname = clean(nameRow[BO_NAME_COL])
+
+  const leaders = []
+  if (nickname) {
+    const days = GHETTO_STYLE_DAY_COLS.map((c) => classifyCell(timeRow[c]))
+    const okCount = days.filter((d) => d.type === 'ok').length
+    const failCount = days.filter((d) => d.type === 'fail').length
+    const inactiveCount = days.filter((d) => d.type === 'inactive').length
+    const noneCount = days.filter((d) => d.type === 'none').length
+    const excludedCount = days.filter((d) => d.type === 'excluded').length
+    const totalSeconds = days.reduce((s, d) => s + ((d.type === 'ok' || d.type === 'fail') ? d.seconds : 0), 0)
+
+    leaders.push({
+      rowId: dateRowIdx + BO_NAME_ROW_OFFSET + 1,
+      nickname, fraction: BO_ORG_NAME, days,
+      okCount, failCount, inactiveCount, noneCount, excludedCount,
+      totalSeconds,
+      warnings: computeWarnings(failCount),
+    })
+  }
+
+  const dayDateObjs = dayDates.map((s) => parseCellDate(s, new Date()))
+  return { title, dayDates, dayNames, dayDateObjs, weekStart: dayDateObjs[0] || null, weekEnd: dayDateObjs[6] || null, leaders }
+}
+
+// Единая точка входа — выбирает парсер текущей недели в зависимости от сферы
+async function fetchWeek(sphereId, gid) {
+  const cfg = getSphereConfig(sphereId)
+  if (cfg.kind === 'ghetto') return fetchGhettoStyleWeek(cfg, gid)
+  if (cfg.kind === 'bo') return fetchBoWeek(cfg, gid)
+  return fetchGovWeek(cfg, gid)
 }
 
 /* ───────── КПД — теперь считается по реальным данным недели ─────────
@@ -869,31 +1178,40 @@ const HISTORY_RANGES = [
 ]
 
 // ── Сферы ──
-// Пока данными реально наполнена только «Государственные организации»
-// (та же таблица, что и раньше). Остальные сферы уже показываем в
-// переключателе, чтобы люди видели, что они на подходе, но раздел для
-// них временно недоступен — с провайдерами данных по ним ещё не
-// договорились.
+// Подключены те же 4 сферы, что и в LeaderActivity.jsx: Государственные
+// организации, Уличные группировки (Гетто), Бизнес-организации (Radio24)
+// и Байкерские клубы. Мафия пока нигде не подключена — раздел остаётся
+// «скоро», с провайдером данных по нему ещё не договорились.
 const SPHERES = [
-  { id: 'gov', label: 'Государственные организации', ready: true },
-  { id: 'business', label: 'Бизнес организации', ready: false },
-  { id: 'bikers', label: 'Байкерские клубы', ready: false },
-  { id: 'street', label: 'Уличные группировки', ready: false },
-  { id: 'mafia', label: 'Мафиозные синдикаты', ready: false },
+  { id: 'gov', label: 'Государственные организации' },
+  { id: 'bo', label: 'Бизнес организации' },
+  { id: 'bikers', label: 'Байкерские клубы' },
+  { id: 'ghetto', label: 'Уличные группировки' },
+  { id: 'mafia', label: 'Мафиозные синдикаты' },
 ]
 
-function LeaderStatsPanel({ leader, onClose }) {
+// Сервер×сфера уже готовы к работе (та же гейтинг-логика, что и в
+// LeaderActivity.jsx) — сейчас это только сервер Texas.
+const READY_SERVER_ID = 'texas'
+const READY_COMBOS = [
+  { server: 'texas', sphere: 'gov' },
+  { server: 'texas', sphere: 'bo' },
+  { server: 'texas', sphere: 'bikers' },
+  { server: 'texas', sphere: 'ghetto' },
+]
+
+function LeaderStatsPanel({ leader, onClose, sphereId, gid }) {
   const [range, setRange] = useState(7)
   const [state, setState] = useState({ status: 'loading', records: [], weeksUsed: 0, foundCount: 0, error: '' })
 
   useEffect(() => {
     let cancelled = false
     setState((s) => ({ ...s, status: 'loading' }))
-    getLeaderHistory(leader.nickname, range)
+    getLeaderHistory(leader.nickname, range, sphereId, gid)
       .then((res) => { if (!cancelled) setState({ status: 'ready', records: res.records, weeksUsed: res.weeksUsed, foundCount: res.foundCount, error: '' }) })
       .catch((e) => { if (!cancelled) setState({ status: 'error', records: [], weeksUsed: 0, foundCount: 0, error: e.message || 'Ошибка загрузки' }) })
     return () => { cancelled = true }
-  }, [leader.nickname, range])
+  }, [leader.nickname, range, sphereId, gid])
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
