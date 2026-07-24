@@ -15,6 +15,7 @@ import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
 import MobileHeader from './components/MobileHeader'
 import Profile from './components/Profile'
+import ProfileUsers from './components/ProfileUsers'
 import Users from './components/Users'
 import FAQ from './components/faq'
 import KnowledgeBase from './components/KnowledgeBase'
@@ -41,6 +42,7 @@ const PAGE_TITLES = {
   users: 'Пользователи',
   cadreAudit: 'Кадровый аудит',
   profile: 'Профиль',
+  profileUsers: 'Профиль пользователя',
   faq: 'FAQ и помощь',
   knowledge: 'База знаний',
   interview: 'Генератор собеседований',
@@ -61,22 +63,26 @@ function resolvePageFromPath(pathname) {
     const parts = suffix.replace(/^\//, '').split('/').filter(Boolean)
     
     const page = parts[0] || 'dashboard'
-    const pageNumber = parts.length > 1 ? Number(parts[1]) : 1
+    const rawParam = parts.length > 1 ? parts[1] : null
+    const pageNumber = rawParam !== null ? Number(rawParam) : 1
 
     return {
       page: page in PAGE_TITLES ? page : 'dashboard',
       pageNumber: Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1,
+      // Сырой второй сегмент пути — для profileUsers это id пользователя
+      // (например, uuid), а не номер страницы, поэтому храним отдельно.
+      param: rawParam,
     }
   } catch {
-    return { page: 'dashboard', pageNumber: 1 }
+    return { page: 'dashboard', pageNumber: 1, param: null }
   }
 }
 
-function setPath(page, pageNumber = 1, mode = 'push') {
+function setPath(page, param = 1, mode = 'push') {
   let nextPath = '/STATECORE-TEST'
 
   if (page !== 'dashboard') {
-    nextPath += `/${page}/${pageNumber}`
+    nextPath += `/${page}/${param}`
   }
 
   if (mode === 'replace') {
@@ -92,6 +98,12 @@ export default function App() {
   const [view, setView] = useState('app')
   const [activePage, setActivePage] = useState(initialRoute.page)
   const [pageNumber, setPageNumber] = useState(initialRoute.pageNumber)
+  // id пользователя, чей профиль сейчас открыт на странице profileUsers
+  const [profileUserId, setProfileUserId] = useState(
+    initialRoute.page === 'profileUsers' ? initialRoute.param : null
+  )
+  // страница, на которую нужно вернуться при закрытии profileUsers (по умолчанию — дашборд)
+  const [profileReturnPage, setProfileReturnPage] = useState('dashboard')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
@@ -209,6 +221,7 @@ export default function App() {
       const route = resolvePageFromPath(window.location.pathname)
       setActivePage(route.page)
       setPageNumber(route.pageNumber)
+      setProfileUserId(route.page === 'profileUsers' ? route.param : null)
     }
 
     window.addEventListener('popstate', syncRoute)
@@ -225,8 +238,9 @@ export default function App() {
 
   useEffect(() => {
     if (!user || view !== 'app') return
-    setPath(activePage, pageNumber)
-  }, [activePage, pageNumber, user, view])
+    const param = activePage === 'profileUsers' ? (profileUserId || '') : pageNumber
+    setPath(activePage, param)
+  }, [activePage, pageNumber, profileUserId, user, view])
 
   const handleLogout = () => {
     clearSession()
@@ -238,6 +252,22 @@ export default function App() {
   const handleSetActivePage = (page) => {
     setActivePage(page)
     setPageNumber(1)
+    if (page !== 'profileUsers') setProfileUserId(null)
+  }
+
+  // Открыть полноэкранный профиль пользователя (например, по клику на ник
+  // лидера в «Активности лидеров») — запоминаем, откуда пришли, чтобы
+  // кнопка «Назад» в ProfileUsers вернула на ту же страницу.
+  const handleOpenUserProfile = (userId) => {
+    if (!userId) return
+    setProfileReturnPage(activePage)
+    setProfileUserId(userId)
+    setActivePage('profileUsers')
+  }
+
+  const handleCloseUserProfile = () => {
+    setActivePage(profileReturnPage)
+    setProfileUserId(null)
   }
 
   if (!hydrated) return null
@@ -311,13 +341,21 @@ export default function App() {
           {activePage === 'blacklist' && <Blacklist pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'chsgos' && <ChsGos user={user} pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'logs' && <Logs pageNumber={pageNumber} setPageNumber={setPageNumber} />}
-          {activePage === 'activity' && <LeaderActivity user={user} />}
+          {activePage === 'activity' && <LeaderActivity user={user} onOpenProfile={handleOpenUserProfile} />}
           {activePage === 'leaderAnalytics' && <LeaderAnalytics />}
           {activePage === 'inactive' && <Inactive user={user} />}
           {activePage === 'eventPlanner' && <EventPlanner user={user} />}
           {activePage === 'interview' && <InterviewGenerator />}
           {activePage === 'users' && <Users currentUser={user} />}
           {activePage === 'profile' && <Profile user={user} onUpdate={setUser} />}
+          {activePage === 'profileUsers' && (
+            <ProfileUsers
+              userId={profileUserId}
+              currentUser={user}
+              onBack={handleCloseUserProfile}
+              onManage={() => setActivePage('users')}
+            />
+          )}
           {activePage === 'knowledge' && <KnowledgeBase />}
           {activePage === 'cadreAudit' && <CadreAudit user={user} />}
           {activePage === 'faq' && <FAQ user={user} />}

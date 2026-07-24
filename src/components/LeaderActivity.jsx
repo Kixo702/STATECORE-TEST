@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { SERVERS } from '../lib/roles'
+import { SERVERS, isLeaderOfFaction } from '../lib/roles'
+import { getUsers as fetchAllAccounts } from '../lib/api'
 
 /*
   ── Активность лидеров ──────────────────────────────────────────
@@ -105,6 +106,33 @@ function classifyCell(raw) {
   if (low.includes('неактив')) return { type: 'inactive', seconds: 0, label: v }
   // Назначен / Нет нормы / ПСЖ / прочие текстовые статусы — норма не применяется
   return { type: 'excluded', seconds: 0, label: v }
+}
+
+// ── Сопоставление ника из таблицы активности с реальным аккаунтом ──
+// Ники в таблице могут быть записаны и как "Ник Нейм", и как "Ник_Нейм" —
+// сравниваем без учёта регистра и с заменой "_" на пробел.
+function normalizeNickForMatch(raw) {
+  return (raw || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+}
+
+// Ищет среди аккаунтов такой, чей ник совпадает с ником из таблицы, и у
+// которого роль — именно "Лидер <fraction>" для фракции, указанной в этой
+// строке активности. Если совпадения нет — профиль открывать нельзя.
+function findLeaderAccount(nickname, fraction, accounts) {
+  if (!nickname || !fraction || !Array.isArray(accounts) || accounts.length === 0) return null
+  const target = normalizeNickForMatch(nickname)
+  if (!target) return null
+  for (const acc of accounts) {
+    const candidates = [acc.nickname, acc.login, acc.name].filter(Boolean)
+    const nickMatches = candidates.some((c) => normalizeNickForMatch(c) === target)
+    if (nickMatches && isLeaderOfFaction(acc, fraction)) return acc
+  }
+  return null
 }
 
 function fmtDuration(totalSeconds) {
@@ -460,7 +488,7 @@ const DAY_TYPE_STYLE = {
   none:     { accent: '148,163,184', color: 'rgba(255,255,255,.3)', icon: IC.dash },
 }
 
-export default function LeaderActivity() {
+export default function LeaderActivity({ user, onOpenProfile }) {
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
   const isReady = READY_COMBOS.some((c) => c.server === serverId && c.sphere === sphereId)
@@ -484,6 +512,23 @@ export default function LeaderActivity() {
     const t = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(t)
   }, [])
+
+  // ── Аккаунты (для сопоставления ника из таблицы с реальным профилем) ──
+  const [accounts, setAccounts] = useState([])
+  useEffect(() => {
+    let cancelled = false
+    fetchAllAccounts()
+      .then((list) => { if (!cancelled) setAccounts(Array.isArray(list) ? list : []) })
+      .catch(() => { /* профиль просто останется некликабельным */ })
+    return () => { cancelled = true }
+  }, [])
+
+  // Клик по нику лидера (если для него найден реальный аккаунт-лидер этой
+  // же фракции) — открывает полноэкранную страницу профиля через App.jsx.
+  const openLeaderProfile = (accountId) => {
+    if (!accountId) return
+    onOpenProfile?.(accountId)
+  }
 
   // silent = true -> не показываем скелетон и не сбрасываем текущие данные,
   // просто тихо подменяем их, если с сервера пришло что-то новое.
@@ -878,7 +923,9 @@ export default function LeaderActivity() {
                   <div className="flex-1 h-px bg-white/5" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
-                  {d.topLeaders.map((l, i) => (
+                  {d.topLeaders.map((l, i) => {
+                    const account = findLeaderAccount(l.nickname, l.fraction, accounts)
+                    return (
                     <div
                       key={l.nickname}
                       className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
@@ -893,12 +940,19 @@ export default function LeaderActivity() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-[11px] font-extrabold tracking-[1.5px] uppercase" style={{ color: i === 0 ? '#f97316' : 'rgba(255,255,255,.35)' }}>#{i + 1}</p>
-                          <h3 className="text-base font-black mt-0.5 truncate">{l.nickname}</h3>
+                          <h3
+                            className={`text-base font-black mt-0.5 truncate ${account ? 'cursor-pointer hover:text-orange-400 hover:underline' : ''}`}
+                            onClick={account ? () => openLeaderProfile(account.id) : undefined}
+                            title={account ? 'Открыть профиль' : undefined}
+                          >
+                            {l.nickname}
+                          </h3>
                           <p className="text-xs text-slate-400 mt-1 tabular-nums">{fmtDuration(l.totalSeconds)}</p>
                         </div>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </>
             )}
@@ -954,10 +1008,17 @@ export default function LeaderActivity() {
                     )}
                     {filteredLeaders.map((l) => {
                       const w = l.warnings
+                      const account = findLeaderAccount(l.nickname, l.fraction, accounts)
                       return (
                         <tr key={l.nickname} className="bg-white/[0.015] hover:bg-white/[0.03] transition-colors duration-150">
                           <td style={{ padding: '10px 10px', borderRadius: '12px 0 0 12px', whiteSpace: 'nowrap' }}>
-                            <div className="text-[13px] font-bold text-slate-100">{l.nickname}</div>
+                            <div
+                              className={`text-[13px] font-bold text-slate-100 ${account ? 'cursor-pointer hover:text-orange-400 hover:underline' : ''}`}
+                              onClick={account ? (e) => { e.stopPropagation(); openLeaderProfile(account.id) } : undefined}
+                              title={account ? 'Открыть профиль' : undefined}
+                            >
+                              {l.nickname}
+                            </div>
                             <div className="text-[11px] text-white/35">{l.fraction}</div>
                           </td>
                           {l.days.map((day, i) => {
