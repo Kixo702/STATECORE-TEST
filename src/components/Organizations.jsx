@@ -143,6 +143,7 @@ const READY_COMBOS = [
   { server: 'texas', sphere: 'bo' },
   { server: 'texas', sphere: 'mafia' },
   { server: 'texas', sphere: 'bikers' },
+  { server: 'texas', sphere: 'ghetto' },
 ]
 
 // Байкеры: как и у мафий, лидеры сидят в фиксированных строках 14/16/18.
@@ -155,6 +156,10 @@ const BIKERS_LEADER_ROWS = [14, 16, 18]
 // Мафии: фиксированные строки лидеров в таблице (см. MAFIA_SHEETS_URL) —
 // у каждой из 3 организаций лидер всегда сидит в одной и той же строке.
 const MAFIA_LEADER_ROWS = [14, 16, 18]
+
+// Гетто: фиксированные строки лидеров в таблице (см. GHETTO_SHEETS_URL) —
+// у каждого из 5 гетто-лидеров данные всегда сидят в одной и той же строке.
+const GHETTO_LEADER_ROWS = [13, 15, 17, 19, 21]
 
 // БО: колонка C в таблице хранит только должность (нужен только "Директор"),
 // а не название организации — поэтому имя карточки сопоставляем вручную по
@@ -177,6 +182,10 @@ export default function Organizations({ user }) {
   // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы байкеров
   // (задеплой скрипт из раздела "Скрипт для таблицы Байкеры" в инструкции)
   const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIMACv0scPzBapr1QMDgoQDqYya3vjRaDJ_FBfbHO63AGIG4IMvV2QZ-eVunzcJ96OQQ/exec'
+  const GHETTO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlRt1hpLQy_7Z7G1PxISAmhgHcc9qS1QX4od1kG4BpM9x1QzPBffKNsA1J3FJwFoXo1rhxyJsGpIHF/pub?gid=0&single=true&output=csv'
+  // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы гетто
+  // (задеплой скрипт из раздела "Скрипт для таблицы Гетто" в инструкции)
+  const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFRFtnZ1s_Xf1s59SNTaE54MeJihfif6N4ZmEjl7iGI4OV1xxHad-tHRFDqEC8bz9Q/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
@@ -327,27 +336,28 @@ export default function Organizations({ user }) {
       }
     })
   }
+  // Гетто: 5 лидеров в строках 13/15/17/19/21. Колонки: D-ник, F-фракция,
+  // H-вк (гиперссылка), J-баллы лидера, L-выговоры (макс:5),
+  // M-предупреждения (макс:5), N-дата назначения, P-дата снятия.
   const loadGhetto = async () => {
-    const res = await fetch(`${MAFIA_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const res = await fetch(`${GHETTO_SHEETS_URL}&cacheBust=${Date.now()}`)
     const csv = await res.text()
     const rows = csv.split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
     const c = s => s?.replace(/"/g, '').trim() || ''
-    const isTrue = s => ['TRUE', 'ИСТИНА', '1', 'TRUE'].includes((s || '').toUpperCase())
-    return MAFIA_LEADER_ROWS.map(rowNum => {
+    return GHETTO_LEADER_ROWS.map(rowNum => {
       const row = rows[rowNum - 1] || []
+      const faction = c(row[5]) || `Гетто (стр. ${rowNum})` // F
       return {
         id: rowNum,
-        name: c(row[5]) || `Мафия (стр. ${rowNum})`,               // F
-        leader: c(row[3]) || 'Вакантно',                            // D
-        vk: c(row[7]) || '—',                                        // H
-        biz: c(row[9]) || '—',                                        // J — контроль бизнесов
-        points: c(row[11]) || '—',                                     // L — баллы лидера
-        strict: Number((c(row[14]) || '0/3').split('/')[0]) || 0,     // O
-        oral:   Number((c(row[15]) || '0/3').split('/')[0]) || 0,     // P
-        appointDate: c(row[17]) || '-',                                // R
-        expiryDate:  c(row[19]) || '-',                                // T
-        grp1: isTrue(c(row[21])),                                       // V
-        grp2: isTrue(c(row[22])),                                       // W
+        name: faction,                                              // F — используется как название карточки
+        faction,                                                     // F
+        leader: c(row[3]) || 'Вакантно',                             // D
+        vk: c(row[7]) || '—',                                         // H
+        points: c(row[9]) || '—',                                     // J — баллы лидера
+        strict: Number((c(row[11]) || '0/5').split('/')[0]) || 0,     // L
+        oral:   Number((c(row[12]) || '0/5').split('/')[0]) || 0,     // M
+        appointDate: c(row[13]) || '-',                                // N
+        expiryDate:  c(row[15]) || '-',                                // P
       }
     })
   }
@@ -356,7 +366,7 @@ export default function Organizations({ user }) {
     setRefreshing(true)
     if (orgs.length === 0) setLoading(true)
     try {
-      const parsed = sphereId === 'bo' ? await loadBo() : sphereId === 'mafia' ? await loadMafia() : sphereId === 'bikers' ? await loadBikers() : await loadGov()
+      const parsed = sphereId === 'bo' ? await loadBo() : sphereId === 'mafia' ? await loadMafia() : sphereId === 'bikers' ? await loadBikers() : sphereId === 'ghetto' ? await loadGhetto() : await loadGov()
       setOrgs(parsed)
       setSel(prev => prev ? (parsed.find(o => o.name === prev.name) ?? null) : null)
     } catch (e) { console.error(e) }
@@ -366,7 +376,7 @@ export default function Organizations({ user }) {
   const send = async payload => {
     setBusy(true)
     try {
-      const url = sphereId === 'bo' ? BO_SCRIPT_URL : sphereId === 'mafia' ? MAFIA_SCRIPT_URL : sphereId === 'bikers' ? BIKERS_SCRIPT_URL : GOV_SCRIPT_URL
+      const url = sphereId === 'bo' ? BO_SCRIPT_URL : sphereId === 'mafia' ? MAFIA_SCRIPT_URL : sphereId === 'bikers' ? BIKERS_SCRIPT_URL : sphereId === 'ghetto' ? GHETTO_SCRIPT_URL : GOV_SCRIPT_URL
       await fetch(url, {
         method: 'POST', mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
@@ -388,7 +398,7 @@ export default function Organizations({ user }) {
       rowId: sel.id,
       name:  fNick,
       vk:    fVK,
-      forum: fForum,
+      ...(sphereId !== 'ghetto' ? { forum: fForum } : {}),
       appointDate: fmtDate(fAppoint),
       expiryDate:  fmtDate(fExpiry),
     })
@@ -577,7 +587,9 @@ export default function Organizations({ user }) {
                       ? 'Управление и контроль мафиозных группировок'
                       : sphereId === 'bikers'
                         ? 'Управление и контроль байкерских клубов'
-                        : 'Управление и контроль государственных структур')
+                        : sphereId === 'ghetto'
+                          ? 'Управление и контроль лидеров гетто'
+                          : 'Управление и контроль государственных структур')
                 : `${SPHERES.find(s => s.id === sphereId)?.label} · ${SERVERS.find(s => s.id === serverId)?.label}`}
             </p>
           </div>
@@ -804,10 +816,21 @@ export default function Organizations({ user }) {
                         </div>
                       )}
 
+                      {sphereId === 'ghetto' && !isVacant && (
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
+                            Баллы · {org.points}
+                          </span>
+                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
+                            Фракция · {org.faction}
+                          </span>
+                        </div>
+                      )}
+
                       <div style={{ display: 'flex', gap: '6px' }}>
                         {[
-                          { label: `${sphereId === 'bikers' ? 'В' : 'СВ'} · ${org.strict}/${sphereId === 'bikers' ? 5 : 3}`, active: org.strict > 0, color: '#f87171', border: 'rgba(248,113,113,.25)', bg: 'rgba(248,113,113,.08)' },
-                          { label: `${sphereId === 'bikers' ? 'П' : 'УВ'} · ${org.oral}/${sphereId === 'bikers' ? 5 : 3}`, active: org.oral > 0, color: '#fbbf24', border: 'rgba(251,191,36,.2)', bg: 'rgba(251,191,36,.06)' },
+                          { label: `${sphereId === 'bikers' || sphereId === 'ghetto' ? 'В' : 'СВ'} · ${org.strict}/${sphereId === 'bikers' || sphereId === 'ghetto' ? 5 : 3}`, active: org.strict > 0, color: '#f87171', border: 'rgba(248,113,113,.25)', bg: 'rgba(248,113,113,.08)' },
+                          { label: `${sphereId === 'bikers' || sphereId === 'ghetto' ? 'П' : 'УВ'} · ${org.oral}/${sphereId === 'bikers' || sphereId === 'ghetto' ? 5 : 3}`, active: org.oral > 0, color: '#fbbf24', border: 'rgba(251,191,36,.2)', bg: 'rgba(251,191,36,.06)' },
                         ].map(b => (
                           <span key={b.label} style={{
                             padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800,
@@ -905,6 +928,19 @@ export default function Organizations({ user }) {
                   </div>
                 )}
 
+                {sphereId === 'ghetto' && !vacant && (
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Баллы лидера</div>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.points}</div>
+                    </div>
+                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Фракция</div>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.faction}</div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="org-divider" />
 
                 {vacant ? (
@@ -915,7 +951,7 @@ export default function Organizations({ user }) {
                       {[
                         { val: fNick,  set: setFNick,  ph: 'Ник лидера',       icon: <IconUser/> },
                         { val: fVK,    set: setFVK,    ph: 'VK',               icon: <IconLink/> },
-                        { val: fForum, set: setFForum, ph: 'Форумный аккаунт', icon: <IconLink/> },
+                        ...(sphereId !== 'ghetto' ? [{ val: fForum, set: setFForum, ph: 'Форумный аккаунт', icon: <IconLink/> }] : []),
                       ].map(f => (
                         <div key={f.ph} style={{ position: 'relative' }}>
                           <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,.2)', display: 'flex' }}>{f.icon}</span>
@@ -962,8 +998,8 @@ export default function Organizations({ user }) {
                     <div className="org-section-label">Взыскания</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                       {[
-                        { label: sphereId === 'bikers' ? 'Выговор' : 'Строгий выговор', icon: <IconWarn/>, type: 'CHANGE_STRICT', bg: 'rgba(248,113,113,.06)', bgHover: 'linear-gradient(135deg, #ef4444 0%, #991b1b 100%)', border: 'rgba(248,113,113,.2)', borderHover: 'rgba(248,113,113,.4)', color: '#f87171', glow: 'rgba(239,68,68,.25)' },
-                        { label: sphereId === 'bikers' ? 'Предупреждение' : 'Устный выговор', icon: <IconSpeech/>, type: 'CHANGE_ORAL', bg: 'rgba(251,191,36,.04)', bgHover: 'linear-gradient(135deg, #f59e0b 0%, #92400e 100%)', border: 'rgba(251,191,36,.15)', borderHover: 'rgba(251,191,36,.4)', color: '#fbbf24', glow: 'rgba(245,158,11,.2)' },
+                        { label: sphereId === 'bikers' || sphereId === 'ghetto' ? 'Выговор' : 'Строгий выговор', icon: <IconWarn/>, type: 'CHANGE_STRICT', bg: 'rgba(248,113,113,.06)', bgHover: 'linear-gradient(135deg, #ef4444 0%, #991b1b 100%)', border: 'rgba(248,113,113,.2)', borderHover: 'rgba(248,113,113,.4)', color: '#f87171', glow: 'rgba(239,68,68,.25)' },
+                        { label: sphereId === 'bikers' || sphereId === 'ghetto' ? 'Предупреждение' : 'Устный выговор', icon: <IconSpeech/>, type: 'CHANGE_ORAL', bg: 'rgba(251,191,36,.04)', bgHover: 'linear-gradient(135deg, #f59e0b 0%, #92400e 100%)', border: 'rgba(251,191,36,.15)', borderHover: 'rgba(251,191,36,.4)', color: '#fbbf24', glow: 'rgba(245,158,11,.2)' },
                       ].map(btn => (
                         <button
                           key={btn.type} className="org-btn" onClick={() => openWarnModal(btn)}
@@ -1069,7 +1105,7 @@ export default function Organizations({ user }) {
                 {warnModal.type === 'CHANGE_STRICT' ? <IconWarn /> : <IconSpeech />}
               </div>
               <div>
-                <div style={{ fontSize: '9px', color: warnModal.color, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '2px', fontFamily: 'Onest, sans-serif' }}>{sphereId === 'bikers' ? 'Взыскание' : 'Выговор'}</div>
+                <div style={{ fontSize: '9px', color: warnModal.color, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '2px', fontFamily: 'Onest, sans-serif' }}>{sphereId === 'bikers' || sphereId === 'ghetto' ? 'Взыскание' : 'Выговор'}</div>
                 <div style={{ fontSize: '18px', fontWeight: 800, color: '#f0f4fa', fontFamily: 'Syne, sans-serif' }}>{warnModal.label}</div>
               </div>
             </div>
@@ -1109,7 +1145,7 @@ export default function Organizations({ user }) {
                 onMouseEnter={e => { if (!warnNote.trim()) return; e.currentTarget.style.filter = 'brightness(1.1)' }}
                 onMouseLeave={e => { e.currentTarget.style.filter = 'none' }}
               >
-                {sphereId === 'bikers' ? 'Подтвердить' : 'Выдать выговор'}
+                {sphereId === 'bikers' || sphereId === 'ghetto' ? 'Подтвердить' : 'Выдать выговор'}
               </button>
             </div>
           </div>
