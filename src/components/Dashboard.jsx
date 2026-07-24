@@ -4,6 +4,74 @@ import { useState, useEffect } from 'react'
 const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKkpW841ffumVxopzGxtECxH9-4yp-mbQa_8L4_uMrAKVsl3-yrso54sjYQrbo2Ym1/exec'
 
+// Ссылки на таблицы остальных сфер (Texas) — те же источники, что в Organizations.jsx,
+// нужны здесь только для чтения (подсчёт статистики/лидеров), без записи.
+const BO_SHEETS_URL     = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE89xZb9RxVOSfXbtQ4-fyu-FH9r-5ntI4AdPI6xPqmzRh0jVYd9qITXDCpWCEC0RFptElukEjhvD5/pub?gid=0&single=true&output=csv'
+const MAFIA_SHEETS_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRhlLfLsJs2k5DwBm3Lu7B4EuH3b-5kZNNHMGZHhyfpb00XyuPcOIppSFuAGRQXzNR7fFYsPbM6CPuy/pub?gid=0&single=true&output=csv'
+const BIKERS_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHseJAxV3J2Pyc5-2uvKT97k6Gmf01Oc5uddvZFXlP7FxdbSom1lNMWLsDar0SF66gT5ObWlIzQbaN/pub?gid=0&single=true&output=csv'
+const GHETTO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlRt1hpLQy_7Z7G1PxISAmhgHcc9qS1QX4od1kG4BpM9x1QzPBffKNsA1J3FJwFoXo1rhxyJsGpIHF/pub?gid=0&single=true&output=csv'
+
+const MAFIA_LEADER_ROWS  = [14, 16, 18]
+const BIKERS_LEADER_ROWS = [14, 16, 18]
+const GHETTO_LEADER_ROWS = [13, 15, 17, 19, 21]
+
+// Разбирает CSV-строку в массив строк-массивов ячеек (учитывает запятые внутри кавычек)
+const parseCsv = csv => csv.split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
+const cellClean = s => s?.replace(/"/g, '').trim() || ''
+
+// Загрузка организаций по сферам (только на чтение) — используется для статистики
+// на дешборде. Логика парсинга продублирована из Organizations.jsx: там она
+// работает с записью, здесь достаточно узнать только leader/vacancy по каждой строке.
+const loadOrgsBySphere = {
+  gov: async () => {
+    const res = await fetch(`${SHEETS_URL}&cacheBust=${Date.now()}`)
+    const rows = parseCsv(await res.text())
+    return rows.slice(5, 14).map((row, i) => ({
+      id: i + 6,
+      leader: cellClean(row[2]) || 'Вакантно',
+    }))
+  },
+  business: async () => {
+    const res = await fetch(`${BO_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const rows = parseCsv(await res.text())
+    const parsed = []
+    rows.forEach((row, i) => {
+      if (cellClean(row[2]) !== 'Директор') return
+      parsed.push({ id: i + 1, leader: cellClean(row[4]) || 'Вакантно' })
+    })
+    return parsed
+  },
+  syndicate: async () => {
+    const res = await fetch(`${MAFIA_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const rows = parseCsv(await res.text())
+    return MAFIA_LEADER_ROWS.map(rowNum => {
+      const row = rows[rowNum - 1] || []
+      return { id: rowNum, leader: cellClean(row[3]) || 'Вакантно' }
+    })
+  },
+  bikers: async () => {
+    const res = await fetch(`${BIKERS_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const rows = parseCsv(await res.text())
+    const pair = (row, i1, i2) => cellClean(row[i1]) || cellClean(row[i2])
+    return BIKERS_LEADER_ROWS.map(rowNum => {
+      const row = rows[rowNum - 1] || []
+      return { id: rowNum, leader: pair(row, 3, 4) || 'Вакантно' }
+    })
+  },
+  street: async () => {
+    const res = await fetch(`${GHETTO_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const rows = parseCsv(await res.text())
+    return GHETTO_LEADER_ROWS.map(rowNum => {
+      const row = rows[rowNum - 1] || []
+      return { id: rowNum, leader: cellClean(row[3]) || 'Вакантно' }
+    })
+  },
+}
+
+// Сферы, для которых уже подключены реальные таблицы (см. Organizations.jsx).
+// Остальные (пока нет в READY-списке) продолжают показывать заглушку "в разработке".
+const READY_STAT_SPHERES = ['gov', 'business', 'syndicate', 'bikers', 'street']
+
 // Список доступных серверов
 const SERVERS = ['Texas', 'Florida', 'Nevada', 'Hawaii', 'Indiana']
 
@@ -33,30 +101,47 @@ const FRACTION_STATUS_TEXT = {
   negotiation: 'В данный момент идут переговоры с Главной следящей администрацией за сферой',
 }
 
-// ГС гос / ЗГС гос по серверам — заполняется вручную.
-// Если ГС или ЗГС на сервере отсутствует — ставим null, и в карточке покажется «Отсутствует».
-const GOS_LEADERSHIP_BY_SERVER = {
+// Руководство (ГС/ЗГС) по серверам И сферам — заполняется вручную.
+// Если ГС или ЗГС отсутствует — ставим null, и в карточке покажется «Отсутствует».
+// Раньше здесь были данные только для гос.структур (без разбивки по сферам);
+// теперь ключ верхнего уровня — сервер, второго уровня — id сферы (см. FRACTION_NODES).
+const LEADERSHIP_BY_SERVER_AND_SPHERE = {
   Texas: {
-    gs:  { nickname: 'Robert_Kamiya',  vk: 'vk.com/robertkamiya', forum: 'forum.gta-mobile.ru/members/171464/' },
-    zgs: { nickname: 'Minato_Ramirez', vk: 'vk.com/minatoramirez', forum: 'forum.gta-mobile.ru/vaxi/' },
+    gov: {
+      gs:  { nickname: 'Robert_Kamiya',  vk: 'vk.com/robertkamiya', forum: 'forum.gta-mobile.ru/members/171464/' },
+      zgs: { nickname: 'Minato_Ramirez', vk: 'vk.com/minatoramirez', forum: 'forum.gta-mobile.ru/vaxi/' },
+    },
+    // Руководство ещё не назначено — заполнить ники/вк/форум, когда появятся.
+    business:  { gs: null, zgs: null },
+    syndicate: { gs: null, zgs: null },
+    bikers:    { gs: null, zgs: null },
+    street:    { gs: null, zgs: null },
   },
   Florida: {
-    gs:  { nickname: 'Kimberly Qwenty', vk: 'https://vk.ru/ygol_antihype', forum: 'https://forum.gta-mobile.ru/v_moey_krovi_ledokain/' },
-    zgs: null,
+    gov: {
+      gs:  { nickname: 'Kimberly Qwenty', vk: 'https://vk.ru/ygol_antihype', forum: 'https://forum.gta-mobile.ru/v_moey_krovi_ledokain/' },
+      zgs: null,
+    },
   },
   Nevada: {
-    gs:  { nickname: 'Lamberti_Quinn', vk: 'https://vk.com/hardnes_s', forum: 'https://forum.gta-mobile.ru/hardness/#about' },
-    zgs: { nickname: 'Marcus_Martinez', vk: 'https://vk.com/norm_chei', forum: 'https://forum.gta-mobile.ru/members/84216/#about' },
+    gov: {
+      gs:  { nickname: 'Lamberti_Quinn', vk: 'https://vk.com/hardnes_s', forum: 'https://forum.gta-mobile.ru/hardness/#about' },
+      zgs: { nickname: 'Marcus_Martinez', vk: 'https://vk.com/norm_chei', forum: 'https://forum.gta-mobile.ru/members/84216/#about' },
+    },
   },
   Hawaii: {
-    gs:  null,
-    zgs: null,
-    // Врио ГС — временно исполняет обязанности, показывается отдельной карточкой со статусом «ВРИО»
-    actingGs: { nickname: 'Austin Collins', vk: 'https://vk.com/id852509629', forum: 'https://forum.gta-mobile.ru/legendary134/' },
+    gov: {
+      gs:  null,
+      zgs: null,
+      // Врио ГС — временно исполняет обязанности, показывается отдельной карточкой со статусом «ВРИО»
+      actingGs: { nickname: 'Austin Collins', vk: 'https://vk.com/id852509629', forum: 'https://forum.gta-mobile.ru/legendary134/' },
+    },
   },
   Indiana: {
-    gs:  { nickname: 'Samuel_Vinogradov', vk: 'https://vk.ru/id388929639', forum: 'https://forum.gta-mobile.ru/members/24462/' },
-    zgs: null,
+    gov: {
+      gs:  { nickname: 'Samuel_Vinogradov', vk: 'https://vk.ru/id388929639', forum: 'https://forum.gta-mobile.ru/members/24462/' },
+      zgs: null,
+    },
   },
 }
 
@@ -462,41 +547,72 @@ function AssignLeaderModal({ onClose }) {
 
 // ── Dashboard ─────────────────────────────────────────────────
 export default function Dashboard({ user, onLogout }) {
-  const [stats] = useState({
-    organizations: 12, leaders: 9, vacancies: 3, blacklist: 28
-  })
+  // Статистика по организациям/лидерам/вакансиям теперь считается реально —
+  // суммарно по всем подключённым сферам (gov+business+syndicate+bikers+street).
+  // blacklist пока нет отдельной таблицы, поэтому оставлен как раньше.
+  const [stats, setStats] = useState({ organizations: 0, leaders: 0, vacancies: 0, blacklist: 28 })
+  const [loadingStats, setLoadingStats] = useState(true)
 
   const [activeNode, setActiveNode] = useState('gov')
   const [activeServer, setActiveServer] = useState('Texas') // Выбранный сервер по умолчанию
   const [showAssign, setShowAssign] = useState(false)
   const [now, setNow] = useState(new Date())
 
-  // Логика имитации загрузки руководства
+  // Данные о лидерах выбранной сферы (для блока "Руководство сферы")
+  const [sphereOrgs, setSphereOrgs] = useState([])
   const [loadingLeadership, setLoadingLeadership] = useState(false)
+
+  // Сфера готова, если для неё подключена реальная таблица (см. READY_STAT_SPHERES)
+  // И выбран сервер Texas — остальные серверы пока не имеют подключённых таблиц сфер.
+  const isSphereReady = activeServer === 'Texas' && READY_STAT_SPHERES.includes(activeNode)
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(t)
   }, [])
 
-  // При смене сферы или сервера, если это не ГОС — показываем «долгую» красивую загрузку
+  // Суммарная статистика по всем сферам Texas — считается один раз при монтировании
+  // (данные обновляются нечасто, а дергать 5 таблиц на каждый чих не нужно).
   useEffect(() => {
-    if (activeNode !== 'gov') {
-      setLoadingLeadership(true)
-      const timer = setTimeout(() => {
-        setLoadingLeadership(false)
-      }, 2000) // Имитируем 2 секунды долгой загрузки данных
-      return () => clearTimeout(timer)
+    const loadStats = async () => {
+      setLoadingStats(true)
+      try {
+        const results = await Promise.all(
+          READY_STAT_SPHERES.map(sphere => loadOrgsBySphere[sphere]().catch(() => []))
+        )
+        const all = results.flat()
+        const organizations = all.length
+        const vacancies = all.filter(o => o.leader === 'Вакантно').length
+        const leaders = organizations - vacancies
+        setStats(prev => ({ ...prev, organizations, leaders, vacancies }))
+      } catch (e) { console.error(e) }
+      finally { setLoadingStats(false) }
     }
+    loadStats()
+  }, [])
+
+  // При смене сферы или сервера подгружаем реальных лидеров сферы (если подключена),
+  // иначе просто ничего не грузим — покажется заглушка "в разработке".
+  useEffect(() => {
+    if (activeNode === 'gov') return
+    if (!isSphereReady) { setSphereOrgs([]); return }
+    let cancelled = false
+    setLoadingLeadership(true)
+    loadOrgsBySphere[activeNode]()
+      .then(orgs => { if (!cancelled) setSphereOrgs(orgs) })
+      .catch(e => console.error(e))
+      .finally(() => { if (!cancelled) setLoadingLeadership(false) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeNode, activeServer])
 
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
   const dateStr = now.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' })
 
   const orgGroup = [
-    { title: 'Организаций',      value: stats.organizations, icon: IC.org,   accent: '56,189,248'  },
-    { title: 'Активных лидеров', value: stats.leaders,       icon: IC.crown, accent: '251,146,60'  },
-    { title: 'Вакансий',         value: stats.vacancies,     icon: IC.cross, accent: '251,113,133' },
+    { title: 'Организаций',      value: loadingStats ? '—' : stats.organizations, icon: IC.org,   accent: '56,189,248'  },
+    { title: 'Активных лидеров', value: loadingStats ? '—' : stats.leaders,       icon: IC.crown, accent: '251,146,60'  },
+    { title: 'Вакансий',         value: loadingStats ? '—' : stats.vacancies,     icon: IC.cross, accent: '251,113,133' },
   ]
 
   const disciplineGroup = [
@@ -506,8 +622,10 @@ export default function Dashboard({ user, onLogout }) {
   // Получаем правильно склоненные названия ролей руководства на основе текущей сферы
   const { gs: gsLabel, zgs: zgsLabel } = LEADERSHIP_NAMES[activeNode] || { gs: 'ГС', zgs: 'ЗГС' }
 
-  // Руководство гос.структур для ВЫБРАННОГО сервера (раньше было одно и то же для всех серверов)
-  const currentGosLeadership = GOS_LEADERSHIP_BY_SERVER[activeServer] || { gs: null, zgs: null }
+  // Руководство выбранной сферы для выбранного сервера
+  const currentLeadership = LEADERSHIP_BY_SERVER_AND_SPHERE[activeServer]?.[activeNode] || { gs: null, zgs: null }
+  // Оставляем старое имя для минимальных изменений в JSX ниже (блок ГОС использует его напрямую)
+  const currentGosLeadership = LEADERSHIP_BY_SERVER_AND_SPHERE[activeServer]?.gov || { gs: null, zgs: null }
 
   return (
     <div className="text-white min-h-screen" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
@@ -753,27 +871,65 @@ export default function Dashboard({ user, onLogout }) {
             )}
           </>
         ) : (
-          /* ── OTHER FRACTION NODES — placeholder + LEADERSHIP ── */
+          /* ── OTHER FRACTION NODES ── */
           <>
-            {/* Отрисовка заблокированной статистики */}
-            <div
-              className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] mb-6"
-              style={{ minHeight: 220 }}
-            >
-              <div className="flex flex-col items-center justify-center text-center px-6 py-16">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/5 text-orange-300/80">
-                  {IC.shield}
+            {isSphereReady ? (
+              <>
+                {/* ── СТАТИСТИКА ПО ВЫБРАННОЙ СФЕРЕ ── */}
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">
+                    {FRACTION_NODES.find(n => n.id === activeNode)?.label} ({activeServer})
+                  </span>
+                  <div className="flex-1 h-px bg-white/5" />
                 </div>
-                <h3 className="text-xl font-black text-white mb-2">
-                  {FRACTION_NODES.find(n => n.id === activeNode)?.label} ({activeServer})
-                </h3>
-                <p className="text-sm text-slate-400 max-w-md">
-                  {FRACTION_STATUS_TEXT[FRACTION_STATUS]}
-                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
+                  {[
+                    { title: 'Организаций',      value: loadingLeadership ? '—' : sphereOrgs.length, icon: IC.org,   accent: '56,189,248'  },
+                    { title: 'Активных лидеров', value: loadingLeadership ? '—' : sphereOrgs.filter(o => o.leader !== 'Вакантно').length, icon: IC.crown, accent: '251,146,60'  },
+                    { title: 'Вакансий',         value: loadingLeadership ? '—' : sphereOrgs.filter(o => o.leader === 'Вакантно').length,  icon: IC.cross, accent: '251,113,133' },
+                  ].map(card => (
+                    <div
+                      key={card.title}
+                      className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
+                    >
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${card.accent})` }} />
+                      <div className="flex items-center justify-between pl-5 pr-5 py-5">
+                        <div>
+                          <p className="text-slate-400 text-sm">{card.title}</p>
+                          <h2 className="text-3xl font-black mt-1.5 tabular-nums">{card.value}</h2>
+                        </div>
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: `rgba(${card.accent},.12)`, color: `rgb(${card.accent})` }}
+                        >
+                          {card.icon}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              /* Отрисовка заблокированной статистики для сфер без подключённой таблицы */
+              <div
+                className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] mb-6"
+                style={{ minHeight: 220 }}
+              >
+                <div className="flex flex-col items-center justify-center text-center px-6 py-16">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/5 text-orange-300/80">
+                    {IC.shield}
+                  </div>
+                  <h3 className="text-xl font-black text-white mb-2">
+                    {FRACTION_NODES.find(n => n.id === activeNode)?.label} ({activeServer})
+                  </h3>
+                  <p className="text-sm text-slate-400 max-w-md">
+                    {FRACTION_STATUS_TEXT[FRACTION_STATUS]}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Новая секция руководства для сторонней сферы */}
+            {/* Секция руководства для сферы (реальные данные, если назначены — иначе «Отсутствует») */}
             <div className="flex items-center gap-3 mb-4">
               <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Руководство сферы ({activeServer})</span>
               <div className="flex-1 h-px bg-white/5" />
@@ -781,8 +937,8 @@ export default function Dashboard({ user, onLogout }) {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
               {[
-                { role: gsLabel, accent: '251,146,60' },
-                { role: zgsLabel, accent: '56,189,248' },
+                { role: gsLabel, data: currentLeadership.gs, accent: '251,146,60' },
+                { role: zgsLabel, data: currentLeadership.zgs, accent: '56,189,248' },
               ].map((person, index) => (
                 <div
                   key={index}
@@ -815,7 +971,7 @@ export default function Dashboard({ user, onLogout }) {
                         {person.role}
                       </p>
 
-                      {/* Состояние загрузки / Заглушка */}
+                      {/* Состояние загрузки / реальные данные / «Отсутствует» */}
                       {loadingLeadership ? (
                         <div className="space-y-2 mt-2.5">
                           {/* Плейсхолдер для Ника */}
@@ -826,13 +982,17 @@ export default function Dashboard({ user, onLogout }) {
                             <div className="skeleton-text h-3.5 w-24" />
                           </div>
                         </div>
+                      ) : person.data ? (
+                        <div className="animation-fadeUp" style={{ animation: 'db-fadeUp .4s ease both' }}>
+                          <h3 className="text-lg font-black mt-0.5 truncate">{person.data.nickname}</h3>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
+                            <LeaderContactLink icon={IC.link} value={person.data.vk} />
+                            <LeaderContactLink icon={IC.link} value={person.data.forum} />
+                          </div>
+                        </div>
                       ) : (
                         <div className="animation-fadeUp" style={{ animation: 'db-fadeUp .4s ease both' }}>
-                          <h3 className="text-lg font-black mt-0.5 text-slate-400/90 italic">Данные не найдены</h3>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
-                            <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 opacity-60">{IC.link}</span>нет данных</span>
-                            <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 opacity-60">{IC.link}</span>нет данных</span>
-                          </div>
+                          <h3 className="text-lg font-black mt-0.5 text-slate-400/90 italic">Отсутствует</h3>
                         </div>
                       )}
 
