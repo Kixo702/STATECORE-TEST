@@ -38,7 +38,7 @@ const PAGE_TITLES = {
   activity: 'Активность лидеров',
   leaderAnalytics: 'Аналитика и рейтинг лидеров',
   inactive: 'Неактивы',
-  eventPlanner: 'Планировщик РП',
+  eventPlanner: 'Планирование ГРП',
   users: 'Пользователи',
   cadreAudit: 'Кадровый аудит',
   profile: 'Профиль',
