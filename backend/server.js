@@ -95,11 +95,23 @@ app.get('/api/users', async (_req, res) => {
 
 app.get('/api/users/:id', async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM users WHERE id = $1', [req.params.id])
-    if (!result.rows[0]) return bad(res, 404, 'Пользователь не найден')
-    ok(res, { user: publicUser(result.rows[0]) })
-  } catch (err) { console.error(err); bad(res, 500, 'Ошибка загрузки пользователя') }
-})
+    const { id } = req.params;
+    const result = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+
+    if (result.rows.length === 0) {
+      return bad(res, 404, 'Пользователь не найден');
+    }
+
+    return ok(res, { user: publicUser(result.rows[0]) });
+  } catch (error) {
+    // Если передан невалидный UUID формат
+    if (error.code === '22P02') {
+      return bad(res, 400, 'Некорректный формат ID пользователя');
+    }
+    console.error('Ошибка получения профиля:', error);
+    return bad(res, 500, 'Ошибка сервера');
+  }
+});
 
 app.patch('/api/users/:id', async (req, res) => {
   const { id } = req.params

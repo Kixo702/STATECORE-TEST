@@ -401,19 +401,23 @@ app.get('/api/users', async (req, res) => {
 
 app.get('/api/users/:id', async (req, res) => {
   try {
-    const { id } = req.params
-    const result = await db.query('SELECT * FROM users WHERE id = $1', [id])
+    const { id } = req.params;
+    const result = await db.query('SELECT * FROM users WHERE id = $1', [id]);
 
     if (result.rows.length === 0) {
-      return bad(res, 404, 'Пользователь не найден')
+      return bad(res, 404, 'Пользователь не найден');
     }
 
-    return ok(res, { user: publicUser(result.rows[0]) })
+    return ok(res, { user: publicUser(result.rows[0]) });
   } catch (error) {
-    console.error('Ошибка получения профиля:', error)
-    return bad(res, 500, 'Ошибка сервера')
+    // Если передан невалидный UUID формат
+    if (error.code === '22P02') {
+      return bad(res, 400, 'Некорректный формат ID пользователя');
+    }
+    console.error('Ошибка получения профиля:', error);
+    return bad(res, 500, 'Ошибка сервера');
   }
-})
+});
 
 app.patch('/api/users/:id', authenticateToken, async (req, res) => {
   try {
@@ -426,6 +430,7 @@ app.patch('/api/users/:id', authenticateToken, async (req, res) => {
       banReason, 
       warns, 
       avatar,
+      lastSeen, // <-- 1. ДОБАВЬТЕ ЕГО СЮДА
       twoFactorSecret,
       totp_secret,
       two_factor_secret,
@@ -444,6 +449,12 @@ app.patch('/api/users/:id', authenticateToken, async (req, res) => {
     if (banReason !== undefined) { fields.push(`ban_reason = $${idx++}`); values.push(banReason); }
     if (warns !== undefined) { fields.push(`warns = $${idx++}`); values.push(warns); }
     if (avatar !== undefined) { fields.push(`avatar = $${idx++}`); values.push(avatar); }
+
+    // <-- 2. ДОБАВЬТЕ ОБРАБОТКУ ПОЛЯ В БАЗУ ДАННЫХ
+    if (lastSeen !== undefined) { 
+      fields.push(`last_seen = $${idx++}`); 
+      values.push(lastSeen); 
+    }
 
     // Поддержка 2FA
     const secretVal = twoFactorSecret ?? totp_secret ?? two_factor_secret
