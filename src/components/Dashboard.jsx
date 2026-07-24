@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
+import { getUsers as fetchAllUsers } from '../lib/api'
 
 // ── Constants ────────────────────────────────────────────────
 const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKkpW841ffumVxopzGxtECxH9-4yp-mbQa_8L4_uMrAKVsl3-yrso54sjYQrbo2Ym1/exec'
 
 // Ссылки на таблицы остальных сфер (Texas) — те же источники, что в Organizations.jsx,
 // нужны здесь только для чтения (подсчёт статистики/лидеров), без записи.
@@ -74,6 +74,17 @@ const READY_STAT_SPHERES = ['gov', 'business', 'syndicate', 'bikers', 'street']
 
 // Список доступных серверов
 const SERVERS = ['Texas', 'Florida', 'Nevada', 'Hawaii', 'Indiana']
+
+// Пользователь считается «в сети», если бэкенд фиксировал его активность
+// (см. heartbeat в App.jsx, который периодически шлёт lastActive на сервер)
+// не позднее этого окна. Совпадает по духу с интервалом опроса ниже.
+const ONLINE_WINDOW_MS = 2 * 60 * 1000 // 2 минуты
+
+function isRecentlyActive(lastActive) {
+  if (!lastActive) return false
+  const t = new Date(lastActive).getTime()
+  return Number.isFinite(t) && (Date.now() - t) < ONLINE_WINDOW_MS
+}
 
 // Узлы фракций для фильтра статистики над дешбордом
 const FRACTION_NODES = [
@@ -175,9 +186,6 @@ function LeaderContactLink({ icon, value }) {
   )
 }
 
-const todayISO = () => new Date().toISOString().split('T')[0]
-const addDays  = (iso, n) => { const d = new Date(iso); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0] }
-const fmtDate  = iso => { if (!iso) return ''; const [y,m,day] = iso.split('-'); return `${day}.${m}.${y}` }
 
 // ── Icons ─────────────────────────────────────────────────────
 const IC = {
@@ -193,356 +201,6 @@ const IC = {
   check:   <svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   shield:  <svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   spin:    <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeDasharray="56" strokeDashoffset="14" strokeLinecap="round"/></svg>,
-}
-
-// ── Assign Leader Modal ───────────────────────────────────────
-function AssignLeaderModal({ onClose }) {
-  const [orgs, setOrgs]         = useState([])
-  const [loadingOrgs, setLoadingOrgs] = useState(true)
-  const [selOrg, setSelOrg]     = useState(null)
-
-  const [fNick, setFNick]       = useState('')
-  const [fVK, setFVK]           = useState('')
-  const [fForum, setFForum]     = useState('')
-  const [fAppoint, setFAppoint] = useState(todayISO())
-  const [fExpiry, setFExpiry]   = useState(addDays(todayISO(), 28))
-
-  const [busy, setBusy]         = useState(false)
-  const [done, setDone]         = useState(false)
-  const [visible, setVisible]   = useState(false)
-
-  // animate in
-  useEffect(() => { setTimeout(() => setVisible(true), 10) }, [])
-
-  // load vacant orgs
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch(`${SHEETS_URL}&cacheBust=${Date.now()}`)
-        const csv = await res.text()
-        const rows = csv.split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
-        const parsed = rows.slice(5, 14).map((row, i) => {
-          const c = s => s?.replace(/"/g, '').trim() || ''
-          return { id: i + 6, name: c(row[3]), leader: c(row[2]) || 'Вакантно' }
-        }).filter(o => o.leader === 'Вакантно' && o.name)
-        setOrgs(parsed)
-      } catch (e) { console.error(e) }
-      finally { setLoadingOrgs(false) }
-    }
-    load()
-  }, [])
-
-  // auto-update expiry when appoint or org changes
-  useEffect(() => {
-    setFExpiry(addDays(fAppoint, selOrg?.name === 'GOV' ? 30 : 28))
-  }, [fAppoint, selOrg])
-
-  const handleClose = () => {
-    setVisible(false)
-    setTimeout(onClose, 280)
-  }
-
-  const handleSubmit = async () => {
-    if (!selOrg || !fNick.trim()) return
-    setBusy(true)
-    try {
-      await fetch(SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'SET_LEADER',
-          rowId: selOrg.id,
-          name:  fNick,
-          vk:    fVK,
-          forum: fForum,
-          appointDate: fmtDate(fAppoint),
-          expiryDate:  fmtDate(fExpiry),
-        }),
-      })
-      await new Promise(r => setTimeout(r, 1000))
-      setDone(true)
-      setTimeout(handleClose, 1600)
-    } catch (e) { console.error(e) }
-    finally { setBusy(false) }
-  }
-
-  const canSubmit = selOrg && fNick.trim()
-
-  return (
-    <div
-      onClick={e => e.target === e.currentTarget && handleClose()}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 200,
-        background: visible ? 'rgba(0,0,0,.72)' : 'rgba(0,0,0,0)',
-        backdropFilter: visible ? 'blur(14px)' : 'blur(0px)',
-        transition: 'all .28s ease',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px',
-      }}
-    >
-      <div style={{
-        width: '100%', maxWidth: 520,
-        background: 'linear-gradient(160deg, #141b2e 0%, #0d1120 100%)',
-        border: '1px solid rgba(255,255,255,.09)',
-        borderRadius: 28,
-        boxShadow: '0 40px 100px rgba(0,0,0,.75), 0 0 0 1px rgba(255,140,0,.06), inset 0 1px 0 rgba(255,255,255,.06)',
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'scale(1) translateY(0)' : 'scale(.94) translateY(24px)',
-        transition: 'all .28s cubic-bezier(.34,1.2,.64,1)',
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
-
-        {/* top accent bar */}
-        <div style={{
-          height: 3,
-          background: 'linear-gradient(90deg, #ff8c00, #ff5500, #ff8c00)',
-          backgroundSize: '200% 100%',
-          animation: 'db-shimmer 3s linear infinite',
-        }}/>
-
-        {/* glow orb */}
-        <div style={{
-          position: 'absolute', top: -80, right: -80,
-          width: 260, height: 260,
-          background: 'radial-gradient(circle, rgba(255,140,0,.12) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }}/>
-
-        <div style={{ padding: '28px 32px 32px' }}>
-
-          {/* header */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
-            <div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 7,
-                fontSize: 10, fontWeight: 800, letterSpacing: '2.5px', textTransform: 'uppercase',
-                color: '#ff8c00', marginBottom: 10, opacity: .85,
-              }}>
-                <span style={{ width: 16, height: 16, display: 'flex' }}>{IC.shield}</span>
-                Назначение лидера
-              </div>
-              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#f0f4fc', letterSpacing: '-0.4px' }}>
-                Выберите организацию
-              </h2>
-              <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(255,255,255,.38)', lineHeight: 1.5 }}>
-                Заполните данные нового лидера для вакантной должности
-              </p>
-            </div>
-            <button
-              onClick={handleClose}
-              style={{
-                flexShrink: 0, width: 34, height: 34,
-                background: 'rgba(255,255,255,.06)',
-                border: '1px solid rgba(255,255,255,.1)',
-                borderRadius: 10, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'rgba(255,255,255,.4)',
-                transition: 'all .15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.12)'; e.currentTarget.style.color='#fff' }}
-              onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color='rgba(255,255,255,.4)' }}
-            >
-              <span style={{ width: 16, height: 16, display: 'flex' }}>{IC.x}</span>
-            </button>
-          </div>
-
-          {done ? (
-            /* ── SUCCESS ── */
-            <div style={{ textAlign: 'center', padding: '24px 0 8px', animation: 'db-fadeUp .3s ease both' }}>
-              <div style={{
-                width: 64, height: 64, borderRadius: '50%', margin: '0 auto 18px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 8px 32px rgba(34,197,94,.4)',
-                animation: 'db-success .5s cubic-bezier(.34,1.56,.64,1) both',
-              }}>
-                <span style={{ color: '#fff', width: 22, height: 22, display: 'flex' }}>{IC.check}</span>
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: '#f0f4fc', marginBottom: 6 }}>Лидер назначен!</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.4)' }}>Данные сохранены в таблице</div>
-            </div>
-          ) : (
-            <>
-              {/* ── ORG SELECTOR ── */}
-              <div style={{ marginBottom: 22 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase', color: 'rgba(255,255,255,.35)', marginBottom: 10 }}>
-                  Организация
-                </div>
-                {loadingOrgs ? (
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,.25)', padding: '12px 0', animation: 'db-pulse 1.4s ease infinite' }}>
-                    Загрузка…
-                  </div>
-                ) : orgs.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,.3)', padding: '12px 16px', background: 'rgba(255,255,255,.04)', borderRadius: 12, border: '1px solid rgba(255,255,255,.07)' }}>
-                    Нет вакантных организаций
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {orgs.map(org => {
-                      const active = selOrg?.id === org.id
-                      return (
-                        <button
-                          key={org.id}
-                          onClick={() => setSelOrg(org)}
-                          style={{
-                            padding: '8px 18px',
-                            borderRadius: 12,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'all .18s cubic-bezier(.34,1.4,.64,1)',
-                            background: active
-                              ? 'linear-gradient(135deg, #ff8c00, #e06000)'
-                              : 'rgba(255,255,255,.05)',
-                            border: `1px solid ${active ? 'rgba(255,140,0,.5)' : 'rgba(255,255,255,.1)'}`,
-                            color: active ? '#fff' : 'rgba(255,255,255,.6)',
-                            boxShadow: active ? '0 4px 18px rgba(255,140,0,.3)' : 'none',
-                            transform: active ? 'scale(1.04)' : 'scale(1)',
-                          }}
-                          onMouseEnter={e => { if (!active) { e.currentTarget.style.background='rgba(255,255,255,.09)'; e.currentTarget.style.color='#fff' } }}
-                          onMouseLeave={e => { if (!active) { e.currentTarget.style.background='rgba(255,255,255,.05)'; e.currentTarget.style.color='rgba(255,255,255,.6)' } }}
-                        >
-                          {org.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* ── DIVIDER ── */}
-              <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent)', margin: '4px 0 22px' }}/>
-
-              {/* ── FORM FIELDS ── */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 22 }}>
-
-                {/* text inputs */}
-                {[
-                  { val: fNick,  set: setFNick,  ph: 'Ник лидера',        icon: IC.user, req: true  },
-                  { val: fVK,    set: setFVK,    ph: 'VK (ссылка/ник)',   icon: IC.link, req: false },
-                  { val: fForum, set: setFForum, ph: 'Форумный аккаунт',  icon: IC.link, req: false },
-                ].map(f => (
-                  <div key={f.ph} style={{ position: 'relative' }}>
-                    <span style={{
-                      position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-                      color: 'rgba(255,255,255,.28)', pointerEvents: 'none',
-                      width: 15, height: 15, display: 'flex',
-                    }}>{f.icon}</span>
-                    <input
-                      type="text"
-                      placeholder={f.ph + (f.req ? ' *' : '')}
-                      value={f.val}
-                      onChange={e => f.set(e.target.value)}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        background: 'rgba(255,255,255,.05)',
-                        border: '1px solid rgba(255,255,255,.1)',
-                        borderRadius: 13, padding: '12px 14px 12px 40px',
-                        fontSize: 14, color: '#eef2f8', fontFamily: 'inherit',
-                        outline: 'none', transition: 'border-color .15s, box-shadow .15s, background .15s',
-                      }}
-                      onFocus={e => {
-                        e.currentTarget.style.borderColor = 'rgba(255,140,0,.55)'
-                        e.currentTarget.style.boxShadow  = '0 0 0 3px rgba(255,140,0,.12)'
-                        e.currentTarget.style.background = 'rgba(255,255,255,.07)'
-                      }}
-                      onBlur={e => {
-                        e.currentTarget.style.borderColor = 'rgba(255,255,255,.1)'
-                        e.currentTarget.style.boxShadow  = 'none'
-                        e.currentTarget.style.background = 'rgba(255,255,255,.05)'
-                      }}
-                    />
-                  </div>
-                ))}
-
-                {/* date inputs */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {[
-                    { label: 'Дата назначения', val: fAppoint, set: setFAppoint },
-                    { label: `Снятие (+${selOrg?.name === 'GOV' ? 30 : 28}д)`, val: fExpiry, set: setFExpiry },
-                  ].map(f => (
-                    <div key={f.label}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,.3)', marginBottom: 6, paddingLeft: 2 }}>
-                        {f.label}
-                      </div>
-                      <div style={{ position: 'relative' }}>
-                        <span style={{
-                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                          color: 'rgba(255,255,255,.28)', pointerEvents: 'none',
-                          width: 14, height: 14, display: 'flex',
-                        }}>{IC.cal}</span>
-                        <input
-                          type="date"
-                          value={f.val}
-                          onChange={e => f.set(e.target.value)}
-                          style={{
-                            width: '100%', boxSizing: 'border-box',
-                            background: 'rgba(255,255,255,.05)',
-                            border: '1px solid rgba(255,255,255,.1)',
-                            borderRadius: 12, padding: '11px 12px 11px 36px',
-                            fontSize: 13, color: '#eef2f8', fontFamily: 'inherit',
-                            outline: 'none', colorScheme: 'dark',
-                            transition: 'border-color .15s, box-shadow .15s',
-                          }}
-                          onFocus={e => {
-                            e.currentTarget.style.borderColor = 'rgba(255,140,0,.55)'
-                            e.currentTarget.style.boxShadow  = '0 0 0 3px rgba(255,140,0,.12)'
-                          }}
-                          onBlur={e => {
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,.1)'
-                            e.currentTarget.style.boxShadow  = 'none'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── SUBMIT ── */}
-              <button
-                onClick={handleSubmit}
-                disabled={!canSubmit || busy}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: 10,
-                  padding: '14px 20px', borderRadius: 14, border: 'none',
-                  background: canSubmit && !busy
-                    ? 'linear-gradient(135deg, #ff8c00 0%, #e05a00 100%)'
-                    : 'rgba(255,255,255,.07)',
-                  color: canSubmit && !busy ? '#fff' : 'rgba(255,255,255,.3)',
-                  fontSize: 14, fontWeight: 800, letterSpacing: '0.3px',
-                  cursor: canSubmit && !busy ? 'pointer' : 'default',
-                  boxShadow: canSubmit && !busy ? '0 6px 24px rgba(255,140,0,.3)' : 'none',
-                  transition: 'all .2s ease',
-                }}
-                onMouseEnter={e => { if (canSubmit && !busy) e.currentTarget.style.filter='brightness(1.1)' }}
-                onMouseLeave={e => { e.currentTarget.style.filter='brightness(1)' }}
-              >
-                {busy ? (
-                  <>
-                    <span style={{ animation: 'db-spin .7s linear infinite', width: 17, height: 17, display: 'flex' }}>{IC.spin}</span>
-                    Сохранение…
-                  </>
-                ) : (
-                  <>
-                    <span style={{ width: 17, height: 17, display: 'flex' }}>{IC.crown}</span>
-                    Назначить лидера
-                  </>
-                )}
-              </button>
-
-              {!selOrg && (
-                <p style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,.2)', marginTop: 10 }}>
-                  Сначала выберите организацию
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ── Stat Card ─────────────────────────────────────────────────
@@ -608,7 +266,7 @@ function StatCard({ card, delay = 0 }) {
 }
 
 // ── Dashboard ─────────────────────────────────────────────────
-export default function Dashboard({ user, onLogout }) {
+export default function Dashboard({ user, onLogout, onOpenUserProfile }) {
   // Статистика по организациям/лидерам/вакансиям теперь считается реально —
   // суммарно по всем подключённым сферам (gov+business+syndicate+bikers+street).
   // blacklist пока нет отдельной таблицы, поэтому оставлен как раньше.
@@ -617,8 +275,12 @@ export default function Dashboard({ user, onLogout }) {
 
   const [activeNode, setActiveNode] = useState('gov')
   const [activeServer, setActiveServer] = useState('Texas') // Выбранный сервер по умолчанию
-  const [showAssign, setShowAssign] = useState(false)
   const [now, setNow] = useState(new Date())
+
+  // Пользователи, реально находящиеся сейчас в сети (по данным бэкенда,
+  // см. ONLINE_WINDOW_MS выше) — заменяет прежние заглушки быстрых действий.
+  const [onlineUsers, setOnlineUsers] = useState([])
+  const [loadingOnline, setLoadingOnline] = useState(true)
 
   // Данные о лидерах выбранной сферы (для блока "Руководство сферы")
   const [sphereOrgs, setSphereOrgs] = useState([])
@@ -631,6 +293,30 @@ export default function Dashboard({ user, onLogout }) {
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(t)
+  }, [])
+
+  // Реальный список пользователей онлайн — тянем полный реестр с бэкенда
+  // и фильтруем по свежести lastActive (см. ONLINE_WINDOW_MS). Обновляем
+  // регулярно, чтобы список не «залипал» и отражал, кто реально в сети.
+  useEffect(() => {
+    let cancelled = false
+    const loadOnline = async () => {
+      try {
+        const all = await fetchAllUsers()
+        if (cancelled) return
+        const online = (Array.isArray(all) ? all : [])
+          .filter(u => isRecentlyActive(u.lastActive))
+          .sort((a, b) => new Date(b.lastActive) - new Date(a.lastActive))
+        setOnlineUsers(online)
+      } catch (e) {
+        console.error('Не удалось загрузить пользователей онлайн:', e)
+      } finally {
+        if (!cancelled) setLoadingOnline(false)
+      }
+    }
+    loadOnline()
+    const interval = setInterval(loadOnline, 15000)
+    return () => { cancelled = true; clearInterval(interval) }
   }, [])
 
   // Суммарная статистика по всем сферам Texas — считается один раз при монтировании
@@ -1044,36 +730,68 @@ export default function Dashboard({ user, onLogout }) {
           </>
         )}
 
-        {/* ── QUICK ACTIONS ───────────────────────────────── */}
+        {/* ── ONLINE USERS ─────────────────────────────────── */}
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Быстрые действия ({activeServer})</span>
+          <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Пользователи онлайн</span>
           <div className="flex-1 h-px bg-white/5" />
+          {!loadingOnline && (
+            <span className="flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-400/90">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              {onlineUsers.length}
+            </span>
+          )}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-10">
 
-          {/* ASSIGN LEADER — opens modal */}
-          <button
-            onClick={() => setShowAssign(true)}
-            className="group relative overflow-hidden rounded-xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 hover:scale-[1.01] shadow-lg shadow-orange-500/20"
-          >
-            <div className="text-orange-900 mb-3">{IC.crown}</div>
-            <h3 className="font-black text-xl mb-1">Назначить лидера</h3>
-            <p className="text-white/80 text-sm">Быстрое назначение на должность</p>
-          </button>
-
-          {/* BLACKLIST */}
-          <button className="group relative overflow-hidden rounded-xl p-6 text-left transition-all duration-300 bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent border border-red-500/20 hover:bg-gradient-to-br hover:from-red-500 hover:to-pink-600 hover:text-white hover:scale-[1.01]">
-            <div className="text-red-300 mb-3 transition group-hover:text-white">{IC.cross}</div>
-            <h3 className="font-black text-xl mb-1">Внести в реестр запретов</h3>
-            <p className="text-sm text-slate-300 group-hover:text-white/80">Запреты на вступление в гос.организации</p>
-          </button>
-
-        </div>
+        {loadingOnline ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 mb-10">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="rounded-xl border border-white/[0.08] bg-white/[0.015] p-4 flex items-center gap-3">
+                <div className="skeleton-text w-10 h-10 rounded-full shrink-0" />
+                <div className="flex-1 flex flex-col gap-2">
+                  <div className="skeleton-text h-3 w-20" />
+                  <div className="skeleton-text h-2.5 w-14" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : onlineUsers.length === 0 ? (
+          <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] mb-10">
+            <div className="flex flex-col items-center justify-center text-center px-6 py-12">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-white/5 text-emerald-300/70">
+                {IC.user}
+              </div>
+              <h3 className="text-lg font-black text-white mb-1">Сейчас никого нет в сети</h3>
+              <p className="text-sm text-slate-400 max-w-md">Список обновляется автоматически — пользователи появятся здесь, как только откроют StateCore</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 mb-10">
+            {onlineUsers.map(u => (
+              <button
+                key={u.id}
+                onClick={() => onOpenUserProfile && onOpenUserProfile(u.id)}
+                className="group relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] p-4 flex items-center gap-3 text-left transition-all duration-300 hover:border-emerald-400/30 hover:bg-white/[0.03]"
+              >
+                <div className="relative shrink-0">
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-white/5 text-sm font-black text-orange-300/90 border border-white/10">
+                    {u.avatar ? (
+                      <img src={u.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (u.nickname || u.login || '?')[0]?.toUpperCase()
+                    )}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#0a0e18]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{u.nickname || u.login || 'Без имени'}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{u.roleName || 'Игрок'}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
 
       </div>
-
-      {/* MODAL */}
-      {showAssign && <AssignLeaderModal onClose={() => setShowAssign(false)} />}
     </div>
   )
 }
