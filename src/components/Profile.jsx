@@ -119,7 +119,7 @@ function fileToAvatarDataUrl(file, size = 256) {
   })
 }
 
-// ── SVG ИКОНКИ ──────────────────────────────────────────────────
+// ── SVG ИКОНКИ (в стиле IC из Dashboard.jsx) ────────────────────
 const IconChevron = () => (
   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="9 18 15 12 9 6"/>
@@ -131,7 +131,7 @@ const IconEdit = () => (
   </svg>
 )
 const IconClock = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
   </svg>
 )
@@ -147,37 +147,49 @@ const IconHourglass = () => (
   </svg>
 )
 const IconShield = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
   </svg>
 )
 
-const T = {
-  bg: '#0b0e14',
-  panel: '#11151d',
-  panel2: '#151a24',
-  border: 'rgba(255,255,255,0.07)',
-  borderSoft: 'rgba(255,255,255,0.045)',
-  text: '#e6e9f0',
-  muted: '#8891a1',
-  faint: 'rgba(255,255,255,0.28)',
-  accent: '#5b8def',
-  accentSoft: 'rgba(91,141,239,0.12)',
-  warn: '#d69a3c',
-  warnSoft: 'rgba(214,154,60,0.12)',
-  danger: '#e2635f',
-  success: '#3fb787',
-  successSoft: 'rgba(63,183,135,0.12)',
+// Роль → акцентный цвет (rgb-триплет — как `rgb(${accent})` / `rgba(${accent},.12)` в Dashboard.jsx)
+function getRoleAccent(roleName = '') {
+  if (roleName === 'Главный Разработчик') return '226,99,95'       // danger
+  if (roleName === 'Ютубер') return '226,99,95'
+  if (roleName.startsWith('ГС') || roleName.startsWith('Главный Следящий')) return '251,146,60' // orange
+  if (roleName.startsWith('ЗГС') || roleName.startsWith('Заместитель Главного Следящего')) return '251,146,60'
+  if (roleName.startsWith('Следящий')) return '139,147,240'        // indigo
+  if (roleName.startsWith('Лидер')) return '63,183,135'            // success
+  return '91,141,239'                                               // default blue
 }
 
-function getRoleColor(roleName = '') {
-  if (roleName === 'Главный Разработчик') return T.danger
-  if (roleName === 'Ютубер') return '#ff0033'
-  if (roleName.startsWith('ГС') || roleName.startsWith('Главный Следящий')) return T.warn
-  if (roleName.startsWith('ЗГС') || roleName.startsWith('Заместитель Главного Следящего')) return T.warn
-  if (roleName.startsWith('Следящий')) return '#8b93f0'
-  if (roleName.startsWith('Лидер')) return T.success
-  return T.accent
+// Пилюля-статус в едином стиле дешборда
+function StatusPill({ children, accent, muted }) {
+  if (muted) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/[0.04] text-white/35 border border-white/[0.08]">
+        {children}
+      </span>
+    )
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full"
+      style={{ background: `rgba(${accent},.12)`, color: `rgb(${accent})`, border: `1px solid rgba(${accent},.35)` }}
+    >
+      {children}
+    </span>
+  )
+}
+
+// Строка «лейбл — значение» внутри карточки реквизитов
+function InfoRow({ label, children, last }) {
+  return (
+    <div className={`flex items-center justify-between gap-3 py-3.5 ${last ? '' : 'border-b border-white/[0.05]'}`}>
+      <span className="text-[12px] font-semibold text-white/45">{label}</span>
+      <span className="text-[13.5px] font-semibold text-right">{children}</span>
+    </div>
+  )
 }
 
 export default function Profile({ user, onUpdate }) {
@@ -463,261 +475,214 @@ export default function Profile({ user, onUpdate }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const roleColor = getRoleColor(data.role)
+  const accent = getRoleAccent(data.role)
   const otpAuthUrl = `otpauth://totp/StateCore:${encodeURIComponent(data.login)}?secret=${tempSecret}&issuer=StateCore`
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: T.bg,
-      color: T.text,
-      fontFamily: "'Inter', 'Segoe UI', sans-serif",
-      padding: '40px 48px',
-    }}>
+    <div className="text-white min-h-screen" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-        @keyframes prof-fade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes prof-spin { to{transform:rotate(360deg)} }
-
-        .prof-panel {
-          background: ${T.panel};
-          border: 1px solid ${T.border};
-          border-radius: 14px; padding: 28px;
-          animation: prof-fade 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        .prof-row {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 4px; border-bottom: 1px solid ${T.borderSoft};
-        }
-        .prof-row:last-child { border-bottom: none; }
-        .prof-label {
-          font-size: 12px; color: ${T.muted}; font-weight: 600;
-        }
-        .prof-value { font-size: 13.5px; font-weight: 600; color: ${T.text}; }
-        .prof-input-edit {
-          background: rgba(255,255,255,.04); border: 1px solid ${T.accent}55;
-          color: #fff; padding: 9px 12px; border-radius: 8px; font-size: 14px;
-          width: 100%; outline: none; font-family: inherit; font-weight: 600;
-          box-sizing: border-box;
-        }
-        .prof-input-edit:focus { border-color: ${T.accent}; box-shadow: 0 0 0 3px ${T.accentSoft}; }
-        .prof-link {
-          color: ${T.accent}; text-decoration: none; font-size: 13.5px; font-weight: 600;
-        }
-        .prof-link:hover { text-decoration: underline; }
+        @keyframes db-fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes db-spin    { to{transform:rotate(360deg)} }
         .log-scroller::-webkit-scrollbar { width: 4px; }
-        .log-scroller::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
-        .prof-btn {
-          padding: 8px 16px; border-radius: 8px; font-size: 12.5px; font-weight: 700;
-          cursor: pointer; border: none; font-family: inherit; transition: opacity .15s, background .15s;
-        }
-        .prof-btn:disabled { opacity: .5; cursor: default; }
-        .prof-btn-ghost {
-          padding: 8px 16px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
-          cursor: pointer; border: 1px solid ${T.border}; background: rgba(255,255,255,.02); color: ${T.muted};
-          font-family: inherit;
-        }
-        .avatar-wrap { position: relative; width: 84px; height: 84px; flex-shrink: 0; }
-        .avatar-circle {
-          width: 84px; height: 84px; border-radius: 12px; overflow: hidden;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 30px; font-weight: 800; color: var(--rc);
-          background: linear-gradient(160deg, var(--rc-soft) 0%, rgba(255,255,255,0.02) 100%);
-          border: 1px solid var(--rc-border);
-        }
-        .avatar-circle img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .avatar-overlay {
-          position: absolute; inset: 0; border-radius: 12px;
-          background: rgba(6,9,14,0.72);
-          display: flex; align-items: center; justify-content: center;
-          opacity: 0; transition: opacity .18s; cursor: pointer; color: #fff;
-        }
-        .avatar-wrap:hover .avatar-overlay { opacity: 1; }
-        .avatar-overlay.uploading { opacity: 1; }
-        .badge-pending {
-          display: inline-flex; align-items: center; gap: 5px;
-          font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
-          background: ${T.warnSoft}; color: ${T.warn}; border: 1px solid ${T.warn}40;
-        }
-        .role-badge {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;
-          background: var(--rc-soft); color: var(--rc); border: 1px solid var(--rc-border);
-        }
+        .log-scroller::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
       `}</style>
 
-      <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+      <div className="max-w-[1080px] mx-auto px-4 sm:px-6 md:px-10 py-8 sm:py-10">
 
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: T.faint, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 600 }}>
-            <span>Личный кабинет</span>
-            <span style={{ opacity: .5 }}><IconChevron /></span>
-            <span style={{ color: 'rgba(255,255,255,.45)' }}>Профиль</span>
-          </div>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 800, letterSpacing: '-0.5px', color: '#fff' }}>
-            Профиль
-          </h1>
-          <div style={{ fontSize: '13px', color: T.muted, marginTop: '4px' }}>
-            Личные данные, аватар и настройки аккаунта
-          </div>
+        {/* ── BREADCRUMB / HEADER ───────────────────────────── */}
+        <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[1.5px] uppercase text-white/35 mb-5">
+          <span>Личный кабинет</span>
+          <span className="opacity-50"><IconChevron /></span>
+          <span className="text-white/60">Профиль</span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
+        <div className="mb-8">
+          <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Личный кабинет</div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">Профиль</h1>
+          <p className="text-slate-400 max-w-lg">Личные данные, аватар и настройки аккаунта</p>
+        </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
 
-            <div className="prof-panel" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div
-                className="avatar-wrap"
-                style={{
-                  '--rc': roleColor,
-                  '--rc-soft': `${roleColor}1a`,
-                  '--rc-border': `${roleColor}40`,
-                }}
-              >
-                <div className="avatar-circle">
-                  {avatarUrl ? <img src={avatarUrl} alt="avatar" /> : data.nickname[0]?.toUpperCase()}
-                </div>
-                <div
-                  className={`avatar-overlay${avatarUploading ? ' uploading' : ''}`}
-                  onClick={avatarUploading ? undefined : handleAvatarPick}
-                  title="Изменить аватар"
-                >
-                  {avatarUploading ? (
-                    <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,.25)', borderTopColor: '#fff', borderRadius: '50%', animation: 'prof-spin .7s linear infinite' }} />
-                  ) : (
-                    <IconCamera />
-                  )}
-                </div>
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} />
-              </div>
+          <div className="flex flex-col gap-5">
 
-              <div style={{ flexGrow: 1, minWidth: 0 }}>
-                {editingNick ? (
-                  <div style={{ maxWidth: '320px' }}>
-                    <input
-                      className="prof-input-edit"
-                      value={nickValue}
-                      onChange={e => { setNickValue(e.target.value); setNickError('') }}
-                      onKeyDown={e => { if (e.key === 'Enter') handleSaveNick(); if (e.key === 'Escape') { setEditingNick(false); setNickValue(data.nickname); setNickError('') } }}
-                      autoFocus
-                      maxLength={24}
-                    />
-                    {nickError && <div style={{ color: T.danger, fontSize: '11.5px', marginTop: '6px' }}>{nickError}</div>}
-                    <div style={{ fontSize: '11px', color: T.muted, marginTop: '7px', lineHeight: 1.5 }}>
-                      Никнейм не изменится сразу — заявка уйдёт на рассмотрение модераторам.
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                      <button className="prof-btn" onClick={handleSaveNick} disabled={nickSaving} style={{ background: T.accent, color: '#0a0e16' }}>
-                        {nickSaving ? 'Отправка…' : 'Отправить заявку'}
-                      </button>
-                      <button className="prof-btn-ghost" onClick={() => { setEditingNick(false); setNickValue(data.nickname); setNickError('') }}>
-                        Отмена
-                      </button>
-                    </div>
+            {/* ── АВАТАР / НИКНЕЙМ / РОЛЬ ─────────────────── */}
+            <div
+              className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015]"
+              style={{ animation: 'db-fadeUp .35s ease both' }}
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${accent})` }} />
+              <div className="flex items-center gap-5 pl-6 pr-6 py-6 flex-wrap">
+
+                <div className="group/avatar relative w-20 h-20 shrink-0">
+                  <div
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden font-black text-2xl"
+                    style={{ background: `rgba(${accent},.12)`, color: `rgb(${accent})`, border: `1px solid rgba(${accent},.35)` }}
+                  >
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      data.nickname[0]?.toUpperCase()
+                    )}
                   </div>
-                ) : (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.3px', color: '#fff' }}>{data.nickname}</h2>
-                      {!pendingReq && (
-                        <button onClick={() => setEditingNick(true)} style={{ background: 'none', border: 'none', color: T.faint, cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex' }} title="Изменить никнейм">
-                          <IconEdit />
+                  <div
+                    className={`absolute inset-0 rounded-2xl flex items-center justify-center cursor-pointer text-white transition-opacity duration-150 ${avatarUploading ? 'opacity-100' : 'opacity-0 group-hover/avatar:opacity-100'}`}
+                    style={{ background: 'rgba(6,9,14,0.72)' }}
+                    onClick={avatarUploading ? undefined : handleAvatarPick}
+                    title="Изменить аватар"
+                  >
+                    {avatarUploading ? (
+                      <div className="w-4.5 h-4.5" style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,.25)', borderTopColor: '#fff', borderRadius: '50%', animation: 'db-spin .7s linear infinite' }} />
+                    ) : (
+                      <IconCamera />
+                    )}
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  {editingNick ? (
+                    <div className="max-w-[320px]">
+                      <input
+                        value={nickValue}
+                        onChange={e => { setNickValue(e.target.value); setNickError('') }}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveNick(); if (e.key === 'Escape') { setEditingNick(false); setNickValue(data.nickname); setNickError('') } }}
+                        autoFocus
+                        maxLength={24}
+                        className="w-full bg-white/5 text-white border border-orange-500/40 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 px-3.5 py-2.5 rounded-lg text-sm font-semibold outline-none transition-all"
+                      />
+                      {nickError && <div className="text-red-400 text-[11.5px] mt-1.5">{nickError}</div>}
+                      <div className="text-[11px] text-white/40 mt-1.5 leading-relaxed">
+                        Никнейм не изменится сразу — заявка уйдёт на рассмотрение модераторам.
+                      </div>
+                      <div className="flex gap-2 mt-2.5">
+                        <button
+                          onClick={handleSaveNick}
+                          disabled={nickSaving}
+                          className="px-4 py-2 rounded-lg text-[12.5px] font-bold bg-orange-500 text-white hover:bg-orange-400 disabled:opacity-50 disabled:cursor-default transition-all duration-150"
+                        >
+                          {nickSaving ? 'Отправка…' : 'Отправить заявку'}
                         </button>
-                      )}
-                      {pendingReq && (
-                        <span className="badge-pending"><IconHourglass /> На рассмотрении: «{pendingReq.requestedNickname}»</span>
-                      )}
-                    </div>
-                    
-                    <div style={{ marginTop: '8px' }}>
-                      <div 
-                        className="role-badge" 
-                        style={{
-                          '--rc': roleColor,
-                          '--rc-soft': `${roleColor}18`,
-                          '--rc-border': `${roleColor}40`,
-                        }}
-                      >
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: roleColor }} />
-                        {data.role}
+                        <button
+                          onClick={() => { setEditingNick(false); setNickValue(data.nickname); setNickError('') }}
+                          className="px-4 py-2 rounded-lg text-[12.5px] font-bold bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-150"
+                        >
+                          Отмена
+                        </button>
                       </div>
                     </div>
-                  </div>
-                )}
-                {avatarError && <div style={{ color: T.danger, fontSize: '11.5px', marginTop: '8px' }}>{avatarError}</div>}
+                  ) : (
+                    <div>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h2 className="text-xl font-black tracking-tight">{data.nickname}</h2>
+                        {!pendingReq && (
+                          <button
+                            onClick={() => setEditingNick(true)}
+                            className="text-white/30 hover:text-white p-1 rounded-md flex transition-colors"
+                            title="Изменить никнейм"
+                          >
+                            <IconEdit />
+                          </button>
+                        )}
+                        {pendingReq && (
+                          <StatusPill accent="251,146,60">
+                            <IconHourglass /> На рассмотрении: «{pendingReq.requestedNickname}»
+                          </StatusPill>
+                        )}
+                      </div>
+
+                      <div className="mt-2.5">
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-bold"
+                          style={{ background: `rgba(${accent},.1)`, color: `rgb(${accent})`, border: `1px solid rgba(${accent},.3)` }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: `rgb(${accent})` }} />
+                          {data.role}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {avatarError && <div className="text-red-400 text-[11.5px] mt-2">{avatarError}</div>}
+                </div>
               </div>
             </div>
 
-            <div className="prof-panel">
-              <div style={{ fontSize: '11px', fontWeight: 700, color: T.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+            {/* ── РЕКВИЗИТЫ АККАУНТА ─────────────────────── */}
+            <div
+              className="rounded-xl border border-white/[0.08] bg-white/[0.015] px-6 py-5"
+              style={{ animation: 'db-fadeUp .35s ease .05s both' }}
+            >
+              <div className="text-[11px] font-extrabold tracking-[2px] uppercase text-white/35 mb-1">
                 Реквизиты аккаунта
               </div>
-              <div className="prof-row">
-                <span className="prof-label">Идентификатор (UID)</span>
-                <span className="prof-value" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'monospace', color: T.accent }}>
+
+              <InfoRow label="Идентификатор (UID)">
+                <span className="inline-flex items-center gap-2.5 font-mono" style={{ color: `rgb(${accent})` }}>
                   {playerUid}
-                  <button onClick={handleCopy} style={{ background: 'none', border: 'none', color: T.faint, cursor: 'pointer', fontSize: '11px', fontWeight: 600, padding: 0, fontFamily: 'Inter' }}>
+                  <button onClick={handleCopy} className="text-white/30 hover:text-white/60 text-[11px] font-bold transition-colors">
                     {copied ? 'Скопировано' : 'Копировать'}
                   </button>
                 </span>
-              </div>
-              <div className="prof-row">
-                <span className="prof-label">Логин авторизации</span>
-                <span className="prof-value">{data.login}</span>
-              </div>
-              <div className="prof-row">
-                <span className="prof-label">Дата регистрации</span>
-                <span className="prof-value" style={{ color: 'rgba(255,255,255,.7)' }}>{fmtDate(data.registeredAt)}</span>
-              </div>
-              <div className="prof-row">
-                <span className="prof-label">Профиль ВКонтакте</span>
+              </InfoRow>
+              <InfoRow label="Логин авторизации">{data.login}</InfoRow>
+              <InfoRow label="Дата регистрации">
+                <span className="text-slate-300">{fmtDate(data.registeredAt)}</span>
+              </InfoRow>
+              <InfoRow label="Профиль ВКонтакте">
                 {data.vk && data.vk !== '—' ? (
-                  <a href={data.vk} target="_blank" rel="noopener noreferrer" className="prof-link">{data.vk.replace('https://vk.com/', '@')}</a>
+                  <a
+                    href={data.vk}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-300/90 hover:text-orange-300 underline decoration-dotted underline-offset-2 transition-colors"
+                  >
+                    {data.vk.replace('https://vk.com/', '@')}
+                  </a>
                 ) : (
-                  <span style={{ fontSize: '13px', color: T.faint }}>Не указан</span>
+                  <span className="text-white/30 font-medium">Не указан</span>
                 )}
-              </div>
-              <div className="prof-row">
-                <span className="prof-label">Аккаунт форума</span>
+              </InfoRow>
+              <InfoRow label="Аккаунт форума" last>
                 {data.forum && data.forum !== '—' ? (
-                  <a href={data.forum} target="_blank" rel="noopener noreferrer" className="prof-link">Перейти в профиль</a>
+                  <a
+                    href={data.forum}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-300/90 hover:text-orange-300 underline decoration-dotted underline-offset-2 transition-colors"
+                  >
+                    Перейти в профиль
+                  </a>
                 ) : (
-                  <span style={{ fontSize: '13px', color: T.faint }}>Не указан</span>
+                  <span className="text-white/30 font-medium">Не указан</span>
                 )}
-              </div>
+              </InfoRow>
 
-              <div className="prof-row" style={{ marginTop: '8px', paddingTop: '16px', borderTop: `1px dashed ${T.border}` }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span className="prof-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: twoFactorEnabled ? T.success : T.muted }}><IconShield /></span>
+              <div className="flex items-center justify-between gap-3 pt-4 mt-1 border-t border-dashed border-white/[0.08]">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[12px] font-semibold text-white/45 inline-flex items-center gap-1.5">
+                    <span style={{ color: twoFactorEnabled ? 'rgb(63,183,135)' : 'rgba(255,255,255,.35)' }}><IconShield /></span>
                     Google Authenticator (2FA)
                   </span>
-                  <span style={{ fontSize: '11px', color: T.muted }}>
+                  <span className="text-[11px] text-white/35">
                     {twoFactorEnabled ? 'Защита аккаунта активна' : 'Дополнительная защита при входе'}
                   </span>
                 </div>
 
                 <div>
                   {twoFactorEnabled ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: T.success, background: T.successSoft, padding: '3px 8px', borderRadius: '6px', border: `1px solid ${T.success}30` }}>
-                        Подключено
-                      </span>
+                    <div className="flex items-center gap-2.5">
+                      <StatusPill accent="63,183,135">Подключено</StatusPill>
                       <button
-                        className="prof-btn-ghost"
                         onClick={() => setDisable2FaModal(true)}
-                        style={{ color: T.danger, borderColor: `${T.danger}40`, padding: '5px 10px', fontSize: '11.5px' }}
+                        className="px-2.5 py-1.5 rounded-lg text-[11.5px] font-bold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all duration-150"
                       >
                         Отключить
                       </button>
                     </div>
                   ) : (
                     <button
-                      className="prof-btn"
                       onClick={handleStart2FA}
-                      style={{ background: T.accentSoft, color: T.accent, border: `1px solid ${T.accent}40`, padding: '6px 12px', fontSize: '12px' }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500/12 text-orange-300 border border-orange-500/30 hover:bg-orange-500/20 transition-all duration-150"
                     >
                       Подключить
                     </button>
@@ -728,41 +693,47 @@ export default function Profile({ user, onUpdate }) {
 
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="flex flex-col gap-5">
 
             {pendingReq && (
-              <div className="prof-panel" style={{ padding: '18px 20px', borderColor: `${T.warn}35` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <span style={{ color: T.warn, display: 'flex' }}><IconHourglass /></span>
-                  <span style={{ fontSize: '12.5px', fontWeight: 700, color: T.warn }}>Заявка на рассмотрении</span>
+              <div
+                className="rounded-xl border px-5 py-4.5 py-4"
+                style={{ background: 'rgba(255,255,255,.015)', borderColor: 'rgba(251,146,60,.3)' }}
+              >
+                <div className="flex items-center gap-2 mb-2" style={{ color: 'rgb(251,146,60)' }}>
+                  <IconHourglass />
+                  <span className="text-[12.5px] font-bold">Заявка на рассмотрении</span>
                 </div>
-                <div style={{ fontSize: '12.5px', color: 'rgba(255,255,255,.6)', lineHeight: 1.5 }}>
+                <div className="text-[12.5px] text-white/60 leading-relaxed">
                   Запрос на смену никнейма «{pendingReq.currentNickname}» → «{pendingReq.requestedNickname}» передан модераторам и ожидает решения.
                 </div>
               </div>
             )}
 
-            <div className="prof-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${T.borderSoft}`, paddingBottom: '12px' }}>
-                <span style={{ color: T.muted, display: 'flex' }}><IconClock /></span>
-                <span style={{ fontSize: '12.5px', fontWeight: 700, color: T.muted }}>Лог сессии</span>
+            <div
+              className="rounded-xl border border-white/[0.08] bg-white/[0.015] px-6 py-5 flex flex-col gap-3.5"
+              style={{ animation: 'db-fadeUp .35s ease .1s both' }}
+            >
+              <div className="flex items-center gap-2 border-b border-white/[0.05] pb-3">
+                <span className="text-white/40"><IconClock /></span>
+                <span className="text-[12px] font-bold text-white/50">Лог сессии</span>
                 {logs.length > 0 && (
-                  <span style={{ marginLeft: 'auto', fontSize: '10px', background: T.accentSoft, color: T.accent, border: `1px solid ${T.accent}30`, borderRadius: '6px', padding: '1px 6px', fontWeight: 700 }}>
+                  <span className="ml-auto text-[10px] font-bold rounded-md px-1.5 py-0.5 bg-orange-500/12 text-orange-300 border border-orange-500/30">
                     {logs.length}
                   </span>
                 )}
               </div>
 
-              <div className="log-scroller" style={{ maxHeight: '340px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="log-scroller flex flex-col gap-2.5" style={{ maxHeight: 340, overflowY: 'auto' }}>
                 {logs.length === 0 ? (
-                  <div style={{ padding: '32px 0', textAlign: 'center', color: T.faint, fontSize: '12px' }}>
+                  <div className="py-8 text-center text-white/25 text-xs">
                     Действия не зафиксированы
                   </div>
                 ) : (
                   logs.map((log, i) => (
-                    <div key={i} style={{ paddingBottom: '10px', borderBottom: `1px solid ${T.borderSoft}` }}>
-                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,.75)', fontWeight: 500, lineHeight: 1.4 }}>{log.text}</div>
-                      <div style={{ fontSize: '10px', color: T.faint, marginTop: '2px', fontWeight: 600 }}>
+                    <div key={i} className="pb-2.5 border-b border-white/[0.045] last:border-0">
+                      <div className="text-xs text-white/70 font-medium leading-relaxed">{log.text}</div>
+                      <div className="text-[10px] text-white/30 mt-0.5 font-semibold">
                         {new Date(log.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
@@ -775,59 +746,61 @@ export default function Profile({ user, onUpdate }) {
         </div>
 
         {show2FaModal && (
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.82)', backdropFilter: 'blur(6px)' }} onClick={() => setShow2FaModal(false)} />
-            <div style={{ background: T.panel2, border: `1px solid ${T.border}`, borderRadius: '16px', padding: '28px', width: '420px', zIndex: 1210, animation: 'prof-fade 0.25s ease-out' }} onClick={e => e.stopPropagation()}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: T.accent, fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+          <div className="fixed inset-0 flex items-center justify-center z-[1200]">
+            <div className="absolute inset-0" style={{ background: 'rgba(4,6,11,0.82)', backdropFilter: 'blur(6px)' }} onClick={() => setShow2FaModal(false)} />
+            <div
+              className="relative z-[1210] w-[420px] max-w-[90vw] rounded-2xl border border-white/10 p-7"
+              style={{ background: '#0d1120', animation: 'db-fadeUp .25s ease-out' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 text-orange-400 text-[11px] font-bold uppercase tracking-[1px] mb-1.5">
                 <IconShield />
                 <span>Защита аккаунта</span>
               </div>
-              <div style={{ fontSize: '18px', fontWeight: 800, marginBottom: '6px', color: '#fff' }}>Привязка Google Authenticator</div>
-              <div style={{ fontSize: '12.5px', color: T.muted, marginBottom: '20px', lineHeight: 1.5 }}>
+              <div className="text-lg font-black mb-1.5">Привязка Google Authenticator</div>
+              <div className="text-[12.5px] text-slate-400 mb-5 leading-relaxed">
                 Отсканируйте QR-код в приложении Google Authenticator на телефоне и введите сгенерированный 6-значный код.
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', display: 'inline-block' }}>
+              <div className="flex justify-center mb-5">
+                <div className="bg-white p-3 rounded-xl inline-block">
                   <QRCodeSVG value={otpAuthUrl} size={160} />
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${T.borderSoft}`, borderRadius: '8px', padding: '10px', marginBottom: '20px', textAlign: 'center' }}>
-                <div style={{ fontSize: '10.5px', color: T.faint, textTransform: 'uppercase', marginBottom: '4px', fontWeight: 600 }}>Ключ для ручного ввода</div>
-                <div style={{ fontFamily: 'monospace', fontSize: '14px', letterSpacing: '2px', color: T.accent, fontWeight: 700, userSelect: 'all' }}>
+              <div className="rounded-lg border border-white/[0.045] px-2.5 py-2.5 mb-5 text-center" style={{ background: 'rgba(0,0,0,0.25)' }}>
+                <div className="text-[10.5px] text-white/30 uppercase mb-1 font-semibold">Ключ для ручного ввода</div>
+                <div className="font-mono text-sm tracking-[2px] font-bold text-orange-300 select-all">
                   {tempSecret}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: T.text, marginBottom: '8px' }}>Проверочный код:</div>
+              <div className="mb-5">
+                <div className="text-xs font-semibold text-slate-200 mb-2">Проверочный код:</div>
                 <input
                   type="text"
                   maxLength={6}
                   placeholder="000 000"
                   value={totpInput}
                   onChange={e => { setTotpInput(e.target.value.replace(/\D/g, '')); setTotpError('') }}
-                  className="prof-input-edit"
-                  style={{ textAlign: 'center', letterSpacing: '6px', fontSize: '20px', fontWeight: 800, height: '48px' }}
+                  className="w-full h-12 text-center bg-white/5 text-white border border-orange-500/40 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-lg outline-none transition-all"
+                  style={{ letterSpacing: '6px', fontSize: 20, fontWeight: 800 }}
                   autoFocus
                 />
-                {totpError && <div style={{ color: T.danger, fontSize: '11.5px', marginTop: '6px', textAlign: 'center' }}>{totpError}</div>}
+                {totpError && <div className="text-red-400 text-[11.5px] mt-1.5 text-center">{totpError}</div>}
               </div>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div className="flex gap-2.5">
                 <button
-                  className="prof-btn-ghost"
                   onClick={() => setShow2FaModal(false)}
-                  style={{ flex: 1, padding: '10px' }}
+                  className="flex-1 py-2.5 rounded-lg text-[12.5px] font-bold bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-150"
                 >
                   Отмена
                 </button>
                 <button
-                  className="prof-btn"
                   onClick={handleVerifyAndEnable2FA}
                   disabled={verifying2Fa || totpInput.length !== 6}
-                  style={{ flex: 1.4, padding: '10px', background: T.accent, color: '#0a0e16' }}
+                  className="flex-[1.4] py-2.5 rounded-lg text-[12.5px] font-bold bg-orange-500 text-white hover:bg-orange-400 disabled:opacity-50 disabled:cursor-default transition-all duration-150"
                 >
                   {verifying2Fa ? 'Проверка...' : 'Подтвердить'}
                 </button>
@@ -837,19 +810,29 @@ export default function Profile({ user, onUpdate }) {
         )}
 
         {disable2FaModal && (
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.8)', backdropFilter: 'blur(6px)' }} onClick={() => setDisable2FaModal(false)} />
-            <div style={{ background: T.panel2, border: `1px solid ${T.border}`, borderRadius: '14px', padding: '24px', width: '380px', zIndex: 1210 }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: T.danger, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Отключение защиты</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '10px' }}>Отключить Google Authenticator?</div>
-              <div style={{ fontSize: '12.5px', color: T.muted, marginBottom: '20px', lineHeight: 1.5 }}>
+          <div className="fixed inset-0 flex items-center justify-center z-[1200]">
+            <div className="absolute inset-0" style={{ background: 'rgba(4,6,11,0.8)', backdropFilter: 'blur(6px)' }} onClick={() => setDisable2FaModal(false)} />
+            <div
+              className="relative z-[1210] w-[380px] max-w-[90vw] rounded-2xl border border-white/10 p-6"
+              style={{ background: '#0d1120' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="text-[11px] font-bold text-red-400 uppercase tracking-[1px] mb-1.5">Отключение защиты</div>
+              <div className="text-base font-black mb-2.5">Отключить Google Authenticator?</div>
+              <div className="text-[12.5px] text-slate-400 mb-5 leading-relaxed">
                 Безопасность вашего аккаунта понизится. При следующем входе вход не будет требовать 6-значный код.
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="prof-btn-ghost" onClick={() => setDisable2FaModal(false)} style={{ flex: 1, padding: '10px' }}>
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => setDisable2FaModal(false)}
+                  className="flex-1 py-2.5 rounded-lg text-[12.5px] font-bold bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-150"
+                >
                   Отмена
                 </button>
-                <button className="prof-btn" onClick={handleConfirmDisable2FA} style={{ flex: 1, padding: '10px', background: T.danger, color: '#fff' }}>
+                <button
+                  onClick={handleConfirmDisable2FA}
+                  className="flex-1 py-2.5 rounded-lg text-[12.5px] font-bold bg-red-500 text-white hover:bg-red-400 transition-all duration-150"
+                >
                   Да, отключить
                 </button>
               </div>
@@ -858,14 +841,22 @@ export default function Profile({ user, onUpdate }) {
         )}
 
         {showAddSharedModal && (
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,6,11,0.8)', backdropFilter: 'blur(6px)' }} onClick={() => setShowAddSharedModal(false)} />
-            <div style={{ background: T.panel2, border: `1px solid ${T.border}`, borderRadius: '14px', padding: '24px', width: '400px', zIndex: 1210 }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: T.accent, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Синхронизация</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, marginBottom: '10px' }}>Внести вас в реестр пользователей?</div>
-              <div style={{ fontSize: '13px', color: T.muted, marginBottom: '20px', lineHeight: 1.5 }}>Ваш профиль будет сохранён в общей локальной таблице пользователей для быстрого доступа.</div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="prof-btn" onClick={addSessionToShared} disabled={addingShared} style={{ flex: 1, padding: '10px', background: T.accent, color: '#0a0e16', fontSize: '13px' }}>
+          <div className="fixed inset-0 flex items-center justify-center z-[1200]">
+            <div className="absolute inset-0" style={{ background: 'rgba(4,6,11,0.8)', backdropFilter: 'blur(6px)' }} onClick={() => setShowAddSharedModal(false)} />
+            <div
+              className="relative z-[1210] w-[400px] max-w-[90vw] rounded-2xl border border-white/10 p-6"
+              style={{ background: '#0d1120' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="text-[11px] font-bold text-orange-400 uppercase tracking-[1px] mb-1.5">Синхронизация</div>
+              <div className="text-base font-black mb-2.5">Внести вас в реестр пользователей?</div>
+              <div className="text-[13px] text-slate-400 mb-5 leading-relaxed">Ваш профиль будет сохранён в общей локальной таблице пользователей для быстрого доступа.</div>
+              <div className="flex gap-2.5">
+                <button
+                  onClick={addSessionToShared}
+                  disabled={addingShared}
+                  className="flex-1 py-2.5 rounded-lg text-[13px] font-bold bg-orange-500 text-white hover:bg-orange-400 disabled:opacity-50 disabled:cursor-default transition-all duration-150"
+                >
                   {addingShared ? 'Сохранение...' : 'Да, синхронизировать'}
                 </button>
               </div>
