@@ -89,6 +89,7 @@ function publicUser(row) {
     banReason: row.ban_reason || null,
     isTotpEnabled: Boolean(row.is_totp_enabled),
     registeredAt: row.registered_at,
+    lastSeen: row.last_seen,
   }
 }
 

@@ -123,7 +123,9 @@ app.patch('/api/users/:id', async (req, res) => {
     twoFactorSecret, 
     two_factor_secret, 
     twoFactorEnabled, 
-    is_totp_enabled 
+    is_totp_enabled,
+    lastSeen,
+    last_seen
   } = req.body
 
   const updates = []
@@ -134,6 +136,9 @@ app.patch('/api/users/:id', async (req, res) => {
   if (avatar !== undefined) { updates.push(`avatar = $${idx++}`); values.push(avatar) }
   if (vk !== undefined) { updates.push(`vk = $${idx++}`); values.push(vk) }
   if (forum !== undefined) { updates.push(`forum = $${idx++}`); values.push(forum) }
+
+  const lastSeenVal = lastSeen ?? last_seen
+  if (lastSeenVal !== undefined) { updates.push(`last_seen = $${idx++}`); values.push(lastSeenVal) }
 
   // 2FA Поля (поддерживаем оба формата именования)
   const secretVal = twoFactorSecret ?? two_factor_secret
