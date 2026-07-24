@@ -1,6 +1,6 @@
 import { StrictMode, useState, useEffect, useCallback, useRef } from 'react'
 import { ensureUserStoreSeeded, getSession, setSession, clearSession, upsertUser, getUsers } from './lib/userStore'
-import { syncLocalUsers, getUser } from './lib/api'
+import { syncLocalUsers, getUser, updateUser } from './lib/api'
 import { isYoutuber } from './lib/roles'
 
 // Разделы, доступные роли "Ютубер" — держим в одном месте, синхронно со
@@ -199,6 +199,29 @@ export default function App() {
     }
   }, [user?.id, refreshUserData])
 
+  // ===== HEARTBEAT «ПОЛЬЗОВАТЕЛЬ ОНЛАЙН» =====
+  // Пока пользователь авторизован и вкладка активна, раз в 45с отправляем
+  // на бэкенд отметку lastSeen — по ней дешборд считает, кто сейчас онлайн
+  // (см. блок "Пользователи онлайн" в Dashboard.jsx: онлайн = lastSeen < 2 мин назад).
+  useEffect(() => {
+    if (!user?.id) return
+
+    const sendHeartbeat = () => {
+      const currentUser = userRef.current
+      if (!currentUser?.id || document.visibilityState !== 'visible') return
+      updateUser(currentUser.id, { lastSeen: new Date().toISOString() }).catch(() => {})
+    }
+
+    sendHeartbeat()
+    const heartbeatInterval = setInterval(sendHeartbeat, 45000)
+    document.addEventListener('visibilitychange', sendHeartbeat)
+
+    return () => {
+      clearInterval(heartbeatInterval)
+      document.removeEventListener('visibilitychange', sendHeartbeat)
+    }
+  }, [user?.id])
+
   // ===== ИНИЦИАЛИЗАЦИЯ И ВОССТАНОВЛЕНИЕ СЕССИИ =====
   useEffect(() => {
     try {
@@ -364,7 +387,7 @@ export default function App() {
             setActivePage={handleSetActivePage}
           />
 
-          {activePage === 'dashboard' && <Dashboard user={user} onLogout={handleLogout} />}
+          {activePage === 'dashboard' && <Dashboard user={user} onLogout={handleLogout} onOpenProfile={handleOpenUserProfile} />}
           {activePage === 'organizations' && <Organizations user={user} />}
           {activePage === 'blacklist' && <Blacklist pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {activePage === 'chsgos' && <ChsGos user={user} pageNumber={pageNumber} setPageNumber={setPageNumber} />}
