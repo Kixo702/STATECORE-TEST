@@ -31,12 +31,14 @@ const SPHERES = [
   { id: 'bo',     label: 'Бизнес организации' },
 ]
 
-// Пока активность подключена только для Государственных структур и Гетто
-// сервера Texas — остальные комбинации сервер×сфера считаются "в разработке".
+// Пока активность подключена только для Государственных структур, Гетто
+// и Бизнес-организаций (Radio24) сервера Texas — остальные комбинации
+// сервер×сфера считаются "в разработке".
 const READY_SERVER_ID = 'texas'
 const READY_COMBOS = [
   { server: 'texas', sphere: 'gov' },
   { server: 'texas', sphere: 'ghetto' },
+  { server: 'texas', sphere: 'bo' },
 ]
 
 // ── Google Sheets API v4 (вместо «Публикации в интернет» — без кеша Google,
@@ -53,6 +55,14 @@ const GHETTO_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
 const GHETTO_DEFAULT_GID = '1372544393'
 const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybb0LpyB_EL767lr-LNZmwGMTNrxULnUSdwkyXZULlBsOBxGbMF4GlWma_fMqOFvJR/exec'
 
+// Бизнес-организации (пока только одна организация — Radio24).
+// Скрипт (doPost) в этой таблице уже развёрнут — сюда нужно вставить его
+// exec-ссылку (Deploy → Manage deployments → Web app URL в Apps Script).
+const BO_SPREADSHEET_ID = '1CR2DOmDkMJ3fRednRVM7uqB0T-8ToZVaUWS1VVHxhgs'
+const BO_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
+const BO_DEFAULT_GID = '1374044771'
+const BO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbznx-nXfeywlDhjZ5LHojMHRgsBygotKALwwguCLz_6DM6rCf6-uSfe2o1tGNa3VvwN/exec' // TODO: заменить на реальный /exec URL
+
 // Настройки текущей выбранной сферы — резолвятся по sphereId в компоненте
 function getSphereConfig(sphereId) {
   if (sphereId === 'ghetto') {
@@ -61,6 +71,14 @@ function getSphereConfig(sphereId) {
       apiKey: GHETTO_SHEETS_API_KEY,
       defaultGid: GHETTO_DEFAULT_GID,
       scriptUrl: GHETTO_SCRIPT_URL,
+    }
+  }
+  if (sphereId === 'bo') {
+    return {
+      spreadsheetId: BO_SPREADSHEET_ID,
+      apiKey: BO_SHEETS_API_KEY,
+      defaultGid: BO_DEFAULT_GID,
+      scriptUrl: BO_SCRIPT_URL,
     }
   }
   return {
@@ -428,9 +446,125 @@ async function fetchGhettoWeek(gid) {
   }
 }
 
+/* ───────── Парсинг одной недели — Бизнес-организации (Radio24) ─────────
+   Лист "Активность Лидера" в таблице BO. Пока в разделе всего одна
+   организация (Radio24), поэтому на неделю приходится ровно один блок
+   лидера — в отличие от Гетто, где блоков (лидеров) несколько подряд.
+
+   Разметка блока (совпадает с ACTIVITY_* в Apps Script, doPost):
+     строка 8  (offset 0)  — 7 дат недели, колонки G,I,K,M,O,Q,S
+     строка 9  (offset 1)  — 7 названий дней недели, те же колонки
+     строка 10 (offset 2)  — пустая строка-отступ
+     строка 11 (offset 3)  — верх объединения E(11:14) — ник лидера
+     строка 12 (offset 4)  — верх объединения времени (12:13) в колонках
+                              G,I,K,M,O,Q,S и верх объединения суммы (U)
+     строка 14 (offset 6)  — низ блока (конец объединения имени)
+
+   Значение объединённой ячейки хранится в её верхней левой ячейке — поэтому
+   ник читаем со строки offset 3, а время/сумму — со строки offset 4. */
+const BO_DAY_COLS = [6, 8, 10, 12, 14, 16, 18] // G,I,K,M,O,Q,S (0-based)
+const BO_NAME_COL = 4 // E (0-based)
+const BO_NAME_ROW_OFFSET = 3   // 11 = 8 + 3 — строка ника лидера относительно строки дат
+const BO_TIME_ROW_OFFSET = 4   // 12 = 8 + 4 — строка времени/суммы относительно строки дат
+const BO_BLOCK_LAST_ROW_OFFSET = 6 // 14 = 8 + 6 — последняя строка блока (для CREATE_WEEK)
+const BO_ORG_NAME = 'Radio24'
+
+async function fetchBoWeek(gid) {
+  const sheetTitle = await resolveSheetTitle(BO_SPREADSHEET_ID, BO_SHEETS_API_KEY, gid)
+  const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:U2000`
+  const data = await sheetsApiGet(BO_SPREADSHEET_ID, BO_SHEETS_API_KEY, `/values/${encodeURIComponent(range)}`, {
+    valueRenderOption: 'FORMATTED_VALUE',
+  })
+  const rows = data.values || []
+  if (rows.length === 0) throw new Error('Таблица пуста')
+
+  const dateRe = /\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}/
+  const currentWeekRange = getCurrentWeekRangeStr()
+  const [currentMondayStr] = currentWeekRange.split(' - ')
+
+  // 1) Сначала ищем блок текущей недели (дата понедельника совпадает).
+  // 2) Иначе — самый верхний блок с датами вообще (новые недели создаются сверху).
+  let dateRowIdx = -1
+  let fallbackDateRowIdx = -1
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const hasDate = BO_DAY_COLS.some((c) => dateRe.test(clean(row[c])))
+    if (!hasDate) continue
+    if (fallbackDateRowIdx === -1) fallbackDateRowIdx = i
+    if (clean(row[BO_DAY_COLS[0]]) === currentMondayStr) {
+      dateRowIdx = i
+      break
+    }
+  }
+  if (dateRowIdx === -1) dateRowIdx = fallbackDateRowIdx
+  if (dateRowIdx === -1) throw new Error('Не удалось найти строку с датами недели (колонки G,I,K,M,O,Q,S)')
+
+  const dayNameRowIdx = dateRowIdx + 1
+  const dateRow = rows[dateRowIdx] || []
+  const dayNameRow = rows[dayNameRowIdx] || []
+  const dayDates = BO_DAY_COLS.map((c) => clean(dateRow[c]) || '')
+  const dayNames = BO_DAY_COLS.map((c) => clean(dayNameRow[c]) || '')
+
+  const title = dayDates[0] && dayDates[6] ? `${dayDates[0]} - ${dayDates[6]}` : 'Неделя'
+
+  const nameRowIdx = dateRowIdx + BO_NAME_ROW_OFFSET // 0-based индекс строки 11 (верх объединения ника)
+  const timeRowIdx = dateRowIdx + BO_TIME_ROW_OFFSET // 0-based индекс строки 12 (верх объединения времени/суммы)
+  const nameRow = rows[nameRowIdx] || []
+  const timeRow = rows[timeRowIdx] || []
+
+  // Ник лидера. Если ячейка пустая — организация сейчас без лидера,
+  // список в интерфейсе будет пуст (аналогично вакантной строке в Гетто).
+  const nickname = clean(nameRow[BO_NAME_COL])
+
+  const leaders = []
+  if (nickname) {
+    const days = BO_DAY_COLS.map((c) => classifyCell(timeRow[c]))
+    const okCount = days.filter((d) => d.type === 'ok').length
+    const failCount = days.filter((d) => d.type === 'fail').length
+    const inactiveCount = days.filter((d) => d.type === 'inactive').length
+    const noneCount = days.filter((d) => d.type === 'none').length
+    const excludedCount = days.filter((d) => d.type === 'excluded').length
+    const totalSeconds = days.reduce((s, d) => s + ((d.type === 'ok' || d.type === 'fail') ? d.seconds : 0), 0)
+
+    leaders.push({
+      // 1-based строка листа — строка ника (напр. 11). Именно её шлём как
+      // rowId в SET_DAY_TIME — Apps Script сам пересчитает строку времени.
+      rowId: nameRowIdx + 1,
+      nickname, fraction: BO_ORG_NAME, days,
+      okCount, failCount, inactiveCount, noneCount, excludedCount,
+      totalSeconds,
+      warnings: computeWarnings(failCount),
+    })
+  }
+
+  // Границы блока для CREATE_WEEK (data.startRow в Apps Script — строка дат, 1-based)
+  const blockStartRow = dateRowIdx + 1
+  const blockEndRow = dateRowIdx + BO_BLOCK_LAST_ROW_OFFSET + 1
+
+  const totals = leaders.reduce((acc, l) => {
+    acc.ok += l.okCount
+    acc.fail += l.failCount
+    acc.inactive += l.inactiveCount
+    acc.none += l.noneCount
+    acc.seconds += l.totalSeconds
+    return acc
+  }, { ok: 0, fail: 0, inactive: 0, none: 0, seconds: 0 })
+
+  const activeCells = totals.ok + totals.fail
+  const avgSeconds = activeCells > 0 ? totals.seconds / activeCells : 0
+  const topLeaders = [...leaders].sort((a, b) => b.totalSeconds - a.totalSeconds).slice(0, 3)
+
+  return {
+    title, dayDates, dayNames, leaders, totals, avgSeconds, topLeaders,
+    blockStartRow, blockEndRow,
+  }
+}
+
 // Единая точка входа — выбирает парсер в зависимости от выбранной сферы
 async function fetchWeek(sphereId, gid) {
-  return sphereId === 'ghetto' ? fetchGhettoWeek(gid) : fetchGovWeek(gid)
+  if (sphereId === 'ghetto') return fetchGhettoWeek(gid)
+  if (sphereId === 'bo') return fetchBoWeek(gid)
+  return fetchGovWeek(gid)
 }
 
 // Применяет правку одной ячейки к уже загруженным данным недели локально,

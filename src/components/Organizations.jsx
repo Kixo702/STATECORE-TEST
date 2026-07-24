@@ -174,17 +174,11 @@ export default function Organizations({ user }) {
   const BO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE89xZb9RxVOSfXbtQ4-fyu-FH9r-5ntI4AdPI6xPqmzRh0jVYd9qITXDCpWCEC0RFptElukEjhvD5/pub?gid=0&single=true&output=csv'
   const MAFIA_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRhlLfLsJs2k5DwBm3Lu7B4EuH3b-5kZNNHMGZHhyfpb00XyuPcOIppSFuAGRQXzNR7fFYsPbM6CPuy/pub?gid=0&single=true&output=csv'
   const GOV_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhZYSsvPt0QdbyYiAEfvyfu8XVQwOPeYapuG0HwV8CCngctz43msP9K_o4C-ck13Hy/exec'
-  const BO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbza0Kft9sI27q3OQtotzItO8unNViHN5yi8H8RU7xElghaSbOjJ9HYdak7u8J_XYvTH/exec'
-  // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы мафий
-  // (получишь после деплоя скрипта из раздела "Скрипт для таблицы Мафии" в инструкции)
+  const BO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbznx-nXfeywlDhjZ5LHojMHRgsBygotKALwwguCLz_6DM6rCf6-uSfe2o1tGNa3VvwN/exec'
   const MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSyQHwsIouA4yU_CqI0WZRX3m0kfPQBfjnuock_mmSJXQYvaoRZivuUQSWLowHwjZw/exec'
   const BIKERS_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHseJAxV3J2Pyc5-2uvKT97k6Gmf01Oc5uddvZFXlP7FxdbSom1lNMWLsDar0SF66gT5ObWlIzQbaN/pub?gid=0&single=true&output=csv'
-  // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы байкеров
-  // (задеплой скрипт из раздела "Скрипт для таблицы Байкеры" в инструкции)
   const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIMACv0scPzBapr1QMDgoQDqYya3vjRaDJ_FBfbHO63AGIG4IMvV2QZ-eVunzcJ96OQQ/exec'
   const GHETTO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlRt1hpLQy_7Z7G1PxISAmhgHcc9qS1QX4od1kG4BpM9x1QzPBffKNsA1J3FJwFoXo1rhxyJsGpIHF/pub?gid=0&single=true&output=csv'
-  // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы гетто
-  // (задеплой скрипт из раздела "Скрипт для таблицы Гетто" в инструкции)
   const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybb0LpyB_EL767lr-LNZmwGMTNrxULnUSdwkyXZULlBsOBxGbMF4GlWma_fMqOFvJR/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
