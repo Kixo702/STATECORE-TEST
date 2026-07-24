@@ -185,7 +185,7 @@ export default function Organizations({ user }) {
   const GHETTO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlRt1hpLQy_7Z7G1PxISAmhgHcc9qS1QX4od1kG4BpM9x1QzPBffKNsA1J3FJwFoXo1rhxyJsGpIHF/pub?gid=0&single=true&output=csv'
   // TODO: вставь сюда ссылку на веб-приложение Apps Script для таблицы гетто
   // (задеплой скрипт из раздела "Скрипт для таблицы Гетто" в инструкции)
-  const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFRFtnZ1s_Xf1s59SNTaE54MeJihfif6N4ZmEjl7iGI4OV1xxHad-tHRFDqEC8bz9Q/exec'
+  const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwo-XzD7QflRIst0Qdi-63Il2qjn2wduvtIiksTjq-uz6CtydM94LWqz2WmoEMwaPPE/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
@@ -347,6 +347,12 @@ export default function Organizations({ user }) {
     return GHETTO_LEADER_ROWS.map(rowNum => {
       const row = rows[rowNum - 1] || []
       const faction = c(row[5]) || `Гетто (стр. ${rowNum})` // F
+      // В таблице ячейки L/M объединены, и обе цифры (выговоры и
+      // предупреждения) фактически лежат в одной строке L вида
+      // "В: 0/5              П: 2/5" — вытаскиваем их регуляркой.
+      const strictWarnCell = c(row[11]) || c(row[12]) || ''
+      const strictMatch = strictWarnCell.match(/В\s*:?\s*(\d+)\s*\/\s*5/i)
+      const oralMatch   = strictWarnCell.match(/П\s*:?\s*(\d+)\s*\/\s*5/i)
       return {
         id: rowNum,
         name: faction,                                              // F — используется как название карточки
@@ -354,8 +360,8 @@ export default function Organizations({ user }) {
         leader: c(row[3]) || 'Вакантно',                             // D
         vk: c(row[7]) || '—',                                         // H
         points: c(row[9]) || '—',                                     // J — баллы лидера
-        strict: Number((c(row[11]) || '0/5').split('/')[0]) || 0,     // L
-        oral:   Number((c(row[12]) || '0/5').split('/')[0]) || 0,     // M
+        strict: strictMatch ? Number(strictMatch[1]) : 0,             // L (выговоры)
+        oral:   oralMatch   ? Number(oralMatch[1])   : 0,             // L (предупреждения)
         appointDate: c(row[13]) || '-',                                // N
         expiryDate:  c(row[15]) || '-',                                // P
       }
