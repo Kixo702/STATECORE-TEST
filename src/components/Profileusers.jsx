@@ -402,7 +402,7 @@ export default function ProfileUsers({ userId, user, currentUser, onBack, onMana
 
               {(isLeader(account) || isChief(account) || isDeputy(account)) && (
                 <div style={{ fontSize: '11.5px', color: T.muted, lineHeight: 1.5, paddingTop: '4px' }}>
-                  Изменение роли, выдача выговора и снятие с должности доступны в разделе "Пользователи" — в зависимости от ваших прав доступа.
+                  Изменение роли, выдача выговора и снятие с должности доступны в разделе "Пользователи" - в зависимости от ваших прав доступа.
                 </div>
               )}
             </div>
