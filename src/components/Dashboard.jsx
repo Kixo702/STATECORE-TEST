@@ -545,6 +545,68 @@ function AssignLeaderModal({ onClose }) {
   )
 }
 
+// ── Stat Card ─────────────────────────────────────────────────
+// Карточка статистики: градиентная подложка, мягкое свечение по accent-цвету,
+// hover-приподъём и плавная анимация при появлении/смене значения (число
+// проигрывает fade+slide каждый раз, когда card.value меняется).
+function StatCard({ card, delay = 0 }) {
+  const [mounted, setMounted] = useState(false)
+  const [displayValue, setDisplayValue] = useState(card.value)
+  const [valueKey, setValueKey] = useState(0)
+
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), delay)
+    return () => clearTimeout(t)
+  }, [delay])
+
+  // При каждом изменении значения — обновляем и «перезапускаем» анимацию через key
+  useEffect(() => {
+    setDisplayValue(card.value)
+    setValueKey(k => k + 1)
+  }, [card.value])
+
+  return (
+    <div
+      className="group relative overflow-hidden rounded-2xl border border-white/[0.08] transition-all duration-300 ease-out"
+      style={{
+        background: `linear-gradient(155deg, rgba(${card.accent},.07) 0%, rgba(255,255,255,.015) 55%)`,
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? 'translateY(0)' : 'translateY(10px)',
+        transitionProperty: 'opacity, transform, border-color, box-shadow',
+        transitionDuration: '.45s, .45s, .3s, .3s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = `rgba(${card.accent},.35)`; e.currentTarget.style.boxShadow = `0 12px 32px -12px rgba(${card.accent},.35)` }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.08)'; e.currentTarget.style.boxShadow = 'none' }}
+    >
+      {/* Ambient glow orb, чуть смещённый в угол */}
+      <div
+        className="absolute -top-8 -right-8 w-28 h-28 rounded-full pointer-events-none transition-opacity duration-300 opacity-0 group-hover:opacity-100"
+        style={{ background: `radial-gradient(circle, rgba(${card.accent},.18) 0%, transparent 70%)` }}
+      />
+      <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${card.accent})` }} />
+
+      <div className="relative flex items-center justify-between pl-5 pr-5 py-5">
+        <div className="min-w-0">
+          <p className="text-slate-400 text-sm">{card.title}</p>
+          <h2
+            key={valueKey}
+            className="text-3xl font-black mt-1.5 tabular-nums"
+            style={{ animation: 'db-statPop .4s cubic-bezier(.34,1.4,.64,1) both' }}
+          >
+            {displayValue}
+          </h2>
+        </div>
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
+          style={{ background: `rgba(${card.accent},.14)`, color: `rgb(${card.accent})`, boxShadow: `inset 0 0 0 1px rgba(${card.accent},.2)` }}
+        >
+          {card.icon}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Dashboard ─────────────────────────────────────────────────
 export default function Dashboard({ user, onLogout }) {
   // Статистика по организациям/лидерам/вакансиям теперь считается реально —
@@ -635,6 +697,7 @@ export default function Dashboard({ user, onLogout }) {
         @keyframes db-fadeUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
         @keyframes db-pulse    { 0%,100%{opacity:.3} 50%{opacity:.8} }
         @keyframes db-success  { 0%{transform:scale(0);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+        @keyframes db-statPop  { 0%{opacity:0;transform:translateY(6px) scale(.94)} 100%{opacity:1;transform:translateY(0) scale(1)} }
         
         /* Стилизация скелетон-эффекта и пульсации для заглушки */
         .skeleton-text {
@@ -732,61 +795,55 @@ export default function Dashboard({ user, onLogout }) {
 
         {activeNode === 'gov' ? (
           <>
-            {/* ── ORGANIZATIONS ──────────────────────────────── */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Организации ({activeServer})</span>
-              <div className="flex-1 h-px bg-white/5" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
-              {orgGroup.map(card => (
-                <div
-                  key={card.title}
-                  className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
-                >
-                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${card.accent})` }} />
-                  <div className="flex items-center justify-between pl-5 pr-5 py-5">
-                    <div>
-                      <p className="text-slate-400 text-sm">{card.title}</p>
-                      <h2 className="text-3xl font-black mt-1.5 tabular-nums">{card.value}</h2>
-                    </div>
-                    <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: `rgba(${card.accent},.12)`, color: `rgb(${card.accent})` }}
-                    >
-                      {card.icon}
-                    </div>
-                  </div>
+            {activeServer === 'Texas' ? (
+              <>
+                {/* ── ORGANIZATIONS ──────────────────────────────── */}
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Организации ({activeServer})</span>
+                  <div className="flex-1 h-px bg-white/5" />
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
+                  {orgGroup.map((card, i) => (
+                    <StatCard key={card.title} card={card} delay={i * 60} />
+                  ))}
+                </div>
 
-            {/* ── DISCIPLINE ──────────────────────────────────── */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Дисциплина</span>
-              <div className="flex-1 h-px bg-white/5" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
-              {disciplineGroup.map(card => (
+                {/* ── DISCIPLINE ──────────────────────────────────── */}
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Дисциплина</span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
+                  {disciplineGroup.map((card, i) => (
+                    <StatCard key={card.title} card={card} delay={i * 60} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              /* Статистика для остальных серверов пока не подключена — таблицы есть только для Texas */
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">Статистика ({activeServer})</span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
                 <div
-                  key={card.title}
-                  className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
+                  className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] mb-10"
+                  style={{ minHeight: 180 }}
                 >
-                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${card.accent})` }} />
-                  <div className="flex items-center justify-between pl-5 pr-5 py-5">
-                    <div>
-                      <p className="text-slate-400 text-sm">{card.title}</p>
-                      <h2 className="text-3xl font-black mt-1.5 tabular-nums">{card.value}</h2>
+                  <div className="flex flex-col items-center justify-center text-center px-6 py-14">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/5 text-orange-300/80">
+                      {IC.shield}
                     </div>
-                    <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: `rgba(${card.accent},.12)`, color: `rgb(${card.accent})` }}
-                    >
-                      {card.icon}
-                    </div>
+                    <h3 className="text-xl font-black text-white mb-2">
+                      Статистика гос.структур ({activeServer})
+                    </h3>
+                    <p className="text-sm text-slate-400 max-w-md">
+                      {FRACTION_STATUS_TEXT[FRACTION_STATUS]}
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
             {/* ── GOS LEADERSHIP (ГС / ЗГС) ───────────────────── */}
             <div className="flex items-center gap-3 mb-4">
@@ -887,25 +944,8 @@ export default function Dashboard({ user, onLogout }) {
                     { title: 'Организаций',      value: loadingLeadership ? '—' : sphereOrgs.length, icon: IC.org,   accent: '56,189,248'  },
                     { title: 'Активных лидеров', value: loadingLeadership ? '—' : sphereOrgs.filter(o => o.leader !== 'Вакантно').length, icon: IC.crown, accent: '251,146,60'  },
                     { title: 'Вакансий',         value: loadingLeadership ? '—' : sphereOrgs.filter(o => o.leader === 'Вакантно').length,  icon: IC.cross, accent: '251,113,133' },
-                  ].map(card => (
-                    <div
-                      key={card.title}
-                      className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.14] transition-colors duration-200"
-                    >
-                      <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${card.accent})` }} />
-                      <div className="flex items-center justify-between pl-5 pr-5 py-5">
-                        <div>
-                          <p className="text-slate-400 text-sm">{card.title}</p>
-                          <h2 className="text-3xl font-black mt-1.5 tabular-nums">{card.value}</h2>
-                        </div>
-                        <div
-                          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ background: `rgba(${card.accent},.12)`, color: `rgb(${card.accent})` }}
-                        >
-                          {card.icon}
-                        </div>
-                      </div>
-                    </div>
+                  ].map((card, i) => (
+                    <StatCard key={card.title} card={card} delay={i * 60} />
                   ))}
                 </div>
               </>
