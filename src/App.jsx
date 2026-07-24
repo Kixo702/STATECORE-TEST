@@ -22,6 +22,7 @@ import InterviewGenerator from './components/InterviewGenerator'
 import EventPlanner from './components/EventPlanner'
 import CadreAudit from './components/CadreAudit'
 import Maintenance from './components/Maintenance'
+import WelcomeToast from './components/WelcomeToast'
 
 const MAINTENANCE_MODE = false
 const MAINTENANCE_MESSAGE = null
@@ -93,6 +94,8 @@ export default function App() {
   const [pageNumber, setPageNumber] = useState(initialRoute.pageNumber)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(false)
+  const welcomeShownRef = useRef(false) // чтобы не показать повторно при ре-рендерах/смене страницы в рамках одной загрузки сайта
 
   // Используем Ref для актуального состояния пользователя внутри таймаутов/интервалов без ререндеров
   const userRef = useRef(user)
@@ -212,6 +215,14 @@ export default function App() {
     return () => window.removeEventListener('popstate', syncRoute)
   }, [])
 
+  // Приветственный тост — показывается один раз за каждую загрузку/перезагрузку
+  // сайта, как только становится известно, что пользователь авторизован.
+  useEffect(() => {
+    if (!hydrated || !user?.id || view !== 'app' || welcomeShownRef.current) return
+    welcomeShownRef.current = true
+    setShowWelcome(true)
+  }, [hydrated, user?.id, view])
+
   useEffect(() => {
     if (!user || view !== 'app') return
     setPath(activePage, pageNumber)
@@ -312,6 +323,13 @@ export default function App() {
           {activePage === 'faq' && <FAQ user={user} />}
         </div>
       </main>
+
+      {showWelcome && (
+        <WelcomeToast
+          nickname={user.nickname || user.name || user.login || 'пользователь'}
+          onDone={() => setShowWelcome(false)}
+        />
+      )}
     </div>
   )
 }
