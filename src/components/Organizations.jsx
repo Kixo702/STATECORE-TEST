@@ -170,6 +170,7 @@ const BO_ORG_NAMES = {
 }
 
 export default function Organizations({ user }) {
+  //01 Техас, таблицы и скрипты для редакт.
   const GOV_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
   const BO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE89xZb9RxVOSfXbtQ4-fyu-FH9r-5ntI4AdPI6xPqmzRh0jVYd9qITXDCpWCEC0RFptElukEjhvD5/pub?gid=0&single=true&output=csv'
   const MAFIA_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRhlLfLsJs2k5DwBm3Lu7B4EuH3b-5kZNNHMGZHhyfpb00XyuPcOIppSFuAGRQXzNR7fFYsPbM6CPuy/pub?gid=0&single=true&output=csv'
@@ -177,14 +178,16 @@ export default function Organizations({ user }) {
   const BO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbznx-nXfeywlDhjZ5LHojMHRgsBygotKALwwguCLz_6DM6rCf6-uSfe2o1tGNa3VvwN/exec'
   const MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSyQHwsIouA4yU_CqI0WZRX3m0kfPQBfjnuock_mmSJXQYvaoRZivuUQSWLowHwjZw/exec'
   const BIKERS_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHseJAxV3J2Pyc5-2uvKT97k6Gmf01Oc5uddvZFXlP7FxdbSom1lNMWLsDar0SF66gT5ObWlIzQbaN/pub?gid=0&single=true&output=csv'
-  const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIMACv0scPzBapr1QMDgoQDqYya3vjRaDJ_FBfbHO63AGIG4IMvV2QZ-eVunzcJ96OQQ/exec'
+  const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0Q-vii_0uVqdNgwBtdRV9h8xP_46JvQInus5mQkz3yHcEihkBI1cBKZ4K7GA3SHU-/exec'
   const GHETTO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlRt1hpLQy_7Z7G1PxISAmhgHcc9qS1QX4od1kG4BpM9x1QzPBffKNsA1J3FJwFoXo1rhxyJsGpIHF/pub?gid=0&single=true&output=csv'
   const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybb0LpyB_EL767lr-LNZmwGMTNrxULnUSdwkyXZULlBsOBxGbMF4GlWma_fMqOFvJR/exec'
+  
+  //02 Флорида, таблицы для редакт.
+
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
   const isReady = READY_COMBOS.some(c => c.server === serverId && c.sphere === sphereId)
-
   const [orgs, setOrgs] = useState([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)

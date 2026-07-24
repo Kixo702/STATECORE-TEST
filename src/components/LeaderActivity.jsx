@@ -31,14 +31,15 @@ const SPHERES = [
   { id: 'bo',     label: 'Бизнес организации' },
 ]
 
-// Пока активность подключена только для Государственных структур, Гетто
-// и Бизнес-организаций (Radio24) сервера Texas — остальные комбинации
-// сервер×сфера считаются "в разработке".
+// Пока активность подключена только для Государственных структур, Гетто,
+// Бизнес-организаций (Radio24) и Байкеров сервера Texas — остальные
+// комбинации сервер×сфера считаются "в разработке".
 const READY_SERVER_ID = 'texas'
 const READY_COMBOS = [
   { server: 'texas', sphere: 'gov' },
   { server: 'texas', sphere: 'ghetto' },
   { server: 'texas', sphere: 'bo' },
+  { server: 'texas', sphere: 'bikers' },
 ]
 
 // ── Google Sheets API v4 (вместо «Публикации в интернет» — без кеша Google,
@@ -61,7 +62,13 @@ const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybb0LpyB_EL7
 const BO_SPREADSHEET_ID = '1CR2DOmDkMJ3fRednRVM7uqB0T-8ToZVaUWS1VVHxhgs'
 const BO_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
 const BO_DEFAULT_GID = '1374044771'
-const BO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbznx-nXfeywlDhjZ5LHojMHRgsBygotKALwwguCLz_6DM6rCf6-uSfe2o1tGNa3VvwN/exec' // TODO: заменить на реальный /exec URL
+const BO_SCRIPT_URL = 'ВСТАВЬТЕ_СЮДА_EXEC_ССЫЛКУ_СКРИПТА_BO' // TODO: заменить на реальный /exec URL
+
+// Байкеры (лист активности "activity" — разметка идентична Гетто)
+const BIKERS_SPREADSHEET_ID = '19vdk2aBOtPfi61GMsT0HuqosMFxlZMIDV_Td1pnY5cM'
+const BIKERS_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
+const BIKERS_DEFAULT_GID = '1194412241'
+const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0Q-vii_0uVqdNgwBtdRV9h8xP_46JvQInus5mQkz3yHcEihkBI1cBKZ4K7GA3SHU-/exec' // TODO: заменить на реальный /exec URL после деплоя обновлённого скрипта
 
 // Настройки текущей выбранной сферы — резолвятся по sphereId в компоненте
 function getSphereConfig(sphereId) {
@@ -79,6 +86,14 @@ function getSphereConfig(sphereId) {
       apiKey: BO_SHEETS_API_KEY,
       defaultGid: BO_DEFAULT_GID,
       scriptUrl: BO_SCRIPT_URL,
+    }
+  }
+  if (sphereId === 'bikers') {
+    return {
+      spreadsheetId: BIKERS_SPREADSHEET_ID,
+      apiKey: BIKERS_SHEETS_API_KEY,
+      defaultGid: BIKERS_DEFAULT_GID,
+      scriptUrl: BIKERS_SCRIPT_URL,
     }
   }
   return {
@@ -343,8 +358,9 @@ async function fetchGovWeek(gid) {
   }
 }
 
-/* ───────── Парсинг одной недели — Гетто ─────────
-   Разметка блока недели в листе "activity" (отдельный файл таблицы):
+/* ───────── Парсинг одной недели — Гетто / Байкеры ─────────
+   Разметка блока недели в листе "activity" (общая для Гетто и Байкеров —
+   в обеих таблицах разметка идентична):
      строка 11        — 7 дат недели, по одной в колонках G,I,K,M,O,Q,S
      строка 12        — 7 названий дней недели в тех же колонках
      строки 14/16/18/20/22 (и далее со сдвигом при новой неделе) — лидеры:
@@ -357,10 +373,10 @@ const GHETTO_NICK_COL = 4       // E (0-based)
 const GHETTO_DAY_COLS = [6, 8, 10, 12, 14, 16, 18] // G,I,K,M,O,Q,S (0-based)
 const GHETTO_LEADER_ROW_OFFSETS = [3, 5, 7, 9, 11] // 14,16,18,20,22 относительно строки дат (11)
 
-async function fetchGhettoWeek(gid) {
-  const sheetTitle = await resolveSheetTitle(GHETTO_SPREADSHEET_ID, GHETTO_SHEETS_API_KEY, gid)
+async function fetchGhettoStyleWeek(spreadsheetId, apiKey, gid) {
+  const sheetTitle = await resolveSheetTitle(spreadsheetId, apiKey, gid)
   const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:U2000`
-  const data = await sheetsApiGet(GHETTO_SPREADSHEET_ID, GHETTO_SHEETS_API_KEY, `/values/${encodeURIComponent(range)}`, {
+  const data = await sheetsApiGet(spreadsheetId, apiKey, `/values/${encodeURIComponent(range)}`, {
     valueRenderOption: 'FORMATTED_VALUE',
   })
   const rows = data.values || []
@@ -444,6 +460,14 @@ async function fetchGhettoWeek(gid) {
     title, dayDates, dayNames, leaders, totals, avgSeconds, topLeaders,
     blockStartRow, blockEndRow,
   }
+}
+
+async function fetchGhettoWeek(gid) {
+  return fetchGhettoStyleWeek(GHETTO_SPREADSHEET_ID, GHETTO_SHEETS_API_KEY, gid)
+}
+
+async function fetchBikersWeek(gid) {
+  return fetchGhettoStyleWeek(BIKERS_SPREADSHEET_ID, BIKERS_SHEETS_API_KEY, gid)
 }
 
 /* ───────── Парсинг одной недели — Бизнес-организации (Radio24) ─────────
@@ -564,6 +588,7 @@ async function fetchBoWeek(gid) {
 async function fetchWeek(sphereId, gid) {
   if (sphereId === 'ghetto') return fetchGhettoWeek(gid)
   if (sphereId === 'bo') return fetchBoWeek(gid)
+  if (sphereId === 'bikers') return fetchBikersWeek(gid)
   return fetchGovWeek(gid)
 }
 
