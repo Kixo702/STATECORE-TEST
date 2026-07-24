@@ -334,8 +334,18 @@ export function canViewMenu(user, menuId) {
   // (само редактирование и так недоступно этой роли на уровне canEditRoles
   // и т.п., это ограничение — про видимость разделов в сайдбаре).
   if (isYoutuber(user)) {
-    return ['dashboard', 'users', 'activity', 'leaderanalytics', 'knowledge', 'faq'].includes(id)
-  }
+      return [
+        'dashboard', 
+        'users', 
+        'activity', 
+        'leaderanalytics', 
+        'knowledge', 
+        'faq', 
+        'organizations', 
+        'blacklist', 
+        'chsgos'
+      ].includes(id)
+    }
 
   // ГС/ЗГС любого направления, кроме "Гос." — пока что видят только
   // мониторинг и анти-блат (faq и база знаний и так всегда видны в сайдбаре).

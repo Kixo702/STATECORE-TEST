@@ -6,7 +6,19 @@ import { isYoutuber } from './lib/roles'
 // Разделы, доступные роли "Ютубер" — держим в одном месте, синхронно со
 // списком в Sidebar/canViewMenu, чтобы прямой переход по URL не открывал
 // скрытые для этой роли страницы (запреты, ЧС, анти-блат, логи и т.д.).
-const YOUTUBER_ALLOWED_PAGES = ['dashboard', 'users', 'activity', 'leaderAnalytics', 'knowledge', 'faq', 'profile', 'profileUsers']
+const YOUTUBER_ALLOWED_PAGES = [
+  'dashboard', 
+  'users', 
+  'activity', 
+  'leaderAnalytics', 
+  'knowledge', 
+  'faq', 
+  'profile', 
+  'profileUsers',
+  'organizations', // <-- Добавлено
+  'blacklist',     // <-- Добавлено
+  'chsgos'         // <-- Добавлено
+]
 
 import Landing from './components/Landing'
 import Dashboard from './components/Dashboard'
