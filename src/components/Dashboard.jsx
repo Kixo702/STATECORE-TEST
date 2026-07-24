@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getUsers } from './lib/api'
+import { getUsers } from '../lib/api'
 
 // Пользователь считается «онлайн», если бэкенд получал от него heartbeat
 // (поле lastSeen, см. App.jsx) не более 2 минут назад.
