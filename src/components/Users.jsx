@@ -88,7 +88,23 @@ const ROLES = [
   { value: 'Разработчик', color: '#22c55e', group: 'Роли' },
   { value: 'PR-Assistent', color: '#ec4899', group: 'Роли' },
   { value: 'Главный Разработчик', color: '#ff8c00', group: 'Роли' },
+  // Гостевая роль для приглашённых ютуберов/блогеров: только просмотр
+  // мониторинга, пользователей и активности/аналитики лидеров, без
+  // доступа к запретам, ЧС, анти-блату и без прав редактирования.
+  { value: 'Ютубер', color: '#ff0033', group: 'Гостевой доступ' },
 ]
+
+// Небольшая SVG-иконка play-button для роли «Ютубер» — используется там,
+// где роль отображается бейджем рядом с ником (список пользователей,
+// карточка профиля).
+export function YoutuberRoleIcon({ size = 14 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+      <rect x="2" y="5" width="20" height="14" rx="4" fill="#ff0033" />
+      <path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff" />
+    </svg>
+  )
+}
 
 function roleColor(r) {
   return ROLES.find(x => x.value === r)?.color || '#6b7280'
@@ -870,7 +886,11 @@ export default function Users({ currentUser }) {
                 {/* Current role badge */}
                 <div>
                   <span className="u-badge">
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: roleColor(currentRole), flexShrink: 0 }}/>
+                    {currentRole === 'Ютубер' ? (
+                      <YoutuberRoleIcon size={12} />
+                    ) : (
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: roleColor(currentRole), flexShrink: 0 }}/>
+                    )}
                     {currentRole}
                   </span>
                 </div>

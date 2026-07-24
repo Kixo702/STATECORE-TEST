@@ -1,6 +1,12 @@
 import { StrictMode, useState, useEffect, useCallback, useRef } from 'react'
 import { ensureUserStoreSeeded, getSession, setSession, clearSession, upsertUser, getUsers } from './lib/userStore'
 import { syncLocalUsers, getUser } from './lib/api'
+import { isYoutuber } from './lib/roles'
+
+// Разделы, доступные роли "Ютубер" — держим в одном месте, синхронно со
+// списком в Sidebar/canViewMenu, чтобы прямой переход по URL не открывал
+// скрытые для этой роли страницы (запреты, ЧС, анти-блат, логи и т.д.).
+const YOUTUBER_ALLOWED_PAGES = ['dashboard', 'users', 'activity', 'leaderAnalytics', 'knowledge', 'faq', 'profile', 'profileUsers']
 
 import Landing from './components/Landing'
 import Dashboard from './components/Dashboard'
@@ -227,6 +233,16 @@ export default function App() {
     window.addEventListener('popstate', syncRoute)
     return () => window.removeEventListener('popstate', syncRoute)
   }, [])
+
+  // Защита роли "Ютубер" от прямого перехода по URL на скрытый для неё
+  // раздел (например /blacklist или /chsgos) в обход сайдбара.
+  useEffect(() => {
+    if (!user || view !== 'app' || !isYoutuber(user)) return
+    if (!YOUTUBER_ALLOWED_PAGES.includes(activePage)) {
+      setActivePage('dashboard')
+      setPageNumber(1)
+    }
+  }, [user, view, activePage])
 
   // Приветственный тост — показывается один раз за каждую загрузку/перезагрузку
   // сайта, как только становится известно, что пользователь авторизован.

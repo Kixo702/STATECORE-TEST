@@ -172,6 +172,7 @@ const T = {
 
 function getRoleColor(roleName = '') {
   if (roleName === 'Главный Разработчик') return T.danger
+  if (roleName === 'Ютубер') return '#ff0033'
   if (roleName.startsWith('ГС') || roleName.startsWith('Главный Следящий')) return T.warn
   if (roleName.startsWith('ЗГС') || roleName.startsWith('Заместитель Главного Следящего')) return T.warn
   if (roleName.startsWith('Следящий')) return '#8b93f0'

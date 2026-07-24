@@ -22,6 +22,10 @@ const ROLE_DEPUTY_BIKERS = 'ЗГС Байкеров'
 
 const ROLE_WATCHER = 'Следящий'
 const ROLE_PLAYER = 'Игрок'
+// Гостевая роль для приглашённых ютуберов/блогеров — только просмотр
+// ограниченного набора разделов, без доступа к редактированию и без
+// доступа к чувствительным разделам (запреты, ЧС, анти-блат).
+const ROLE_YOUTUBER = 'Ютубер'
 const LEADER_PREFIX = 'Лидер'
 
 // direction ('gov' | 'mafia' | 'ghetto' | 'bo' | 'bikers') -> "безсерверная" roleName (legacy)
@@ -269,6 +273,11 @@ export function isPlayer(user) {
   return _roleName(user) === ROLE_PLAYER
 }
 
+// Гостевая роль для ютуберов/блогеров, которым дали доступ на обзор сайта.
+export function isYoutuber(user) {
+  return _roleName(user) === ROLE_YOUTUBER
+}
+
 // Может ли user1 (ГС/ЗГС) работать с данными, относящимися к серверу targetServerId.
 // - Полный доступ / докатегорийные / безсерверные (legacy) роли — видят все сервера.
 // - Серверная роль — только свой сервер.
@@ -286,7 +295,7 @@ export function canAccessServer(user, targetServerId) {
 
 // action checks
 export function canViewAll(user) {
-  return isFullAccess(user) || isChief(user) || isDeputy(user) || isLeader(user) || isWatcher(user)
+  return isFullAccess(user) || isChief(user) || isDeputy(user) || isLeader(user) || isWatcher(user) || isYoutuber(user)
 }
 
 export function canIssueReprimand(user) {
@@ -318,6 +327,15 @@ export function canViewMenu(user, menuId) {
   }
 
   const id = menuId.toLowerCase()
+
+  // Ютубер — гостевой доступ для обзора сайта: только мониторинг,
+  // просмотр пользователей и активности/аналитики лидеров, база знаний
+  // и FAQ. Никаких запретов/ЧС/анти-блата/логов и никакого редактирования
+  // (само редактирование и так недоступно этой роли на уровне canEditRoles
+  // и т.п., это ограничение — про видимость разделов в сайдбаре).
+  if (isYoutuber(user)) {
+    return ['dashboard', 'users', 'activity', 'leaderanalytics', 'knowledge', 'faq'].includes(id)
+  }
 
   // ГС/ЗГС любого направления, кроме "Гос." — пока что видят только
   // мониторинг и анти-блат (faq и база знаний и так всегда видны в сайдбаре).
@@ -363,14 +381,14 @@ export function canViewMenu(user, menuId) {
 }
 
 export default {
-  ROLE_FULL, ROLE_CHIEF, ROLE_DEPUTY, ROLE_WATCHER, ROLE_PLAYER, LEADER_PREFIX,
+  ROLE_FULL, ROLE_CHIEF, ROLE_DEPUTY, ROLE_WATCHER, ROLE_PLAYER, ROLE_YOUTUBER, LEADER_PREFIX,
   CHIEF_ROLES_BY_DIRECTION, DEPUTY_ROLES_BY_DIRECTION,
   CHIEF_ROLES_BY_DIRECTION_SERVER, DEPUTY_ROLES_BY_DIRECTION_SERVER,
   SERVERS, getServerById,
   STAFF_LEADERSHIP_ROLES,
   FACTIONS,
   getAllFactions, leaderRoleName, getAllLeaderRoles, getFactionByRoleName,
-  isFullAccess, isChief, isDeputy, isWatcher, isLeader, isLeaderOfFaction, isPlayer,
+  isFullAccess, isChief, isDeputy, isWatcher, isLeader, isLeaderOfFaction, isPlayer, isYoutuber,
   getLeadershipDirection, getLeadershipServer, isGovLeadership, isRestrictedLeadership,
   canAccessServer,
   canViewAll, canIssueReprimand, canRemoveLeader, canEditRoles, canReviewNickRequests, canViewMenu,
