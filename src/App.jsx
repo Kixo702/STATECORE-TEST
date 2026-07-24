@@ -136,7 +136,17 @@ export default function App() {
   useEffect(() => {
     ensureUserStoreSeeded()
   }, [])
-
+  useEffect(() => {
+    const saved = getSession()
+    if (saved && saved.id) {
+      const nowIso = new Date().toISOString()
+      const updated = { ...saved, lastSeen: nowIso }
+      setUser(updated)
+      upsertUser(updated)
+      // Фиксируем вход сразу на бэкенде:
+      updateUser(saved.id, { lastSeen: nowIso }).catch(() => {})
+    }
+  }, [])
   useEffect(() => {
     if (!hydrated) return
     try {
