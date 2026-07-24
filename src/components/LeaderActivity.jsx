@@ -50,7 +50,7 @@ const GOV_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhZYSsvPt0QdbyY
 const GHETTO_SPREADSHEET_ID = '1dQ2uO7RW7PvcTmrrEImotXifRmYhxIQjCDlciwr4NGU'
 const GHETTO_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
 const GHETTO_DEFAULT_GID = '1372544393'
-const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjeEaoYUBLQxu0GESATvDYtpKeRjM2VY0ICjB86Saqr7BBbIP80RcBImYFcD0vNPq4/exec'
+const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz5GqahbIsTVujvZ1HAP8jZspocXCxfWAxuR2IvtoyfUo78bamuzfIzux8qTiup1qq/exec'
 
 // Настройки текущей выбранной сферы — резолвятся по sphereId в компоненте
 function getSphereConfig(sphereId) {
