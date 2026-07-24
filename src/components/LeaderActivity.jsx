@@ -50,7 +50,7 @@ const GOV_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhZYSsvPt0QdbyY
 const GHETTO_SPREADSHEET_ID = '1dQ2uO7RW7PvcTmrrEImotXifRmYhxIQjCDlciwr4NGU'
 const GHETTO_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
 const GHETTO_DEFAULT_GID = '1372544393'
-const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz5GqahbIsTVujvZ1HAP8jZspocXCxfWAxuR2IvtoyfUo78bamuzfIzux8qTiup1qq/exec'
+const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybb0LpyB_EL767lr-LNZmwGMTNrxULnUSdwkyXZULlBsOBxGbMF4GlWma_fMqOFvJR/exec'
 
 // Настройки текущей выбранной сферы — резолвятся по sphereId в компоненте
 function getSphereConfig(sphereId) {
@@ -655,15 +655,11 @@ export default function LeaderActivity() {
     setCreateError('')
     setCreatingWeek(true)
     try {
-      // У гетто блок недели компактнее (строки 11..22 = 12 строк),
-      // у гос. структур — свой стандартный отступ в 20 строк.
-      // Отступ = размер блока, чтобы новый блок вставал сразу под старым, без наложения.
-      const offset = sphereId === 'ghetto' ? (d.blockEndRow - d.blockStartRow + 1) : 20
       await postToScript(getSphereConfig(sphereId).scriptUrl, {
         type: 'CREATE_WEEK',
         startRow: d.blockStartRow,
         endRow: d.blockEndRow,
-        offset,
+        offset: 20, // используется только гос. скриптом (Лист1/Activity) как доп. отступ
       })
       await loadWeek(activeWeek.id, activeWeek.gid)
     } catch (e) {
