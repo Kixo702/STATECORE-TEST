@@ -431,6 +431,8 @@ app.patch('/api/users/:id', authenticateToken, async (req, res) => {
       banReason, 
       warns, 
       avatar,
+      vk,
+      forum,
       lastSeen,
       twoFactorSecret,
       totp_secret,
@@ -450,6 +452,8 @@ app.patch('/api/users/:id', authenticateToken, async (req, res) => {
     if (banReason !== undefined) { fields.push(`ban_reason = $${idx++}`); values.push(banReason); }
     if (warns !== undefined) { fields.push(`warns = $${idx++}`); values.push(warns); }
     if (avatar !== undefined) { fields.push(`avatar = $${idx++}`); values.push(avatar); }
+    if (vk !== undefined) { fields.push(`vk = $${idx++}`); values.push(vk); }
+    if (forum !== undefined) { fields.push(`forum = $${idx++}`); values.push(forum); }
     if (lastSeen !== undefined) { fields.push(`last_seen = $${idx++}`); values.push(lastSeen); }
 
     // 2FA Поля (адаптация наименований под PostgreSQL столбцы)

@@ -151,6 +151,12 @@ const IconShield = () => (
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
   </svg>
 )
+const IconSettings = () => (
+  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+)
 
 // Роль → акцентный цвет (rgb-триплет — как `rgb(${accent})` / `rgba(${accent},.12)` в Dashboard.jsx)
 function getRoleAccent(roleName = '') {
@@ -237,6 +243,48 @@ export default function Profile({ user, onUpdate }) {
   }, [user?.avatar])
 
   const [pendingReq, setPendingReq] = useState(() => getPendingNickRequestForUser(data.id))
+
+  // ── Настройки профиля (ВК / форум) ──────────────────────────
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [vkInput, setVkInput] = useState(u?.vk || u?.vkCode || u?.vkUrl || '')
+  const [forumInput, setForumInput] = useState(u?.forum || '')
+  const [settingsError, setSettingsError] = useState('')
+  const [settingsSaving, setSettingsSaving] = useState(false)
+
+  const openSettingsModal = () => {
+    setVkInput(u?.vk || u?.vkCode || u?.vkUrl || '')
+    setForumInput(u?.forum || '')
+    setSettingsError('')
+    setShowSettingsModal(true)
+  }
+
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true)
+    setSettingsError('')
+    try {
+      const trimmedVk = vkInput.trim()
+      const trimmedForum = forumInput.trim()
+
+      const patch = { id: data.id, vk: trimmedVk, forum: trimmedForum }
+
+      if (typeof updateUserOnServer === 'function') {
+        await updateUserOnServer(patch)
+      }
+
+      const updatedUser = { ...(user || u), vk: trimmedVk, forum: trimmedForum }
+      setSession(updatedUser)
+      upsertUser(updatedUser)
+      pushLog('Обновлены ссылки на ВК/форум')
+      setShowSettingsModal(false)
+
+      if (onUpdate) onUpdate(updatedUser)
+    } catch (err) {
+      console.error('Ошибка сохранения настроек:', err)
+      setSettingsError(err.message || 'Не удалось сохранить изменения')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(data.twoFactorEnabled)
   const [show2FaModal, setShow2FaModal] = useState(false)
@@ -496,10 +544,18 @@ export default function Profile({ user, onUpdate }) {
           <span className="text-white/60">Профиль</span>
         </div>
 
-        <div className="mb-8">
-          <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Личный кабинет</div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">Профиль</h1>
-          <p className="text-slate-400 max-w-lg">Личные данные, аватар и настройки аккаунта</p>
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
+          <div>
+            <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Личный кабинет</div>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">Профиль</h1>
+            <p className="text-slate-400 max-w-lg">Личные данные, аватар и настройки аккаунта</p>
+          </div>
+          <button
+            onClick={openSettingsModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 border border-white/10 text-slate-200 hover:bg-white/10 hover:text-white transition-all duration-150"
+          >
+            <IconSettings /> Настройки профиля
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
@@ -834,6 +890,78 @@ export default function Profile({ user, onUpdate }) {
                   className="flex-1 py-2.5 rounded-lg text-[12.5px] font-bold bg-red-500 text-white hover:bg-red-400 transition-all duration-150"
                 >
                   Да, отключить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showSettingsModal && (
+          <div className="fixed inset-0 flex items-center justify-center z-[1200]">
+            <div className="absolute inset-0" style={{ background: 'rgba(4,6,11,0.82)', backdropFilter: 'blur(6px)' }} onClick={() => !settingsSaving && setShowSettingsModal(false)} />
+            <div
+              className="relative z-[1210] w-[420px] max-w-[90vw] rounded-2xl border border-white/10 p-7"
+              style={{ background: '#0d1120', animation: 'db-fadeUp .25s ease-out' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 text-orange-400 text-[11px] font-bold uppercase tracking-[1px] mb-1.5">
+                <IconSettings />
+                <span>Настройки профиля</span>
+              </div>
+              <div className="text-lg font-black mb-1.5">Редактирование данных</div>
+              <div className="text-[12.5px] text-slate-400 mb-6 leading-relaxed">
+                Логин и никнейм отсюда не меняются — логин закреплён за аккаунтом навсегда, а смена никнейма проходит через заявку модераторам.
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div>
+                  <div className="text-xs font-semibold text-slate-200 mb-2">Ссылка на ВКонтакте</div>
+                  <input
+                    type="text"
+                    placeholder="https://vk.com/username"
+                    value={vkInput}
+                    onChange={e => { setVkInput(e.target.value); setSettingsError('') }}
+                    disabled={settingsSaving}
+                    className="w-full bg-white/5 text-white border border-orange-500/40 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 px-3.5 py-2.5 rounded-lg text-sm font-semibold outline-none transition-all disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-200 mb-2">Ссылка на профиль форума</div>
+                  <input
+                    type="text"
+                    placeholder="https://forum.gta-mobile.ru/members/..."
+                    value={forumInput}
+                    onChange={e => { setForumInput(e.target.value); setSettingsError('') }}
+                    disabled={settingsSaving}
+                    className="w-full bg-white/5 text-white border border-orange-500/40 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 px-3.5 py-2.5 rounded-lg text-sm font-semibold outline-none transition-all disabled:opacity-50"
+                  />
+                </div>
+
+                <div>
+                  <div className="text-[12px] font-semibold text-white/45 mb-1.5">Логин авторизации</div>
+                  <div className="w-full bg-white/[0.02] border border-white/[0.06] px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white/35 cursor-not-allowed">
+                    {data.login}
+                  </div>
+                  <div className="text-[11px] text-white/30 mt-1.5">Логин нельзя изменить</div>
+                </div>
+              </div>
+
+              {settingsError && <div className="text-red-400 text-[11.5px] mt-4 text-center">{settingsError}</div>}
+
+              <div className="flex gap-2.5 mt-6">
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  disabled={settingsSaving}
+                  className="flex-1 py-2.5 rounded-lg text-[12.5px] font-bold bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white disabled:opacity-50 transition-all duration-150"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={settingsSaving}
+                  className="flex-[1.4] py-2.5 rounded-lg text-[12.5px] font-bold bg-orange-500 text-white hover:bg-orange-400 disabled:opacity-50 disabled:cursor-default transition-all duration-150"
+                >
+                  {settingsSaving ? 'Сохранение...' : 'Сохранить изменения'}
                 </button>
               </div>
             </div>
