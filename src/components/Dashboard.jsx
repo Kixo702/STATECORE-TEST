@@ -116,8 +116,8 @@ const FRACTION_STATUS_TEXT = {
 const LEADERSHIP_BY_SERVER_AND_SPHERE = {
   Texas: {
     gov: {
-      gs:  { nickname: 'Robert_Kamiya',  vk: 'vk.com/robertkamiya', forum: 'forum.gta-mobile.ru/members/171464/' },
-      zgs: { nickname: 'Minato_Ramirez', vk: 'vk.com/minatoramirez', forum: 'forum.gta-mobile.ru/vaxi/' },
+      gs:  { nickname: 'Darren_Marinez',  vk: 'vk.ru/reuexq', forum: 'forum.gta-mobile.ru/members/47799/' },
+      zgs: null,
     },
     // Руководство ещё не назначено — заполнить ники/вк/форум, когда появятся.
     business:  { gs: null, zgs: null },
