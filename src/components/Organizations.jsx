@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import banner from '../assets/banner.png'
+import { canRemoveLeader, SERVERS } from '../lib/roles'
 
 // ── Org icons ────────────────────────────────────────────────
 import icPolice  from '../assets/org-icons/police.png'
@@ -22,72 +23,19 @@ const ORG_ICONS = {
   'Радио24': R24,
 }
 
-// ── SVG Icons ────────────────────────────────────────────────
-const IconShield = ({ size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-)
-const IconRefresh = ({ spinning }) => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-    style={{ animation: spinning ? 'org-spin 0.7s linear infinite' : 'none' }}>
-    <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-  </svg>
-)
-const IconWarn = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-  </svg>
-)
-const IconSpeech = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-)
-const IconUserPlus = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-    <circle cx="8.5" cy="7" r="4"/>
-    <line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
-  </svg>
-)
-const IconUserX = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-    <circle cx="8.5" cy="7" r="4"/>
-    <line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/>
-  </svg>
-)
-const IconCalendar = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-  </svg>
-)
-const IconUser = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-    <circle cx="12" cy="7" r="4"/>
-  </svg>
-)
-const IconLink = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-  </svg>
-)
-const IconCrown = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-    <path d="M3 7l4 5 5-6 5 6 4-5v10H3V7z"/>
-  </svg>
-)
-const IconChevron = () => (
-  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="9 18 15 12 9 6"/>
-  </svg>
-)
+// ── Icons (в стиле Dashboard.jsx — единый набор IC) ────────────
+const IC = {
+  shield:  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  warning: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  speech:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  userPlus: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>,
+  userX:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>,
+  cal:     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  user:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  link:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+  crown:   <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M3 7l4 5 5-6 5 6 4-5v10H3V7z"/></svg>,
+  chevron: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 const todayISO = () => new Date().toISOString().split('T')[0]
@@ -110,20 +58,18 @@ const parseDateToISO = str => {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }
 
-// ── Accent colors per org index ──────────────────────────────
+// ── Accent colors per org index (rgb-triplets, в стиле Dashboard.jsx) ──
 const ORG_ACCENTS = [
-  { main: '#60a5fa', glow: 'rgba(96,165,250,.25)',   light: 'rgba(96,165,250,.08)',   dark: 'rgba(96,165,250,.04)'  },
-  { main: '#c084fc', glow: 'rgba(192,132,252,.25)',  light: 'rgba(192,132,252,.08)',  dark: 'rgba(192,132,252,.04)' },
-  { main: '#22d3ee', glow: 'rgba(34,211,238,.25)',   light: 'rgba(34,211,238,.08)',   dark: 'rgba(34,211,238,.04)'  },
-  { main: '#fbbf24', glow: 'rgba(251,191,36,.25)',   light: 'rgba(251,191,36,.08)',   dark: 'rgba(251,191,36,.04)'  },
-  { main: '#34d399', glow: 'rgba(52,211,153,.25)',   light: 'rgba(52,211,153,.08)',   dark: 'rgba(52,211,153,.04)'  },
-  { main: '#f87171', glow: 'rgba(248,113,113,.25)',  light: 'rgba(248,113,113,.08)',  dark: 'rgba(248,113,113,.04)' },
-  { main: '#fb923c', glow: 'rgba(251,146,60,.25)',   light: 'rgba(251,146,60,.08)',   dark: 'rgba(251,146,60,.04)'  },
-  { main: '#a78bfa', glow: 'rgba(167,139,250,.25)',  light: 'rgba(167,139,250,.08)',  dark: 'rgba(167,139,250,.04)' },
-  { main: '#f472b6', glow: 'rgba(244,114,182,.25)',  light: 'rgba(244,114,182,.08)',  dark: 'rgba(244,114,182,.04)' },
+  '96,165,250',   // blue
+  '192,132,252',  // purple
+  '34,211,238',   // cyan
+  '251,191,36',   // amber
+  '52,211,153',   // emerald
+  '248,113,113',  // red
+  '251,146,60',   // orange
+  '167,139,250',  // violet
+  '244,114,182',  // pink
 ]
-
-import { canRemoveLeader, SERVERS } from '../lib/roles'
 
 // ── Фильтр по сфере ──────────────────────────────────────────
 const SPHERES = [
@@ -174,6 +120,14 @@ const BO_ORG_NAMES = {
   9: 'Радио24',
 }
 
+// Кликабельная ссылка (вк) с иконкой и подтверждением перехода
+const normalizeExternalUrl = (value) => (/^https?:\/\//i.test(value) ? value : `https://${value}`)
+const confirmAndOpenExternal = (value) => {
+  const url = normalizeExternalUrl(value)
+  const ok = window.confirm(`Вы уверены, что хотите покинуть сайт и перейти на страницу «${url}»?`)
+  if (ok) window.open(url, '_blank', 'noopener,noreferrer')
+}
+
 export default function Organizations({ user }) {
   //01 Техас, таблицы и скрипты для редакт.
   const GOV_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1pYaxNrSm37hydzEyLNuQsYOHF4jTfClDoJbqbSCkk2M/export?format=csv'
@@ -186,7 +140,7 @@ export default function Organizations({ user }) {
   const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0Q-vii_0uVqdNgwBtdRV9h8xP_46JvQInus5mQkz3yHcEihkBI1cBKZ4K7GA3SHU-/exec'
   const GHETTO_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlRt1hpLQy_7Z7G1PxISAmhgHcc9qS1QX4od1kG4BpM9x1QzPBffKNsA1J3FJwFoXo1rhxyJsGpIHF/pub?gid=0&single=true&output=csv'
   const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybb0LpyB_EL767lr-LNZmwGMTNrxULnUSdwkyXZULlBsOBxGbMF4GlWma_fMqOFvJR/exec'
-  
+
   //02 Флорида, таблицы для редакт.
   const FLORIDA_MAFIA_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTW7Q7m29fHn6u9D-GYSHWe4NiXuK2ld2K8MOGEWQitE7jUzrTWi1aBl_ud6FbX2Vtl5ERZm9V-MvtC/pub?gid=0&single=true&output=csv'
   const FLORIDA_MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNPvmhQSL7b7oJd5GL1jT77e9VOfEETuBEuOfGgkSGv2Kp5GavI7a6Odr5Q5tbtWo/exec'
@@ -196,9 +150,9 @@ export default function Organizations({ user }) {
   const isReady = READY_COMBOS.some(c => c.server === serverId && c.sphere === sphereId)
   const [orgs, setOrgs] = useState([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [sel, setSel] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [busyLabel, setBusyLabel] = useState('Сохранение…')
 
   const [fNick, setFNick] = useState('')
   const [fVK, setFVK]     = useState('')
@@ -206,7 +160,7 @@ export default function Organizations({ user }) {
   const [fAppoint, setFAppoint] = useState(todayISO())
   const [fExpiry, setFExpiry]   = useState(addDays(todayISO(), 28))
 
-  const [warnModal, setWarnModal] = useState(null) 
+  const [warnModal, setWarnModal] = useState(null)
   const [warnNote, setWarnNote]   = useState('')
 
   const openWarnModal  = (btn) => { setWarnModal(btn); setWarnNote('') }
@@ -222,7 +176,6 @@ export default function Organizations({ user }) {
       setOrgs([])
       setSel(null)
       setLoading(false)
-      setRefreshing(false)
       return
     }
     load()
@@ -282,8 +235,6 @@ export default function Organizations({ user }) {
   }
 
   // Мафии: 3 организации, каждая занимает свою фиксированную строку
-  // (14 / 16 / 18). Колонки: D-ник, F-название, H-вк, J-контроль бизнесов,
-  // L-баллы лидера, O/P-выговоры, R/T-даты, V/W-чекбоксы выполнения ГРП.
   const loadMafia = async () => {
     const res = await fetch(`${MAFIA_SHEETS_URL}&cacheBust=${Date.now()}`)
     const csv = await res.text()
@@ -397,7 +348,6 @@ export default function Organizations({ user }) {
   }
   const load = async () => {
     if (!isReady) return
-    setRefreshing(true)
     if (orgs.length === 0) setLoading(true)
     try {
       const parsed = serverId === 'florida' && sphereId === 'mafia' ? await loadFloridaMafia()
@@ -405,11 +355,16 @@ export default function Organizations({ user }) {
       setOrgs(parsed)
       setSel(prev => prev ? (parsed.find(o => o.name === prev.name) ?? null) : null)
     } catch (e) { console.error(e) }
-    finally { setLoading(false); setRefreshing(false) }
+    finally { setLoading(false) }
   }
 
+  // Отправка изменений: после подтверждения записи в таблицу делаем полный
+  // reload страницы, чтобы гарантированно подхватить свежие данные — вместо
+  // прежнего точечного повторного запроса (load()), который иногда возвращал
+  // ещё не обновившийся кэш Google Sheets.
   const send = async payload => {
     setBusy(true)
+    setBusyLabel('Сохранение…')
     try {
       const url = serverId === 'florida' && sphereId === 'mafia' ? FLORIDA_MAFIA_SCRIPT_URL
         : sphereId === 'bo' ? BO_SCRIPT_URL : sphereId === 'mafia' ? MAFIA_SCRIPT_URL : sphereId === 'bikers' ? BIKERS_SCRIPT_URL : sphereId === 'ghetto' ? GHETTO_SCRIPT_URL : GOV_SCRIPT_URL
@@ -419,9 +374,12 @@ export default function Organizations({ user }) {
         body: JSON.stringify(payload),
       })
       await new Promise(r => setTimeout(r, 1300))
-      await load()
-    } catch (e) { console.error(e) }
-    finally { setBusy(false) }
+      setBusyLabel('Обновление страницы…')
+      window.location.reload()
+    } catch (e) {
+      console.error(e)
+      setBusy(false)
+    }
   }
 
   const handleSetLeader = () => {
@@ -446,176 +404,57 @@ export default function Organizations({ user }) {
   const selAccent = ORG_ACCENTS[selIdx % ORG_ACCENTS.length] || ORG_ACCENTS[0]
 
   return (
-    <div style={{
-      fontFamily: "'Syne', 'Onest', 'Segoe UI', sans-serif",
-      color: '#e8edf5',
-      background: '#060810',
-      minHeight: '100vh',
-    }}>
+    <div className="text-white min-h-screen" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700;800;900&display=swap');
+        @keyframes db-shimmer  { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes db-spin     { to{transform:rotate(360deg)} }
+        @keyframes db-fadeUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes db-statPop  { 0%{opacity:0;transform:translateY(6px) scale(.94)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes db-fadeIn   { from{opacity:0} to{opacity:1} }
+        @keyframes db-slideUp  { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
 
-        @keyframes org-spin    { to { transform: rotate(360deg); } }
-        @keyframes org-fadeUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes org-fadeIn  { from { opacity:0; } to { opacity:1; } }
-        @keyframes float-orb   { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-8px) scale(1.03)} }
-        @keyframes glow-pulse  { 0%,100%{opacity:.5} 50%{opacity:.85} }
-        @keyframes shimmer     { 100% { transform: translateX(100%); } }
-
-        * { box-sizing: border-box; }
-
-        /* ── Скелетон загрузки с эффектом волны ── */
-        .skeleton-loader {
-          position: relative;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.03);
-          border-radius: 16px;
-          height: 140px;
+        .skeleton-text {
+          background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.04) 75%);
+          background-size: 200% 100%;
+          animation: db-shimmer 1.6s infinite linear;
+          border-radius: 6px;
         }
-        .skeleton-loader::after {
-          position: absolute; top: 0; right: 0; bottom: 0; left: 0;
-          transform: translateX(-100%);
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
-          animation: shimmer 1.6s infinite;
-          content: '';
-        }
-
-        /* ── Card ── */
-        .org-card {
-          transition: border-color .25s ease, background .25s ease, transform .25s cubic-bezier(.25, 1, .5, 1), box-shadow .25s ease;
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .org-card:hover { 
-          transform: translateY(-4px) scale(1.01); 
-        }
-
-        /* ── Button ── */
-        .org-btn {
-          transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s cubic-bezier(.25, 1, .5, 1), color .2s ease, filter .2s ease;
-          cursor: pointer;
-          position: relative;
-          overflow: hidden;
-          font-family: inherit;
-        }
-        .org-btn:hover { transform: translateY(-1.5px); }
-        .org-btn:active { transform: translateY(0) scale(.98); }
-
-        /* ── Input ── */
-        .org-input {
-          transition: border-color .2s, background .2s, box-shadow .2s;
-          box-sizing: border-box;
-          font-family: inherit;
-        }
-        .org-input:focus { outline: none; background: rgba(255,255,255,.07) !important; }
-        .org-input::placeholder { color: rgba(255,255,255,.2); }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.45); cursor: pointer; transition: filter .2s; }
-        input[type="date"]::-webkit-calendar-picker-indicator:hover { filter: invert(.85); }
-
-        /* ── Layout & Responsive ── */
-        .org-page-body { max-width: 1600px; margin: 0 auto; padding: 36px 48px; }
-        .org-header {
-          display: flex; align-items: flex-end; justify-content: space-between;
-          gap: 20px; margin-bottom: 44px; flex-wrap: wrap;
-        }
-        .org-layout {
-          display: grid;
-          grid-template-columns: 1fr 390px;
-          gap: 28px;
-          align-items: start;
-        }
-        .org-card-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 20px;
-        }
-        .org-panel {
-          background: linear-gradient(160deg, rgba(13,17,30,.98) 0%, rgba(7,9,16,1) 100%);
-          border: 1px solid rgba(255,255,255,.06);
-          border-radius: 24px;
-          padding: 28px;
-          position: sticky;
-          top: 24px;
-          backdrop-filter: blur(20px);
-          box-shadow: 0 30px 90px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.04);
-          max-height: calc(100vh - 80px);
-          overflow-y: auto;
-          transition: all 0.3s ease;
-        }
-        .org-section-label {
-          font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
-          color: rgba(255,255,255,.3); font-weight: 700; margin-bottom: 12px;
-          font-family: 'Onest', sans-serif;
-        }
-        .org-divider {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
-          margin: 24px 0;
-        }
-        .leader-avatar {
-          width: 44px; height: 44px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 16px; font-weight: 800; flex-shrink: 0;
-          font-family: 'Onest', sans-serif; position: relative;
-        }
-
-        @media (max-width: 900px) {
-          .org-page-body { padding: 24px 20px 32px; }
-          .org-layout { grid-template-columns: 1fr; }
-          .org-panel { position: static; top: auto; max-height: none; }
-        }
-        @media (max-width: 768px) {
-          .org-card-grid { gap: 14px; }
-          .org-panel { border-radius: 20px; padding: 24px; }
-        }
-        @media (max-width: 640px) {
-          .org-page-body { padding: 16px 14px 48px; }
-          .org-card-grid { grid-template-columns: 1fr; gap: 12px; }
-          .org-header { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
-          .org-header-refresh { width: 100% !important; justify-content: center !important; }
-          .org-title { font-size: 36px !important; }
-        }
-        @keyframes org-slideUp {
-          from { transform: translateY(30px); opacity: 0; }
-          to   { transform: translateY(0);    opacity: 1; }
-        }
-        @media (max-width: 640px) {
-          .org-warn-modal-overlay { align-items: flex-end !important; padding: 0 !important; }
-          .org-warn-modal-box {
-            border-radius: 24px 24px 0 0 !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            padding: 28px 20px 36px !important;
-            animation: org-slideUp .25s cubic-bezier(0, 0, 0.2, 1) both !important;
-          }
-        }
+        .org-card { transition: border-color .2s ease, background .2s ease, transform .2s cubic-bezier(.25,1,.5,1); cursor: pointer; }
+        .org-card:hover { transform: translateY(-3px); }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.6); cursor: pointer; }
       `}</style>
 
-      {/* ── BANNER ── */}
-      <div style={{ width: '100%', background: '#060810', paddingTop: '20px', borderBottom: '1px solid rgba(255,255,255,.03)' }}>
-        <div className="org-banner-wrap" style={{ padding: '0 48px' }}>
-          <div style={{ position: 'relative', width: '100%', maxHeight: '140px', overflow: 'hidden', borderRadius: '16px' }}>
-            <img src={banner} alt="banner" style={{ width: '100%', objectFit: 'contain', display: 'block' }}/>
-            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '80px', background: 'linear-gradient(to top, #060810, transparent)', pointerEvents: 'none' }}/>
+      {/* ── STATUS STRIP ───────────────────────────────── */}
+      <div className="border-b border-white/5">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 h-10 flex items-center justify-between text-[11px] font-semibold tracking-wide text-white/35">
+          <div className="flex items-center gap-2 uppercase">
+            <span>Реестр</span>
+            <span className="opacity-35 w-2.5 h-2.5">{IC.chevron}</span>
+            <span className="text-white/50">{SERVERS.find(s => s.id === serverId)?.label}</span>
+            <span className="opacity-35 w-2.5 h-2.5">{IC.chevron}</span>
+            <span className="text-white/50">{SPHERES.find(s => s.id === sphereId)?.label}</span>
           </div>
         </div>
       </div>
 
-      <div className="org-page-body">
-        {/* ── HEADER ── */}
-        <div className="org-header">
+      {/* ── BANNER ── */}
+      <div className="w-full">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 pt-5">
+          <div className="relative w-full max-h-[140px] overflow-hidden rounded-2xl">
+            <img src={banner} alt="banner" className="w-full object-contain block" />
+            <div className="absolute bottom-0 left-0 w-full h-20 pointer-events-none" style={{ background: 'linear-gradient(to top, #0a0e18, transparent)' }} />
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 py-8 sm:py-10">
+
+        {/* ── HEADER ─────────────────────────────────────── */}
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
           <div>
-            <div className="org-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'rgba(255,255,255,.25)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>
-              <span>Реестр</span>
-              <span style={{ opacity: .35 }}><IconChevron /></span>
-              <span style={{ color: 'rgba(255,255,255,.4)' }}>{SERVERS.find(s => s.id === serverId)?.label}</span>
-              <span style={{ opacity: .35 }}><IconChevron /></span>
-              <span style={{ color: 'rgba(255,255,255,.4)' }}>{SPHERES.find(s => s.id === sphereId)?.label}</span>
-            </div>
-            <h1 className="org-title" style={{ margin: 0, fontSize: '42px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1, background: 'linear-gradient(125deg, #ffffff 30%, rgba(255,255,255,.5) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', fontFamily: 'Syne, sans-serif' }}>
-              Организации
-            </h1>
-            <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'rgba(255,255,255,.35)', fontWeight: 500 }}>
+            <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Реестр организаций</div>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">Организации</h1>
+            <p className="text-slate-400 max-w-lg">
               {isReady
                 ? (sphereId === 'bo'
                     ? 'Управление и контроль бизнес организаций'
@@ -629,102 +468,95 @@ export default function Organizations({ user }) {
                 : `${SPHERES.find(s => s.id === sphereId)?.label} · ${SERVERS.find(s => s.id === serverId)?.label}`}
             </p>
           </div>
+        </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <select
-              className="org-input"
-              value={serverId}
-              onChange={e => setServerId(e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
-                color: 'rgba(255,255,255,.75)', padding: '12px 16px', borderRadius: '12px',
-                fontSize: '11px', letterSpacing: '1px', fontWeight: 700, textTransform: 'uppercase',
-                fontFamily: 'Onest, sans-serif', cursor: 'pointer',
-              }}
-            >
-              {SERVERS.map(s => (
-                <option key={s.id} value={s.id} style={{ background: '#0e1220', color: '#eef2f8' }}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+        {/* ── FILTERS (SERVER & SPHERE) ────────────── */}
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-8 bg-white/[0.02] border border-white/5 rounded-2xl p-4 sm:p-5">
+          {/* Серверный дропдаун */}
+          <div className="flex flex-col gap-2 min-w-[200px]">
+            <span className="text-[11px] font-extrabold tracking-[2px] uppercase text-white/35">Сервер</span>
+            <div className="relative">
+              <select
+                value={serverId}
+                onChange={e => setServerId(e.target.value)}
+                className="w-full appearance-none bg-white/5 text-slate-200 border border-white/10 hover:border-white/20 px-4 py-2.5 pr-10 rounded-xl text-xs font-bold transition-all duration-150 outline-none cursor-pointer focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                style={{ colorScheme: 'dark' }}
+              >
+                {SERVERS.map(s => (
+                  <option key={s.id} value={s.id} className="bg-[#0d1120] text-slate-200 py-2">
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
 
-            <select
-              className="org-input"
-              value={sphereId}
-              onChange={e => setSphereId(e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
-                color: 'rgba(255,255,255,.75)', padding: '12px 16px', borderRadius: '12px',
-                fontSize: '11px', letterSpacing: '1px', fontWeight: 700, textTransform: 'uppercase',
-                fontFamily: 'Onest, sans-serif', cursor: 'pointer',
-              }}
-            >
-              {SPHERES.map(s => (
-                <option key={s.id} value={s.id} style={{ background: '#0e1220', color: '#eef2f8' }}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              onClick={load}
-              className="org-btn org-header-refresh"
-              disabled={!isReady}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
-                color: 'rgba(255,255,255,.6)', padding: '12px 22px', borderRadius: '12px',
-                fontSize: '11px', letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Onest, sans-serif',
-                opacity: isReady ? 1 : .4, cursor: isReady ? 'pointer' : 'not-allowed',
-              }}
-              onMouseEnter={e => {
-                if (!isReady) return
-                e.currentTarget.style.background = 'rgba(255,255,255,.08)'
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'
-                e.currentTarget.style.color = '#fff'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,.04)'
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,.08)'
-                e.currentTarget.style.color = 'rgba(255,255,255,.6)'
-              }}
-            >
-              <IconRefresh spinning={refreshing} />
-              Обновить
-            </button>
+          {/* Фильтр сфер */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-extrabold tracking-[2px] uppercase text-white/35">Сфера</span>
+            <div className="flex flex-wrap gap-2">
+              {SPHERES.map(s => {
+                const active = sphereId === s.id
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSphereId(s.id)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 ${
+                      active
+                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
+                        : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
         {/* ── NOT READY: IN DEVELOPMENT ── */}
         {!isReady ? (
-          <div style={{
-            background: 'linear-gradient(160deg, rgba(13,17,30,.98) 0%, rgba(7,9,16,1) 100%)',
-            border: '1px solid rgba(255,255,255,.06)', borderRadius: '24px',
-            padding: '80px 24px', textAlign: 'center',
-            boxShadow: '0 30px 90px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04)',
-            animation: 'org-fadeUp .35s cubic-bezier(0.16, 1, 0.3, 1) both',
-          }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'rgba(251,191,36,.7)' }}>
-              <IconWarn />
-            </div>
-            <div style={{ fontSize: '16px', color: '#eef2f8', fontWeight: 800, letterSpacing: '.3px', fontFamily: 'Syne, sans-serif', marginBottom: '8px' }}>
-              Раздел в разработке
-            </div>
-            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,.35)', maxWidth: '420px', margin: '0 auto', lineHeight: 1.6 }}>
-              «{SPHERES.find(s => s.id === sphereId)?.label}» на сервере «{SERVERS.find(s => s.id === serverId)?.label}» пока не подключены к реестру организаций. Сейчас доступны «Государственные структуры», «Бизнес организации», «Мафии» и «Байкеры» на сервере «Texas».
+          <div
+            className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015]"
+            style={{ minHeight: 260, animation: 'db-fadeUp .35s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+          >
+            <div className="flex flex-col items-center justify-center text-center px-6 py-20">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/5 text-orange-300/80">
+                <span className="w-6 h-6 block">{IC.warning}</span>
+              </div>
+              <h3 className="text-xl font-black text-white mb-2">Раздел в разработке</h3>
+              <p className="text-sm text-slate-400 max-w-md">
+                «{SPHERES.find(s => s.id === sphereId)?.label}» на сервере «{SERVERS.find(s => s.id === serverId)?.label}» пока не подключены к реестру организаций. Сейчас доступны «Государственные структуры», «Бизнес организации», «Мафии», «Байкеры» и «Гетто» на сервере «Texas».
+              </p>
             </div>
           </div>
         ) : (
-        <div className="org-layout">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_390px] gap-7 items-start">
           {/* ── ORG CARDS ── */}
           <div>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-white/35">
+                Организации ({SERVERS.find(s => s.id === serverId)?.label})
+              </span>
+              <div className="flex-1 h-px bg-white/5" />
+            </div>
+
             {loading ? (
-              <div className="org-card-grid">
-                {[...Array(6)].map((_, i) => <div key={i} className="skeleton-loader" />)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="rounded-2xl border border-white/[0.06] bg-white/[0.015] overflow-hidden relative" style={{ height: 190 }}>
+                    <div className="absolute inset-0 skeleton-text" style={{ borderRadius: 16 }} />
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="org-card-grid">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {orgs.map((org, idx) => {
                   const isSel    = sel?.name === org.name
                   const isVacant = org.leader === 'Вакантно'
@@ -735,146 +567,116 @@ export default function Organizations({ user }) {
                   return (
                     <div
                       key={org.name}
-                      className="org-card"
                       onClick={() => setSel(org)}
+                      className={`org-card relative overflow-hidden rounded-2xl border p-6 ${
+                        isVacant && !isSel ? 'bg-red-400/[0.02]' : 'bg-white/[0.015]'
+                      }`}
                       style={{
-                        background: isSel
-                          ? `linear-gradient(150deg, ${accent.dark} 0%, rgba(10,14,26,0.99) 70%)`
-                          : isVacant
-                            ? 'linear-gradient(160deg, rgba(248,113,113,.02) 0%, rgba(8,10,18,.95) 100%)'
-                            : 'linear-gradient(160deg, rgba(255,255,255,.015) 0%, rgba(8,10,18,.95) 100%)',
-                        border: `1px solid ${
-                          isSel ? accent.main + '60'
-                            : isVacant ? 'rgba(248,113,113,.15)'
-                            : 'rgba(255,255,255,.06)'
-                        }`,
-                        borderRadius: '20px',
-                        padding: '24px',
-                        boxShadow: isSel
-                          ? `0 16px 40px ${accent.glow}, inset 0 1px 0 rgba(255,255,255,.05)`
-                          : '0 4px 20px rgba(0,0,0,.25)',
-                        animation: `org-fadeUp .4s cubic-bezier(0.16, 1, 0.3, 1) both ${idx * 0.04}s`,
-                        position: 'relative', overflow: 'hidden',
+                        borderColor: isSel ? `rgba(${accent},.45)` : isVacant ? 'rgba(248,113,113,.15)' : 'rgba(255,255,255,.08)',
+                        background: isSel ? `linear-gradient(150deg, rgba(${accent},.06) 0%, rgba(10,14,26,.6) 70%)` : undefined,
+                        boxShadow: isSel ? `0 16px 40px rgba(${accent},.15)` : 'none',
+                        animation: `db-fadeUp .35s cubic-bezier(0.16, 1, 0.3, 1) both ${idx * 0.04}s`,
                       }}
                     >
-                      {isSel && (
-                        <div style={{
-                          position: 'absolute', top: 0, left: '20px', right: '20px', height: '1.5px',
-                          background: `linear-gradient(90deg, transparent, ${accent.main}aa, transparent)`,
-                          animation: 'glow-pulse 2s ease-in-out infinite',
-                        }}/>
-                      )}
-
-                      {isSel && (
-                        <div style={{
-                          position: 'absolute', top: '-60px', right: '-60px', width: '160px', height: '160px',
-                          background: `radial-gradient(circle, ${accent.glow} 0%, transparent 70%)`,
-                          pointerEvents: 'none', animation: 'float-orb 4s ease-in-out infinite',
-                        }}/>
-                      )}
-
-                      <div style={{ display: 'flex', Jackie: 'space-between', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                        <div style={{
-                          width: '44px', height: '44px', borderRadius: '12px',
-                          background: isSel ? `${accent.light}` : 'rgba(255,255,255,.03)',
-                          border: `1px solid ${isSel ? accent.main + '40' : 'rgba(255,255,255,.06)'}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .25s',
-                        }}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                          style={{
+                            background: isSel ? `rgba(${accent},.12)` : 'rgba(255,255,255,.04)',
+                            border: `1px solid ${isSel ? `rgba(${accent},.35)` : 'rgba(255,255,255,.07)'}`,
+                          }}
+                        >
                           {orgIcon ? (
-                            <img 
-                              src={orgIcon} 
-                              alt={org.name} 
-                              width={org.name === 'Радио24' ? 32 : 24} 
-                              height={org.name === 'Радио24' ? 32 : 24} 
-                              style={{ 
-                                objectFit: 'contain', 
-                                filter: isSel ? 'none' : 'brightness(.5) saturate(0)', 
-                                transition: 'all .25s' 
-                              }} 
+                            <img
+                              src={orgIcon}
+                              alt={org.name}
+                              width={org.name === 'Радио24' ? 32 : 24}
+                              height={org.name === 'Радио24' ? 32 : 24}
+                              style={{ objectFit: 'contain', filter: isSel ? 'none' : 'brightness(.5) saturate(0)', transition: 'all .2s' }}
                             />
                           ) : (
-                            <span style={{ color: isSel ? accent.main : 'rgba(255,255,255,.2)', transition: 'all .25s' }}><IconShield size={18} /></span>
+                            <span className="w-[18px] h-[18px] block" style={{ color: isSel ? `rgb(${accent})` : 'rgba(255,255,255,.25)' }}>{IC.shield}</span>
                           )}
                         </div>
 
-                        <span style={{
-                          fontSize: '9px', fontWeight: 800, color: isSel ? accent.main : 'rgba(255,255,255,.3)',
-                          letterSpacing: '1.5px', background: isSel ? `${accent.light}` : 'rgba(255,255,255,.03)',
-                          padding: '4px 8px', borderRadius: '6px', border: `1px solid ${isSel ? accent.main + '30' : 'rgba(255,255,255,.05)'}`,
-                          fontFamily: 'Onest, sans-serif', transition: 'all .25s'
-                        }}>
+                        <span
+                          className="text-[9px] font-extrabold tracking-[1.5px] px-2 py-1 rounded-md"
+                          style={{
+                            color: isSel ? `rgb(${accent})` : 'rgba(255,255,255,.35)',
+                            background: isSel ? `rgba(${accent},.1)` : 'rgba(255,255,255,.03)',
+                            border: `1px solid ${isSel ? `rgba(${accent},.3)` : 'rgba(255,255,255,.06)'}`,
+                          }}
+                        >
                           #{org.id}
                         </span>
                       </div>
 
-                      <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: isSel ? accent.main : 'rgba(255,255,255,.5)', marginBottom: '12px', transition: 'color .25s', fontFamily: 'Onest, sans-serif' }}>
+                      <div
+                        className="text-sm font-bold tracking-[2px] uppercase mb-3"
+                        style={{ color: isSel ? `rgb(${accent})` : 'rgba(255,255,255,.55)' }}
+                      >
                         {org.name}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                        <div className="leader-avatar" style={{
-                          background: isVacant ? 'rgba(248,113,113,.08)' : isSel ? accent.light : 'rgba(255,255,255,.05)',
-                          border: `1.5px solid ${isVacant ? 'rgba(248,113,113,.25)' : isSel ? accent.main + '40' : 'rgba(255,255,255,.08)'}`,
-                          color: isVacant ? '#f87171' : isSel ? accent.main : 'rgba(255,255,255,.4)',
-                          transition: 'all .25s',
-                        }}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div
+                          className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 font-black text-base"
+                          style={{
+                            background: isVacant ? 'rgba(248,113,113,.08)' : isSel ? `rgba(${accent},.1)` : 'rgba(255,255,255,.05)',
+                            border: `1.5px solid ${isVacant ? 'rgba(248,113,113,.25)' : isSel ? `rgba(${accent},.35)` : 'rgba(255,255,255,.08)'}`,
+                            color: isVacant ? '#f87171' : isSel ? `rgb(${accent})` : 'rgba(255,255,255,.45)',
+                          }}
+                        >
                           {isVacant ? '—' : initials}
                         </div>
 
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '15px', fontWeight: 700, color: isVacant ? 'rgba(248,113,113,.5)' : '#eef2f5', fontStyle: isVacant ? 'italic' : 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'Onest, sans-serif' }}>
+                        <div className="min-w-0">
+                          <div className={`text-[15px] font-bold truncate ${isVacant ? 'italic text-red-400/50' : 'text-slate-100'}`}>
                             {org.leader}
                           </div>
                           {!isVacant && (
-                            <div style={{ fontSize: '10px', color: isSel ? accent.main : 'rgba(255,255,255,.3)', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'Onest, sans-serif' }}>
-                              <IconCrown /> Лидер
+                            <div
+                              className="text-[10px] font-bold tracking-wider uppercase mt-0.5 flex items-center gap-1.5"
+                              style={{ color: isSel ? `rgb(${accent})` : 'rgba(255,255,255,.35)' }}
+                            >
+                              <span className="w-3 h-3 block">{IC.crown}</span> Лидер
                             </div>
                           )}
                         </div>
                       </div>
 
                       {sphereId === 'mafia' && !isVacant && (
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
-                            Бизнесы · {org.biz}
-                          </span>
-                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
-                            Баллы · {org.points}
-                          </span>
+                        <div className="flex gap-1.5 mb-2.5 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold border border-white/[0.08] text-slate-300 bg-white/[0.03]">Бизнесы · {org.biz}</span>
+                          <span className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold border border-white/[0.08] text-slate-300 bg-white/[0.03]">Баллы · {org.points}</span>
                         </div>
                       )}
-
                       {sphereId === 'bikers' && !isVacant && (
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
-                            Баллы · {org.points}
-                          </span>
+                        <div className="flex gap-1.5 mb-2.5 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold border border-white/[0.08] text-slate-300 bg-white/[0.03]">Баллы · {org.points}</span>
                         </div>
                       )}
-
                       {sphereId === 'ghetto' && !isVacant && (
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
-                            Баллы · {org.points}
-                          </span>
-                          <span style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800, border: '1px solid rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.03)', fontFamily: 'Onest, sans-serif' }}>
-                            Фракция · {org.faction}
-                          </span>
+                        <div className="flex gap-1.5 mb-2.5 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold border border-white/[0.08] text-slate-300 bg-white/[0.03]">Баллы · {org.points}</span>
+                          <span className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold border border-white/[0.08] text-slate-300 bg-white/[0.03]">Фракция · {org.faction}</span>
                         </div>
                       )}
 
-                      <div style={{ display: 'flex', gap: '6px' }}>
+                      <div className="flex gap-1.5">
                         {[
-                          { label: `${sphereId === 'bikers' || sphereId === 'ghetto' ? 'В' : 'СВ'} · ${org.strict}/${sphereId === 'bikers' || sphereId === 'ghetto' ? 5 : 3}`, active: org.strict > 0, color: '#f87171', border: 'rgba(248,113,113,.25)', bg: 'rgba(248,113,113,.08)' },
-                          { label: `${sphereId === 'bikers' || sphereId === 'ghetto' ? 'П' : 'УВ'} · ${org.oral}/${sphereId === 'bikers' || sphereId === 'ghetto' ? 5 : 3}`, active: org.oral > 0, color: '#fbbf24', border: 'rgba(251,191,36,.2)', bg: 'rgba(251,191,36,.06)' },
+                          { label: `${sphereId === 'bikers' || sphereId === 'ghetto' ? 'В' : 'СВ'} · ${org.strict}/${sphereId === 'bikers' || sphereId === 'ghetto' ? 5 : 3}`, active: org.strict > 0, accent: '248,113,113' },
+                          { label: `${sphereId === 'bikers' || sphereId === 'ghetto' ? 'П' : 'УВ'} · ${org.oral}/${sphereId === 'bikers' || sphereId === 'ghetto' ? 5 : 3}`, active: org.oral > 0, accent: '251,191,36' },
                         ].map(b => (
-                          <span key={b.label} style={{
-                            padding: '3px 10px', borderRadius: '8px', fontSize: '9px', fontWeight: 800,
-                            border: `1px solid ${b.active ? b.border : 'rgba(255,255,255,.05)'}`,
-                            color: b.active ? b.color : 'rgba(255,255,255,.2)',
-                            background: b.active ? b.bg : 'transparent',
-                            fontFamily: 'Onest, sans-serif', transition: 'all .25s'
-                          }}>
+                          <span
+                            key={b.label}
+                            className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold"
+                            style={{
+                              border: `1px solid ${b.active ? `rgba(${b.accent},.3)` : 'rgba(255,255,255,.06)'}`,
+                              color: b.active ? `rgb(${b.accent})` : 'rgba(255,255,255,.25)',
+                              background: b.active ? `rgba(${b.accent},.08)` : 'transparent',
+                            }}
+                          >
                             {b.label}
                           </span>
                         ))}
@@ -887,115 +689,109 @@ export default function Organizations({ user }) {
           </div>
 
           {/* ── RIGHT PANEL ── */}
-          <div className="org-panel org-panel-scroll">
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 xl:sticky xl:top-6 max-h-[calc(100vh-48px)] overflow-y-auto">
             {sel ? (
-              <div key={sel.name} style={{ animation: 'org-fadeUp .35s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+              <div key={sel.name} style={{ animation: 'db-fadeUp .3s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
                 {/* ── PANEL HEADER ── */}
-                <div style={{ marginBottom: '20px' }}>
-                  <div className="org-section-label">Управление</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{
-                      width: '44px', height: '44px', borderRadius: '12px', background: selAccent.light,
-                      border: `1px solid ${selAccent.main}35`, display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center',
-                      boxShadow: `0 4px 14px ${selAccent.glow}`, overflow: 'hidden', flexShrink: 0,
-                    }}>
+                <div className="mb-5">
+                  <div className="text-[10px] font-extrabold tracking-[3px] uppercase text-white/30 mb-3">Управление</div>
+                  <div className="flex items-center gap-3.5">
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+                      style={{ background: `rgba(${selAccent},.1)`, border: `1px solid rgba(${selAccent},.35)`, boxShadow: `0 4px 14px rgba(${selAccent},.2)` }}
+                    >
                       {ORG_ICONS[sel.name] ? (
                         <img src={ORG_ICONS[sel.name]} alt={sel.name} width={24} height={24} style={{ objectFit: 'contain' }} />
                       ) : (
-                        <span style={{ color: selAccent.main }}><IconShield size={20}/></span>
+                        <span className="w-5 h-5 block" style={{ color: `rgb(${selAccent})` }}>{IC.shield}</span>
                       )}
                     </div>
-                    <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.5px', color: selAccent.main, fontFamily: 'Syne, sans-serif' }}>
+                    <div className="text-2xl font-black tracking-tight" style={{ color: `rgb(${selAccent})` }}>
                       {sel.name}
                     </div>
                   </div>
                 </div>
 
                 {/* ── CURRENT LEADER CARD ── */}
-                <div style={{
-                  background: `linear-gradient(135deg, ${selAccent.dark} 0%, rgba(255,255,255,.01) 100%)`,
-                  border: `1px solid ${selAccent.main}20`, borderRadius: '16px', padding: '16px', marginBottom: '20px',
-                  boxShadow: '0 4px 20px rgba(0,0,0,.2)', position: 'relative', overflow: 'hidden',
-                }}>
-                  <div style={{ fontSize: '9px', color: selAccent.main, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>
-                    <IconCrown /> Текущий лидер
+                <div
+                  className="rounded-2xl p-4 mb-5 relative overflow-hidden"
+                  style={{ background: `linear-gradient(135deg, rgba(${selAccent},.06) 0%, rgba(255,255,255,.01) 100%)`, border: `1px solid rgba(${selAccent},.15)` }}
+                >
+                  <div className="text-[9px] font-bold tracking-[2px] uppercase mb-3 flex items-center gap-1.5" style={{ color: `rgb(${selAccent})` }}>
+                    <span className="w-3.5 h-3.5 block">{IC.crown}</span> Текущий лидер
                   </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '48px', height: '48px', borderRadius: '50%', flexShrink: 0,
-                      background: vacant ? 'rgba(248,113,113,.06)' : selAccent.light,
-                      border: `2px solid ${vacant ? 'rgba(248,113,113,.2)' : selAccent.main + '40'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 900,
-                      color: vacant ? '#f87171' : selAccent.main, fontFamily: 'Onest, sans-serif',
-                    }}>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 font-black text-base"
+                      style={{
+                        background: vacant ? 'rgba(248,113,113,.06)' : `rgba(${selAccent},.1)`,
+                        border: `2px solid ${vacant ? 'rgba(248,113,113,.2)' : `rgba(${selAccent},.35)`}`,
+                        color: vacant ? '#f87171' : `rgb(${selAccent})`,
+                      }}
+                    >
                       {vacant ? '—' : sel.leader.slice(0, 2).toUpperCase()}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '16px', fontWeight: 700, color: vacant ? 'rgba(248,113,113,.4)' : '#f0f4fa', fontStyle: vacant ? 'italic' : 'normal', fontFamily: 'Onest, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div className="min-w-0">
+                      <div className={`text-base font-bold truncate ${vacant ? 'italic text-red-400/40' : 'text-slate-100'}`}>
                         {sel.leader}
                       </div>
                       {sel.vk && sel.vk !== '—' && (
-                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,.3)', marginTop: '2px' }}>{sel.vk}</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5 truncate">{sel.vk}</div>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {sphereId === 'mafia' && !vacant && (
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Контроль бизнесов</div>
-                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.biz}</div>
+                  <div className="flex gap-2.5 mb-5">
+                    <div className="flex-1 bg-white/[0.02] border border-white/[0.07] rounded-xl p-3">
+                      <div className="text-[9px] text-white/35 tracking-wider uppercase font-bold mb-1">Контроль бизнесов</div>
+                      <div className="text-base font-extrabold text-slate-100">{sel.biz}</div>
                     </div>
-                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Баллы лидера</div>
-                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.points}</div>
+                    <div className="flex-1 bg-white/[0.02] border border-white/[0.07] rounded-xl p-3">
+                      <div className="text-[9px] text-white/35 tracking-wider uppercase font-bold mb-1">Баллы лидера</div>
+                      <div className="text-base font-extrabold text-slate-100">{sel.points}</div>
                     </div>
                   </div>
                 )}
-
                 {sphereId === 'bikers' && !vacant && (
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Баллы лидера</div>
-                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.points}</div>
+                  <div className="flex gap-2.5 mb-5">
+                    <div className="flex-1 bg-white/[0.02] border border-white/[0.07] rounded-xl p-3">
+                      <div className="text-[9px] text-white/35 tracking-wider uppercase font-bold mb-1">Баллы лидера</div>
+                      <div className="text-base font-extrabold text-slate-100">{sel.points}</div>
                     </div>
                   </div>
                 )}
-
                 {sphereId === 'ghetto' && !vacant && (
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Баллы лидера</div>
-                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.points}</div>
+                  <div className="flex gap-2.5 mb-5">
+                    <div className="flex-1 bg-white/[0.02] border border-white/[0.07] rounded-xl p-3">
+                      <div className="text-[9px] text-white/35 tracking-wider uppercase font-bold mb-1">Баллы лидера</div>
+                      <div className="text-base font-extrabold text-slate-100">{sel.points}</div>
                     </div>
-                    <div style={{ flex: 1, background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px' }}>
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px', fontFamily: 'Onest, sans-serif' }}>Фракция</div>
-                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#eef2f8', fontFamily: 'Syne, sans-serif' }}>{sel.faction}</div>
+                    <div className="flex-1 bg-white/[0.02] border border-white/[0.07] rounded-xl p-3">
+                      <div className="text-[9px] text-white/35 tracking-wider uppercase font-bold mb-1">Фракция</div>
+                      <div className="text-base font-extrabold text-slate-100">{sel.faction}</div>
                     </div>
                   </div>
                 )}
 
-                <div className="org-divider" />
+                <div className="h-px my-6" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent)' }} />
 
                 {vacant ? (
                   /* ── FORM: APPOINT LEADER ── */
                   <>
-                    <div className="org-section-label">Назначение лидера</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                    <div className="text-[10px] font-extrabold tracking-[3px] uppercase text-white/30 mb-3">Назначение лидера</div>
+                    <div className="flex flex-col gap-2.5 mb-4">
                       {[
-                        { val: fNick,  set: setFNick,  ph: 'Ник лидера',       icon: <IconUser/> },
-                        { val: fVK,    set: setFVK,    ph: 'VK',               icon: <IconLink/> },
-                        ...(sphereId !== 'ghetto' ? [{ val: fForum, set: setFForum, ph: 'Форумный аккаунт', icon: <IconLink/> }] : []),
+                        { val: fNick,  set: setFNick,  ph: 'Ник лидера',       icon: IC.user },
+                        { val: fVK,    set: setFVK,    ph: 'VK',               icon: IC.link },
+                        ...(sphereId !== 'ghetto' ? [{ val: fForum, set: setFForum, ph: 'Форумный аккаунт', icon: IC.link }] : []),
                       ].map(f => (
-                        <div key={f.ph} style={{ position: 'relative' }}>
-                          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,.2)', display: 'flex' }}>{f.icon}</span>
+                        <div key={f.ph} className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 w-4 h-4 block">{f.icon}</span>
                           <input
-                            type="text" className="org-input" placeholder={f.ph} value={f.val} onChange={e => f.set(e.target.value)}
-                            style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', color: '#eef2f8', padding: '12px 14px 12px 38px', borderRadius: '12px', fontSize: '13px', width: '100%' }}
-                            onFocus={e => { e.currentTarget.style.borderColor = selAccent.main + '60'; e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}10` }}
-                            onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)'; e.currentTarget.style.boxShadow = 'none' }}
+                            type="text" placeholder={f.ph} value={f.val} onChange={e => f.set(e.target.value)}
+                            className="w-full bg-white/[0.03] border border-white/[0.08] text-slate-100 rounded-xl text-[13px] pl-10 pr-3.5 py-3 outline-none transition-colors focus:border-white/30"
                           />
                         </div>
                       ))}
@@ -1005,14 +801,13 @@ export default function Organizations({ user }) {
                         { label: `Дата снятия (+${sel.name === 'GOV' ? 30 : 28}д)`, val: fExpiry, set: setFExpiry },
                       ].map(f => (
                         <div key={f.label}>
-                          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.25)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>{f.label}</div>
-                          <div style={{ position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,.2)', display: 'flex' }}><IconCalendar /></span>
+                          <div className="text-[9px] text-white/25 tracking-wider uppercase font-bold mb-1.5">{f.label}</div>
+                          <div className="relative">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 w-4 h-4 block">{IC.cal}</span>
                             <input
-                              type="date" className="org-input" value={f.val} onChange={e => f.set(e.target.value)}
-                              style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', color: '#eef2f8', padding: '12px 14px 12px 38px', borderRadius: '12px', fontSize: '13px', width: '100%', colorScheme: 'dark' }}
-                              onFocus={e => { e.currentTarget.style.borderColor = selAccent.main + '60'; e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}10` }}
-                              onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)'; e.currentTarget.style.boxShadow = 'none' }}
+                              type="date" value={f.val} onChange={e => f.set(e.target.value)}
+                              className="w-full bg-white/[0.03] border border-white/[0.08] text-slate-100 rounded-xl text-[13px] pl-10 pr-3.5 py-3 outline-none transition-colors focus:border-white/30"
+                              style={{ colorScheme: 'dark' }}
                             />
                           </div>
                         </div>
@@ -1020,51 +815,53 @@ export default function Organizations({ user }) {
                     </div>
 
                     <button
-                      className="org-btn" onClick={handleSetLeader}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'linear-gradient(135deg, #22c55e 0%, #166534 100%)', border: '1px solid rgba(34,197,94,.2)', color: '#fff', padding: '14px', borderRadius: '12px', fontSize: '11px', letterSpacing: '1.5px', fontWeight: 800, width: '100%', textTransform: 'uppercase', boxShadow: '0 4px 20px rgba(34,197,94,.2)', fontFamily: 'Onest, sans-serif' }}
+                      onClick={handleSetLeader}
+                      className="w-full flex items-center justify-center gap-2.5 rounded-xl py-3.5 text-[11px] font-extrabold tracking-[1.5px] uppercase text-white transition-shadow"
+                      style={{ background: 'linear-gradient(135deg, #22c55e 0%, #166534 100%)', border: '1px solid rgba(34,197,94,.25)', boxShadow: '0 4px 20px rgba(34,197,94,.2)' }}
                       onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 24px rgba(34,197,94,.35)'}
                       onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(34,197,94,.2)'}
                     >
-                      <IconUserPlus /> Назначить лидера
+                      <span className="w-4 h-4 block">{IC.userPlus}</span> Назначить лидера
                     </button>
                   </>
                 ) : (
                   /* ── FORM: MANAGEMENT LEADER ── */
                   <>
-                    <div className="org-section-label">Взыскания</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                    <div className="text-[10px] font-extrabold tracking-[3px] uppercase text-white/30 mb-3">Взыскания</div>
+                    <div className="flex flex-col gap-2.5 mb-5">
                       {[
-                        { label: sphereId === 'bikers' || sphereId === 'ghetto' ? 'Выговор' : 'Строгий выговор', icon: <IconWarn/>, type: 'CHANGE_STRICT', bg: 'rgba(248,113,113,.06)', bgHover: 'linear-gradient(135deg, #ef4444 0%, #991b1b 100%)', border: 'rgba(248,113,113,.2)', borderHover: 'rgba(248,113,113,.4)', color: '#f87171', glow: 'rgba(239,68,68,.25)' },
-                        { label: sphereId === 'bikers' || sphereId === 'ghetto' ? 'Предупреждение' : 'Устный выговор', icon: <IconSpeech/>, type: 'CHANGE_ORAL', bg: 'rgba(251,191,36,.04)', bgHover: 'linear-gradient(135deg, #f59e0b 0%, #92400e 100%)', border: 'rgba(251,191,36,.15)', borderHover: 'rgba(251,191,36,.4)', color: '#fbbf24', glow: 'rgba(245,158,11,.2)' },
+                        { label: sphereId === 'bikers' || sphereId === 'ghetto' ? 'Выговор' : 'Строгий выговор', icon: IC.warning, type: 'CHANGE_STRICT', accent: '239,68,68', textColor: '#f87171' },
+                        { label: sphereId === 'bikers' || sphereId === 'ghetto' ? 'Предупреждение' : 'Устный выговор', icon: IC.speech, type: 'CHANGE_ORAL', accent: '245,158,11', textColor: '#fbbf24' },
                       ].map(btn => (
                         <button
-                          key={btn.type} className="org-btn" onClick={() => openWarnModal(btn)}
-                          style={{ display: 'flex', alignItems: 'center', gap: '10px', background: btn.bg, border: `1px solid ${btn.border}`, color: btn.color, padding: '13px 16px', borderRadius: '12px', fontSize: '11px', letterSpacing: '1px', fontWeight: 800, width: '100%', textTransform: 'uppercase', fontFamily: 'Onest, sans-serif' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = btn.bgHover; e.currentTarget.style.borderColor = btn.borderHover; e.currentTarget.style.color = '#fff'; e.currentTarget.style.boxShadow = `0 6px 20px ${btn.glow}` }}
-                          onMouseLeave={e => { e.currentTarget.style.background = btn.bg; e.currentTarget.style.borderColor = btn.border; e.currentTarget.style.color = btn.color; e.currentTarget.style.boxShadow = 'none' }}
+                          key={btn.type}
+                          onClick={() => openWarnModal(btn)}
+                          className="w-full flex items-center gap-2.5 rounded-xl px-4 py-3.5 text-[11px] font-extrabold tracking-wider uppercase transition-all duration-150"
+                          style={{ background: `rgba(${btn.accent},.06)`, border: `1px solid rgba(${btn.accent},.2)`, color: btn.textColor }}
+                          onMouseEnter={e => { e.currentTarget.style.background = `rgb(${btn.accent})`; e.currentTarget.style.color = '#fff'; e.currentTarget.style.boxShadow = `0 6px 20px rgba(${btn.accent},.3)` }}
+                          onMouseLeave={e => { e.currentTarget.style.background = `rgba(${btn.accent},.06)`; e.currentTarget.style.color = btn.textColor; e.currentTarget.style.boxShadow = 'none' }}
                         >
-                          {btn.icon} {btn.label}
+                          <span className="w-4 h-4 block">{btn.icon}</span> {btn.label}
                         </button>
                       ))}
                     </div>
 
-                    <div className="org-divider" />
+                    <div className="h-px my-6" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent)' }} />
 
-                    <div className="org-section-label">Изменить даты</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                    <div className="text-[10px] font-extrabold tracking-[3px] uppercase text-white/30 mb-3">Изменить даты</div>
+                    <div className="flex flex-col gap-2.5 mb-5">
                       {[
                         { label: 'Дата назначения', val: fAppoint, set: setFAppoint },
                         { label: `Дата снятия (+${sel.name === 'GOV' ? 30 : 28}д)`, val: fExpiry, set: setFExpiry },
                       ].map(f => (
                         <div key={f.label}>
-                          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.25)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 700, fontFamily: 'Onest, sans-serif' }}>{f.label}</div>
-                          <div style={{ position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,.2)', display: 'flex' }}><IconCalendar /></span>
+                          <div className="text-[9px] text-white/25 tracking-wider uppercase font-bold mb-1.5">{f.label}</div>
+                          <div className="relative">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 w-4 h-4 block">{IC.cal}</span>
                             <input
-                              type="date" className="org-input" value={f.val} onChange={e => f.set(e.target.value)}
-                              style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', color: '#eef2f8', padding: '12px 14px 12px 38px', borderRadius: '12px', fontSize: '13px', width: '100%', colorScheme: 'dark' }}
-                              onFocus={e => { e.currentTarget.style.borderColor = selAccent.main + '60'; e.currentTarget.style.boxShadow = `0 0 0 3px ${selAccent.main}10` }}
-                              onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)'; e.currentTarget.style.boxShadow = 'none' }}
+                              type="date" value={f.val} onChange={e => f.set(e.target.value)}
+                              className="w-full bg-white/[0.03] border border-white/[0.08] text-slate-100 rounded-xl text-[13px] pl-10 pr-3.5 py-3 outline-none transition-colors focus:border-white/30"
+                              style={{ colorScheme: 'dark' }}
                             />
                           </div>
                         </div>
@@ -1073,20 +870,23 @@ export default function Organizations({ user }) {
 
                     {(sphereId === 'mafia' || sphereId === 'bikers') && (
                       <>
-                        <div className="org-section-label">Выполнение ГРП</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+                        <div className="text-[10px] font-extrabold tracking-[3px] uppercase text-white/30 mb-3">Выполнение ГРП</div>
+                        <div className="flex flex-col gap-2 mb-5">
                           {[
                             { key: 'grp1', label: '1-я ГРП за срок', type: 'TOGGLE_GRP1', checked: sel.grp1 },
                             { key: 'grp2', label: '2-я ГРП за срок', type: 'TOGGLE_GRP2', checked: sel.grp2 },
                           ].map(g => (
                             <label
                               key={g.key}
-                              style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '12px', padding: '12px 14px', cursor: 'pointer', fontFamily: 'Onest, sans-serif', fontSize: '13px', color: g.checked ? '#eef2f8' : 'rgba(255,255,255,.45)' }}
+                              className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 cursor-pointer text-[13px] ${
+                                g.checked ? 'border-white/[0.1] text-slate-100' : 'border-white/[0.06] text-white/45'
+                              } bg-white/[0.02]`}
                             >
                               <input
                                 type="checkbox" checked={g.checked}
                                 onChange={() => send({ type: g.type, rowId: sel.id })}
-                                style={{ width: '16px', height: '16px', accentColor: selAccent.main, cursor: 'pointer' }}
+                                className="w-4 h-4 cursor-pointer"
+                                style={{ accentColor: `rgb(${selAccent})` }}
                               />
                               {g.label}
                             </label>
@@ -1096,27 +896,25 @@ export default function Organizations({ user }) {
                     )}
 
                     <button
-                      className="org-btn"
                       onClick={() => { if (!canRemoveLeader(user)) { alert('Недостаточно прав для снятия лидера'); return }; send({ type: 'KICK_LEADER', rowId: sel.id }) }}
-                      style={{ display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', gap: '10px', background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.15)', color: '#f87171', padding: '14px', borderRadius: '12px', fontSize: '11px', letterSpacing: '1.5px', fontWeight: 800, width: '100%', textTransform: 'uppercase', fontFamily: 'Onest, sans-serif' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444 0%, #991b1b 100%)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(239,68,68,.3)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(239,68,68,.3)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,.05)'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(239,68,68,.15)'; e.currentTarget.style.boxShadow = 'none' }}
+                      className="w-full flex items-center justify-center gap-2.5 rounded-xl py-3.5 text-[11px] font-extrabold tracking-wider uppercase transition-all duration-150"
+                      style={{ background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.15)', color: '#f87171' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444 0%, #991b1b 100%)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(239,68,68,.3)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,.05)'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.boxShadow = 'none' }}
                     >
-                      <IconUserX /> Снять лидера
+                      <span className="w-4 h-4 block">{IC.userX}</span> Снять лидера
                     </button>
                   </>
                 )}
               </div>
             ) : (
               /* ── EMPTY STATE ── */
-              <div style={{ padding: '80px 0', textAlign: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.05)', display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'rgba(255,255,255,.12)' }}>
-                  <IconShield size={24} />
+              <div className="py-20 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mx-auto mb-4 text-white/10">
+                  <span className="w-6 h-6 block">{IC.shield}</span>
                 </div>
-                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,.3)', fontWeight: 700, letterSpacing: '.5px', fontFamily: 'Onest, sans-serif' }}>
-                  Выберите организацию
-                </div>
-                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,.15)', marginTop: '4px' }}>для управления</div>
+                <div className="text-[13px] text-white/30 font-bold tracking-wide">Выберите организацию</div>
+                <div className="text-xs text-white/15 mt-1">для управления</div>
               </div>
             )}
           </div>
@@ -1127,59 +925,62 @@ export default function Organizations({ user }) {
       {/* ── WARN NOTE MODAL ── */}
       {warnModal && (
         <div
-          className="org-warn-modal-overlay" onClick={closeWarnModal}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(3, 5, 10, 0.6)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', zIndex: 60, animation: 'org-fadeIn .2s ease both', padding: '20px' }}
+          onClick={closeWarnModal}
+          className="fixed inset-0 flex items-center justify-center p-5 z-[60]"
+          style={{ background: 'rgba(3,5,10,.65)', backdropFilter: 'blur(10px)', animation: 'db-fadeIn .2s ease both' }}
         >
           <div
-            className="org-warn-modal-box" onClick={e => e.stopPropagation()}
-            style={{ background: 'linear-gradient(160deg, #111625 0%, #070911 100%)', border: `1px solid ${warnModal.color}25`, borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '400px', boxShadow: '0 40px 80px rgba(0,0,0,.7)', position: 'relative', overflow: 'hidden' }}
+            onClick={e => e.stopPropagation()}
+            className="w-full max-w-[400px] rounded-[20px] p-7 relative overflow-hidden"
+            style={{ background: 'linear-gradient(160deg, #111625 0%, #070911 100%)', border: `1px solid rgba(${warnModal.accent},.2)`, boxShadow: '0 40px 80px rgba(0,0,0,.7)' }}
           >
-            <div style={{ position: 'absolute', top: 0, left: '20px', right: '20px', height: '1.5px', background: `linear-gradient(90deg, transparent, ${warnModal.color}50, transparent)` }}/>
+            <div className="absolute top-0 left-5 right-5 h-[1.5px]" style={{ background: `linear-gradient(90deg, transparent, rgba(${warnModal.accent},.4), transparent)` }} />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '10px', flexShrink: 0, background: `rgba(${warnModal.color === '#f87171' ? '248,113,113' : '251,191,36'},.08)`, border: `1px solid ${warnModal.color}25`, display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', color: warnModal.color }}>
-                {warnModal.type === 'CHANGE_STRICT' ? <IconWarn /> : <IconSpeech />}
+            <div className="flex items-center gap-3 mb-5">
+              <div
+                className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center shrink-0"
+                style={{ background: `rgba(${warnModal.accent},.08)`, border: `1px solid rgba(${warnModal.accent},.25)`, color: warnModal.textColor }}
+              >
+                <span className="w-4 h-4 block">{warnModal.type === 'CHANGE_STRICT' ? IC.warning : IC.speech}</span>
               </div>
               <div>
-                <div style={{ fontSize: '9px', color: warnModal.color, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '2px', fontFamily: 'Onest, sans-serif' }}>{sphereId === 'bikers' || sphereId === 'ghetto' ? 'Взыскание' : 'Выговор'}</div>
-                <div style={{ fontSize: '18px', fontWeight: 800, color: '#f0f4fa', fontFamily: 'Syne, sans-serif' }}>{warnModal.label}</div>
+                <div className="text-[9px] tracking-[2px] uppercase font-bold mb-0.5" style={{ color: warnModal.textColor }}>
+                  {sphereId === 'bikers' || sphereId === 'ghetto' ? 'Взыскание' : 'Выговор'}
+                </div>
+                <div className="text-lg font-extrabold text-slate-100">{warnModal.label}</div>
               </div>
             </div>
 
-            <div style={{ fontSize: '9px', color: 'rgba(255,255,255,.3)', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '8px', fontFamily: 'Onest, sans-serif' }}>Примечание к выговору</div>
+            <div className="text-[9px] text-white/30 tracking-wider uppercase font-bold mb-2">Примечание к выговору</div>
 
             <textarea
               autoFocus placeholder="Опишите причину выговора…" value={warnNote} onChange={e => setWarnNote(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) confirmWarn() }} rows={4}
-              style={{ width: '100%', resize: 'none', background: 'rgba(255,255,255,.03)', border: `1px solid ${warnNote.trim() ? warnModal.color + '40' : 'rgba(255,255,255,.07)'}`, color: '#eef2f8', padding: '12px', borderRadius: '12px', fontSize: '13px', fontFamily: 'Onest, sans-serif', lineHeight: 1.5, colorScheme: 'dark', outline: 'none', transition: 'all .2s', marginBottom: '6px' }}
+              className="w-full resize-none bg-white/[0.03] text-slate-100 rounded-xl p-3 text-[13px] leading-relaxed outline-none mb-1.5"
+              style={{ border: `1px solid ${warnNote.trim() ? `rgba(${warnModal.accent},.4)` : 'rgba(255,255,255,.07)'}`, colorScheme: 'dark' }}
             />
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,.15)', textAlign: 'right', marginBottom: '20px', fontFamily: 'Onest, sans-serif' }}>Ctrl+Enter — подтвердить</div>
+            <div className="text-[10px] text-white/15 text-right mb-5">Ctrl+Enter — подтвердить</div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="flex gap-2.5">
               <button
-                className="org-btn" onClick={closeWarnModal}
-                style={{ flex: 1, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)', padding: '12px 0', borderRadius: '11px', fontSize: '11px', letterSpacing: '1px', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'Onest, sans-serif' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.06)'; e.currentTarget.style.color = '#fff' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,.03)'; e.currentTarget.style.color = 'rgba(255,255,255,.4)' }}
+                onClick={closeWarnModal}
+                className="flex-1 bg-white/[0.03] border border-white/[0.06] text-white/40 rounded-[11px] py-3 text-[11px] font-extrabold tracking-wider uppercase transition-colors hover:bg-white/[0.06] hover:text-white"
               >
                 Назад
               </button>
 
               <button
-                className="org-btn" onClick={confirmWarn} disabled={!warnNote.trim()}
+                onClick={confirmWarn} disabled={!warnNote.trim()}
+                className="flex-[2] rounded-[11px] py-3 text-[11px] font-extrabold tracking-wider uppercase text-white transition-shadow"
                 style={{
-                  flex: 2,
                   background: warnNote.trim()
                     ? warnModal.type === 'CHANGE_STRICT' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
                     : 'rgba(255,255,255,.02)',
-                  border: `1px solid ${warnNote.trim() ? warnModal.color + '40' : 'rgba(255,255,255,.04)'}`,
+                  border: `1px solid ${warnNote.trim() ? `rgba(${warnModal.accent},.4)` : 'rgba(255,255,255,.04)'}`,
                   color: warnNote.trim() ? '#fff' : 'rgba(255,255,255,.15)',
-                  padding: '12px 0', borderRadius: '11px', fontSize: '11px', letterSpacing: '1px', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'Onest, sans-serif',
-                  boxShadow: warnNote.trim() ? `0 4px 14px ${warnModal.glow}` : 'none',
+                  boxShadow: warnNote.trim() ? `0 4px 14px rgba(${warnModal.accent},.25)` : 'none',
                   cursor: warnNote.trim() ? 'pointer' : 'not-allowed',
                 }}
-                onMouseEnter={e => { if (!warnNote.trim()) return; e.currentTarget.style.filter = 'brightness(1.1)' }}
-                onMouseLeave={e => { e.currentTarget.style.filter = 'none' }}
               >
                 {sphereId === 'bikers' || sphereId === 'ghetto' ? 'Подтвердить' : 'Выдать выговор'}
               </button>
@@ -1190,10 +991,10 @@ export default function Organizations({ user }) {
 
       {/* ── BUSY OVERLAY ── */}
       {busy && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(3, 5, 10, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyJackie: 'center', justifyContent: 'center', zIndex: 50, animation: 'org-fadeIn .15s ease both' }}>
-          <div style={{ background: 'linear-gradient(160deg, #0e1220 0%, #06080e 100%)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '20px', padding: '36px 54px', textAlign: 'center', boxShadow: '0 30px 60px rgba(0,0,0,.6)' }}>
-            <div style={{ width: '32px', height: '32px', margin: '0 auto 16px', border: '2px solid rgba(255,255,255,.05)', borderTopColor: '#fbbf24', borderRadius: '50%', animation: 'org-spin .6s linear infinite' }}/>
-            <div style={{ color: 'rgba(255,255,255,.3)', fontSize: '10px', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 800, fontFamily: 'Onest, sans-serif' }}>Сохранение…</div>
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(3,5,10,.75)', backdropFilter: 'blur(8px)', animation: 'db-fadeIn .15s ease both' }}>
+          <div className="rounded-[20px] px-14 py-9 text-center" style={{ background: 'linear-gradient(160deg, #0e1220 0%, #06080e 100%)', border: '1px solid rgba(255,255,255,.06)', boxShadow: '0 30px 60px rgba(0,0,0,.6)' }}>
+            <div className="w-8 h-8 mx-auto mb-4 rounded-full" style={{ border: '2px solid rgba(255,255,255,.05)', borderTopColor: '#fbbf24', animation: 'db-spin .6s linear infinite' }} />
+            <div className="text-white/30 text-[10px] tracking-[3px] uppercase font-extrabold">{busyLabel}</div>
           </div>
         </div>
       )}
