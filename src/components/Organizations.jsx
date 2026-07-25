@@ -144,6 +144,7 @@ const READY_COMBOS = [
   { server: 'texas', sphere: 'mafia' },
   { server: 'texas', sphere: 'bikers' },
   { server: 'texas', sphere: 'ghetto' },
+  { server: 'florida', sphere: 'mafia' },
 ]
 
 // Байкеры: как и у мафий, лидеры сидят в фиксированных строках 14/16/18.
@@ -156,6 +157,10 @@ const BIKERS_LEADER_ROWS = [14, 16, 18]
 // Мафии: фиксированные строки лидеров в таблице (см. MAFIA_SHEETS_URL) —
 // у каждой из 3 организаций лидер всегда сидит в одной и той же строке.
 const MAFIA_LEADER_ROWS = [14, 16, 18]
+
+// Florida — мафии: своя таблица, свои строки лидеров и совсем другая раскладка
+// колонок (C-K), в отличие от Texas (см. loadFloridaMafia).
+const FLORIDA_MAFIA_LEADER_ROWS = [8, 10, 12]
 
 // Гетто: фиксированные строки лидеров в таблице (см. GHETTO_SHEETS_URL) —
 // у каждого из 5 гетто-лидеров данные всегда сидят в одной и той же строке.
@@ -183,7 +188,8 @@ export default function Organizations({ user }) {
   const GHETTO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybb0LpyB_EL767lr-LNZmwGMTNrxULnUSdwkyXZULlBsOBxGbMF4GlWma_fMqOFvJR/exec'
   
   //02 Флорида, таблицы для редакт.
-
+  const FLORIDA_MAFIA_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTW7Q7m29fHn6u9D-GYSHWe4NiXuK2ld2K8MOGEWQitE7jUzrTWi1aBl_ud6FbX2Vtl5ERZm9V-MvtC/pub?gid=0&single=true&output=csv'
+  const FLORIDA_MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbyuz0pz9AXN7m1r7NkyqfrpPhM3wiTB8W3zqp_V_VznloYRAQ-EwQ8x2LldxuGsi5YI/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
@@ -302,6 +308,31 @@ export default function Organizations({ user }) {
       }
     })
   }
+  // Florida — мафии: 3 организации, строки 8/10/12. Колонки: C-ник,
+  // D-организация (название фракции), E-вк, F-строгие выговоры,
+  // G-устные выговоры, H-штрафные баллы, I-баллы, J-дата назначения,
+  // K-дата снятия. Без ГРП-чекбоксов (в отличие от Texas-мафий).
+  const loadFloridaMafia = async () => {
+    const res = await fetch(`${FLORIDA_MAFIA_SHEETS_URL}&cacheBust=${Date.now()}`)
+    const csv = await res.text()
+    const rows = csv.split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
+    const c = s => s?.replace(/"/g, '').trim() || ''
+    return FLORIDA_MAFIA_LEADER_ROWS.map(rowNum => {
+      const row = rows[rowNum - 1] || []
+      return {
+        id: rowNum,
+        name: c(row[3]) || `Мафия (стр. ${rowNum})`,                  // D
+        leader: c(row[2]) || 'Вакантно',                               // C
+        vk: c(row[4]) || '—',                                           // E
+        penalty: c(row[7]) || '—',                                      // H — штрафные баллы
+        points: c(row[8]) || '—',                                        // I — баллы
+        strict: Number((c(row[5]) || '0/3').split('/')[0]) || 0,          // F
+        oral:   Number((c(row[6]) || '0/3').split('/')[0]) || 0,          // G
+        appointDate: c(row[9])  || '-',                                    // J
+        expiryDate:  c(row[10]) || '-',                                    // K
+      }
+    })
+  }
   // Байкеры: 3 организации в строках 14/16/18, но колонки идут парами из-за
   // визуального объединения ячеек в таблице — при экспорте CSV значение
   // может оказаться в любой из двух ячеек пары, поэтому берём первую непустую.
@@ -369,7 +400,8 @@ export default function Organizations({ user }) {
     setRefreshing(true)
     if (orgs.length === 0) setLoading(true)
     try {
-      const parsed = sphereId === 'bo' ? await loadBo() : sphereId === 'mafia' ? await loadMafia() : sphereId === 'bikers' ? await loadBikers() : sphereId === 'ghetto' ? await loadGhetto() : await loadGov()
+      const parsed = serverId === 'florida' && sphereId === 'mafia' ? await loadFloridaMafia()
+        : sphereId === 'bo' ? await loadBo() : sphereId === 'mafia' ? await loadMafia() : sphereId === 'bikers' ? await loadBikers() : sphereId === 'ghetto' ? await loadGhetto() : await loadGov()
       setOrgs(parsed)
       setSel(prev => prev ? (parsed.find(o => o.name === prev.name) ?? null) : null)
     } catch (e) { console.error(e) }
@@ -379,7 +411,8 @@ export default function Organizations({ user }) {
   const send = async payload => {
     setBusy(true)
     try {
-      const url = sphereId === 'bo' ? BO_SCRIPT_URL : sphereId === 'mafia' ? MAFIA_SCRIPT_URL : sphereId === 'bikers' ? BIKERS_SCRIPT_URL : sphereId === 'ghetto' ? GHETTO_SCRIPT_URL : GOV_SCRIPT_URL
+      const url = serverId === 'florida' && sphereId === 'mafia' ? FLORIDA_MAFIA_SCRIPT_URL
+        : sphereId === 'bo' ? BO_SCRIPT_URL : sphereId === 'mafia' ? MAFIA_SCRIPT_URL : sphereId === 'bikers' ? BIKERS_SCRIPT_URL : sphereId === 'ghetto' ? GHETTO_SCRIPT_URL : GOV_SCRIPT_URL
       await fetch(url, {
         method: 'POST', mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },

@@ -11,6 +11,11 @@ import { getFactionByRoleName, isLeader, isChief, isDeputy, canEditRoles } from 
      управления 2FA. Всё, что можно менять — меняется на странице
      «Пользователи» (Users.jsx), сюда ведёт кнопка «Управлять».
 
+  Дизайн приведён к единому стилю с Dashboard.jsx: тёмный радиальный
+  градиент фона, карточки rounded-xl border-white/[0.08] bg-white/[0.015]
+  с цветной полосой слева, аптейс-заголовки секций с разделителем,
+  скелетоны с шиммер-анимацией вместо спиннера.
+
   Использование:
     <ProfileUsers userId={someId} onBack={() => ...} />
     <ProfileUsers user={alreadyLoadedUserObject} onBack={() => ...} />
@@ -29,7 +34,7 @@ function getPlayerUid(id) {
   return `SC-${String(id).replace(/-/g, '').toUpperCase().slice(0, 6)}`
 }
 
-// ── SVG ИКОНКИ ──────────────────────────────────────────────────
+// ── SVG ИКОНКИ (в стиле IC из Dashboard.jsx) ────────────────────
 const IconChevron = () => (
   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="9 18 15 12 9 6"/>
@@ -41,59 +46,98 @@ const IconArrowLeft = () => (
   </svg>
 )
 const IconShield = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
   </svg>
 )
 const IconWarn = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
     <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
   </svg>
 )
 const IconUsers = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
   </svg>
 )
+const IconLink = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  </svg>
+)
+const IconAlert = () => (
+  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path d="M12 3l9 18H3l9-18z"/>
+  </svg>
+)
 
-const T = {
-  bg: '#0b0e14',
-  panel: '#11151d',
-  panel2: '#151a24',
-  border: 'rgba(255,255,255,0.07)',
-  borderSoft: 'rgba(255,255,255,0.045)',
-  text: '#e6e9f0',
-  muted: '#8891a1',
-  faint: 'rgba(255,255,255,0.28)',
-  accent: '#5b8def',
-  accentSoft: 'rgba(91,141,239,0.12)',
-  warn: '#d69a3c',
-  warnSoft: 'rgba(214,154,60,0.12)',
-  danger: '#e2635f',
-  dangerSoft: 'rgba(226,99,95,0.12)',
-  success: '#3fb787',
-  successSoft: 'rgba(63,183,135,0.12)',
+// Роль → акцентный цвет (rgb-триплет, как в Dashboard: `rgb(${accent})` / `rgba(${accent},.12)`)
+function getRoleAccent(roleName = '') {
+  if (roleName === 'Главный Разработчик') return '226,99,95'      // danger
+  if (roleName.startsWith('ГС') || roleName.startsWith('Главный Следящий')) return '251,146,60' // orange
+  if (roleName.startsWith('ЗГС') || roleName.startsWith('Заместитель Главного Следящего')) return '251,146,60'
+  if (roleName.startsWith('Следящий')) return '139,147,240'       // indigo
+  if (roleName.startsWith('Лидер')) return '63,183,135'           // success
+  return '91,141,239'                                              // accent blue
 }
 
-function getRoleColor(roleName = '') {
-  if (roleName === 'Главный Разработчик') return T.danger
-  if (roleName.startsWith('ГС') || roleName.startsWith('Главный Следящий')) return T.warn
-  if (roleName.startsWith('ЗГС') || roleName.startsWith('Заместитель Главного Следящего')) return T.warn
-  if (roleName.startsWith('Следящий')) return '#8b93f0'
-  if (roleName.startsWith('Лидер')) return T.success
-  return T.accent
-}
-
-function StateBlock({ children }) {
+// Пилюля-статус в едином стиле дешборда
+function StatusPill({ children, accent, muted }) {
+  if (muted) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/[0.04] text-white/35 border border-white/[0.08]">
+        {children}
+      </span>
+    )
+  }
   return (
-    <div style={{
-      minHeight: '100vh', background: T.bg, color: T.text,
-      fontFamily: "'Inter', 'Segoe UI', sans-serif",
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
+    <span
+      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full"
+      style={{ background: `rgba(${accent},.12)`, color: `rgb(${accent})`, border: `1px solid rgba(${accent},.35)` }}
+    >
       {children}
+    </span>
+  )
+}
+
+// Строка «лейбл — значение» внутри карточки реквизитов
+function InfoRow({ label, children, last }) {
+  return (
+    <div className={`flex items-center justify-between gap-3 py-3.5 ${last ? '' : 'border-b border-white/[0.05]'}`}>
+      <span className="text-[12px] font-semibold text-white/45">{label}</span>
+      <span className="text-[13.5px] font-semibold text-right">{children}</span>
+    </div>
+  )
+}
+
+function SkeletonProfile() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
+      <div className="flex flex-col gap-5">
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.015] p-6 flex items-center gap-5">
+          <div className="skeleton-text w-20 h-20 rounded-2xl shrink-0" />
+          <div className="flex-1 space-y-3">
+            <div className="skeleton-text h-6 w-48" />
+            <div className="skeleton-text h-5 w-32" />
+          </div>
+        </div>
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.015] p-6 space-y-4">
+          {[0, 1, 2, 3, 4].map(i => (
+            <div key={i} className="flex items-center justify-between">
+              <div className="skeleton-text h-3.5 w-32" />
+              <div className="skeleton-text h-3.5 w-24" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-xl border border-white/[0.08] bg-white/[0.015] p-6 space-y-4">
+        <div className="skeleton-text h-3.5 w-28" />
+        <div className="skeleton-text h-5 w-full" />
+        <div className="skeleton-text h-5 w-full" />
+      </div>
     </div>
   )
 }
@@ -131,284 +175,226 @@ export default function ProfileUsers({ userId, user, currentUser, onBack, onMana
   }), [account])
 
   const playerUid = getPlayerUid(data.id)
-  const roleColor = getRoleColor(data.role)
+  const accent = getRoleAccent(data.role)
   const faction = useMemo(() => getFactionByRoleName(data.role), [data.role])
   const canManage = currentUser ? canEditRoles(currentUser) : false
 
-  if (loading) {
-    return (
-      <StateBlock>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 26, height: 26, border: `2px solid ${T.border}`, borderTopColor: T.accent, borderRadius: '50%', animation: 'pu-spin .7s linear infinite' }} />
-          <style>{`@keyframes pu-spin { to { transform: rotate(360deg); } }`}</style>
-          <div style={{ fontSize: 13, color: T.muted, fontWeight: 600 }}>Загрузка профиля…</div>
-        </div>
-      </StateBlock>
-    )
-  }
-
-  if (error || !account) {
-    return (
-      <StateBlock>
-        <div style={{ textAlign: 'center', maxWidth: 340 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Не удалось открыть профиль</div>
-          <div style={{ fontSize: 13, color: T.muted, marginBottom: 20, lineHeight: 1.5 }}>
-            {error || 'Пользователь не найден'}
-          </div>
-          {onBack && (
-            <button
-              onClick={onBack}
-              style={{ padding: '9px 18px', borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: `1px solid ${T.border}`, background: 'rgba(255,255,255,.03)', color: T.text, fontFamily: 'inherit' }}
-            >
-              Назад
-            </button>
-          )}
-        </div>
-      </StateBlock>
-    )
-  }
-
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: T.bg,
-      color: T.text,
-      fontFamily: "'Inter', 'Segoe UI', sans-serif",
-      padding: '40px 48px',
-    }}>
+    <div className="text-white min-h-screen" style={{ background: 'radial-gradient(circle at 12% 0%, #1a2440 0%, #0a0e18 50%)' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @keyframes db-shimmer  { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes db-fadeUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes db-statPop  { 0%{opacity:0;transform:translateY(6px) scale(.94)} 100%{opacity:1;transform:translateY(0) scale(1)} }
 
-        @keyframes pu-fade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-
-        .pu-panel {
-          background: ${T.panel};
-          border: 1px solid ${T.border};
-          border-radius: 14px; padding: 28px;
-          animation: pu-fade 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        .pu-row {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 4px; border-bottom: 1px solid ${T.borderSoft};
-          gap: 12px;
-        }
-        .pu-row:last-child { border-bottom: none; }
-        .pu-label { font-size: 12px; color: ${T.muted}; font-weight: 600; }
-        .pu-value { font-size: 13.5px; font-weight: 600; color: ${T.text}; }
-        .pu-link { color: ${T.accent}; text-decoration: none; font-size: 13.5px; font-weight: 600; }
-        .pu-link:hover { text-decoration: underline; }
-        .pu-back {
-          display: inline-flex; align-items: center; gap: 7px;
-          background: none; border: none; color: ${T.muted}; cursor: pointer;
-          font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 0;
-        }
-        .pu-back:hover { color: #fff; }
-        .pu-btn {
-          padding: 9px 16px; border-radius: 8px; font-size: 12.5px; font-weight: 700;
-          cursor: pointer; border: none; font-family: inherit; transition: opacity .15s;
-        }
-        .pu-btn:hover { opacity: .88; }
-        .avatar-circle {
-          width: 84px; height: 84px; border-radius: 12px; overflow: hidden; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 30px; font-weight: 800; color: var(--rc);
-          background: linear-gradient(160deg, var(--rc-soft) 0%, rgba(255,255,255,0.02) 100%);
-          border: 1px solid var(--rc-border);
-        }
-        .avatar-circle img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .role-badge {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;
-          background: var(--rc-soft); color: var(--rc); border: 1px solid var(--rc-border);
-        }
-        .status-pill {
-          display: inline-flex; align-items: center; gap: 6px;
-          font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+        .skeleton-text {
+          background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.04) 75%);
+          background-size: 200% 100%;
+          animation: db-shimmer 1.6s infinite linear;
+          border-radius: 6px;
         }
       `}</style>
 
-      <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+      <div className="max-w-[1080px] mx-auto px-4 sm:px-6 md:px-10 py-8 sm:py-10">
 
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: T.faint, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '14px', fontWeight: 600 }}>
-            <span>Пользователи</span>
-            <span style={{ opacity: .5 }}><IconChevron /></span>
-            <span style={{ color: 'rgba(255,255,255,.45)' }}>Профиль</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-            <div>
-              {onBack && (
-                <button className="pu-back" onClick={onBack} style={{ marginBottom: 10 }}>
-                  <IconArrowLeft /> Назад к списку
-                </button>
-              )}
-              <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 800, letterSpacing: '-0.5px', color: '#fff' }}>
-                Профиль пользователя
-              </h1>
-              <div style={{ fontSize: '13px', color: T.muted, marginTop: '4px' }}>
-                Просмотр данных аккаунта «{data.nickname}»
-              </div>
-            </div>
-
-            {canManage && onManage && (
-              <button
-                className="pu-btn"
-                onClick={() => onManage(account)}
-                style={{ background: T.accentSoft, color: T.accent, border: `1px solid ${T.accent}40` }}
-              >
-                Управлять в разделе «Пользователи»
-              </button>
-            )}
-          </div>
+        {/* ── BREADCRUMB / HEADER ───────────────────────────── */}
+        <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[1.5px] uppercase text-white/35 mb-5">
+          <span>Пользователи</span>
+          <span className="opacity-50"><IconChevron /></span>
+          <span className="text-white/60">Профиль</span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-            <div className="pu-panel" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div
-                className="avatar-circle"
-                style={{
-                  '--rc': roleColor,
-                  '--rc-soft': `${roleColor}1a`,
-                  '--rc-border': `${roleColor}40`,
-                }}
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
+          <div>
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="inline-flex items-center gap-1.5 text-white/45 hover:text-white text-[12.5px] font-bold mb-3 transition-colors"
               >
-                {data.avatar ? <img src={data.avatar} alt="avatar" /> : (data.nickname[0] || '?').toUpperCase()}
-              </div>
-
-              <div style={{ flexGrow: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.3px', color: '#fff' }}>{data.nickname}</h2>
-                  {data.isBanned && (
-                    <span className="status-pill" style={{ background: T.dangerSoft, color: T.danger, border: `1px solid ${T.danger}40` }}>
-                      Заблокирован
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ marginTop: '8px' }}>
-                  <div
-                    className="role-badge"
-                    style={{
-                      '--rc': roleColor,
-                      '--rc-soft': `${roleColor}18`,
-                      '--rc-border': `${roleColor}40`,
-                    }}
-                  >
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: roleColor }} />
-                    {data.role}
-                  </div>
-                  {faction?.label && (
-                    <span style={{ marginLeft: 8, fontSize: 12, color: T.muted, fontWeight: 600 }}>
-                      Фракция: {faction.label}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="pu-panel">
-              <div style={{ fontSize: '11px', fontWeight: 700, color: T.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
-                Реквизиты аккаунта
-              </div>
-              <div className="pu-row">
-                <span className="pu-label">Идентификатор (UID)</span>
-                <span className="pu-value" style={{ fontFamily: 'monospace', color: T.accent }}>{playerUid}</span>
-              </div>
-              <div className="pu-row">
-                <span className="pu-label">Логин авторизации</span>
-                <span className="pu-value">{data.login}</span>
-              </div>
-              <div className="pu-row">
-                <span className="pu-label">Дата регистрации</span>
-                <span className="pu-value" style={{ color: 'rgba(255,255,255,.7)' }}>{fmtDate(data.registeredAt)}</span>
-              </div>
-              <div className="pu-row">
-                <span className="pu-label">Профиль ВКонтакте</span>
-                {data.vk && data.vk !== '—' ? (
-                  <a href={data.vk} target="_blank" rel="noopener noreferrer" className="pu-link">{data.vk.replace('https://vk.com/', '@')}</a>
-                ) : (
-                  <span style={{ fontSize: '13px', color: T.faint }}>Не указан</span>
-                )}
-              </div>
-              <div className="pu-row">
-                <span className="pu-label">Аккаунт форума</span>
-                {data.forum && data.forum !== '—' ? (
-                  <a href={data.forum} target="_blank" rel="noopener noreferrer" className="pu-link">Перейти в профиль</a>
-                ) : (
-                  <span style={{ fontSize: '13px', color: T.faint }}>Не указан</span>
-                )}
-              </div>
-
-              <div className="pu-row" style={{ marginTop: '8px', paddingTop: '16px', borderTop: `1px dashed ${T.border}` }}>
-                <span className="pu-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: data.twoFactorEnabled ? T.success : T.muted }}><IconShield /></span>
-                  Google Authenticator (2FA)
-                </span>
-                <span
-                  className="status-pill"
-                  style={
-                    data.twoFactorEnabled
-                      ? { background: T.successSoft, color: T.success, border: `1px solid ${T.success}30` }
-                      : { background: 'rgba(255,255,255,.04)', color: T.faint, border: `1px solid ${T.border}` }
-                  }
-                >
-                  {data.twoFactorEnabled ? 'Подключено' : 'Не подключено'}
-                </span>
-              </div>
-            </div>
+                <IconArrowLeft /> Назад к списку
+              </button>
+            )}
+            <div className="text-[11px] font-extrabold tracking-[2.5px] uppercase text-orange-300/80 mb-2">Профиль пользователя</div>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2 leading-tight">
+              {loading ? 'Загрузка…' : data.nickname}
+            </h1>
+            {!loading && !error && (
+              <p className="text-slate-400 max-w-lg">Просмотр данных аккаунта «{data.nickname}»</p>
+            )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div className="pu-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${T.borderSoft}`, paddingBottom: '12px' }}>
-                <span style={{ color: T.muted, display: 'flex' }}><IconUsers /></span>
-                <span style={{ fontSize: '12.5px', fontWeight: 700, color: T.muted }}>Статус в структуре</span>
+          {!loading && !error && canManage && onManage && (
+            <button
+              onClick={() => onManage(account)}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold bg-orange-500 text-white shadow-lg shadow-orange-500/25 hover:bg-orange-400 transition-all duration-150"
+            >
+              Управлять в разделе «Пользователи»
+            </button>
+          )}
+        </div>
+
+        {/* ── СОСТОЯНИЯ: загрузка / ошибка / данные ─────────── */}
+        {loading ? (
+          <SkeletonProfile />
+        ) : error || !account ? (
+          <div
+            className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] mb-6"
+            style={{ minHeight: 220 }}
+          >
+            <div className="flex flex-col items-center justify-center text-center px-6 py-16">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/5 text-orange-300/80">
+                <IconAlert />
+              </div>
+              <h3 className="text-xl font-black text-white mb-2">Не удалось открыть профиль</h3>
+              <p className="text-sm text-slate-400 max-w-md mb-6">
+                {error || 'Пользователь не найден'}
+              </p>
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 border border-white/10 text-slate-200 hover:bg-white/10 hover:text-white transition-all duration-150"
+                >
+                  Назад
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
+
+            <div className="flex flex-col gap-5">
+
+              {/* ── КАРТОЧКА АВАТАРА / РОЛИ ────────────────── */}
+              <div
+                className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015]"
+                style={{ animation: 'db-fadeUp .35s ease both' }}
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${accent})` }} />
+                <div className="flex items-center gap-5 pl-6 pr-6 py-6 flex-wrap">
+                  <div
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden font-black text-2xl"
+                    style={{ background: `rgba(${accent},.12)`, color: `rgb(${accent})`, border: `1px solid rgba(${accent},.35)` }}
+                  >
+                    {data.avatar ? (
+                      <img src={data.avatar} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      (data.nickname[0] || '?').toUpperCase()
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-xl font-black tracking-tight truncate">{data.nickname}</h2>
+                      {data.isBanned && <StatusPill accent="226,99,95">Заблокирован</StatusPill>}
+                    </div>
+
+                    <div className="flex items-center gap-2.5 flex-wrap mt-2.5">
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-bold"
+                        style={{ background: `rgba(${accent},.1)`, color: `rgb(${accent})`, border: `1px solid rgba(${accent},.3)` }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: `rgb(${accent})` }} />
+                        {data.role}
+                      </span>
+                      {faction?.label && (
+                        <span className="text-xs text-slate-400 font-semibold">Фракция: {faction.label}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="pu-row" style={{ padding: '6px 0' }}>
-                <span className="pu-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: data.warnings > 0 ? T.warn : T.muted }}><IconWarn /></span>
+              {/* ── РЕКВИЗИТЫ АККАУНТА ─────────────────────── */}
+              <div
+                className="rounded-xl border border-white/[0.08] bg-white/[0.015] px-6 py-5"
+                style={{ animation: 'db-fadeUp .35s ease .05s both' }}
+              >
+                <div className="text-[11px] font-extrabold tracking-[2px] uppercase text-white/35 mb-1">
+                  Реквизиты аккаунта
+                </div>
+
+                <InfoRow label="Идентификатор (UID)">
+                  <span className="font-mono" style={{ color: `rgb(${accent})` }}>{playerUid}</span>
+                </InfoRow>
+                <InfoRow label="Логин авторизации">{data.login}</InfoRow>
+                <InfoRow label="Дата регистрации">
+                  <span className="text-slate-300">{fmtDate(data.registeredAt)}</span>
+                </InfoRow>
+                <InfoRow label="Профиль ВКонтакте">
+                  {data.vk && data.vk !== '—' ? (
+                    <a
+                      href={data.vk}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-orange-300/90 hover:text-orange-300 underline decoration-dotted underline-offset-2 transition-colors"
+                    >
+                      <IconLink />{data.vk.replace('https://vk.com/', '@')}
+                    </a>
+                  ) : (
+                    <span className="text-white/30 font-medium">Не указан</span>
+                  )}
+                </InfoRow>
+                <InfoRow label="Аккаунт форума" last>
+                  {data.forum && data.forum !== '—' ? (
+                    <a
+                      href={data.forum}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-orange-300/90 hover:text-orange-300 underline decoration-dotted underline-offset-2 transition-colors"
+                    >
+                      <IconLink />Перейти в профиль
+                    </a>
+                  ) : (
+                    <span className="text-white/30 font-medium">Не указан</span>
+                  )}
+                </InfoRow>
+
+                <div className="flex items-center justify-between gap-3 pt-4 mt-1 border-t border-dashed border-white/[0.08]">
+                  <span className="text-[12px] font-semibold text-white/45 inline-flex items-center gap-1.5">
+                    <span style={{ color: data.twoFactorEnabled ? 'rgb(63,183,135)' : 'rgba(255,255,255,.35)' }}><IconShield /></span>
+                    Google Authenticator (2FA)
+                  </span>
+                  {data.twoFactorEnabled
+                    ? <StatusPill accent="63,183,135">Подключено</StatusPill>
+                    : <StatusPill muted>Не подключено</StatusPill>}
+                </div>
+              </div>
+            </div>
+
+            {/* ── СТАТУС В СТРУКТУРЕ ───────────────────────── */}
+            <div
+              className="rounded-xl border border-white/[0.08] bg-white/[0.015] px-6 py-5 flex flex-col gap-4"
+              style={{ animation: 'db-fadeUp .35s ease .1s both' }}
+            >
+              <div className="flex items-center gap-2 border-b border-white/[0.05] pb-3">
+                <span className="text-white/40"><IconUsers /></span>
+                <span className="text-[12px] font-bold text-white/50">Статус в структуре</span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[12px] font-semibold text-white/45 inline-flex items-center gap-1.5">
+                  <span style={{ color: data.warnings > 0 ? 'rgb(251,146,60)' : 'rgba(255,255,255,.35)' }}><IconWarn /></span>
                   Выговоры
                 </span>
-                <span
-                  className="status-pill"
-                  style={
-                    data.warnings > 0
-                      ? { background: T.warnSoft, color: T.warn, border: `1px solid ${T.warn}40` }
-                      : { background: 'rgba(255,255,255,.04)', color: T.faint, border: `1px solid ${T.border}` }
-                  }
-                >
-                  {data.warnings > 0 ? `${data.warnings}` : 'Нет'}
-                </span>
+                {data.warnings > 0
+                  ? <StatusPill accent="251,146,60">{data.warnings}</StatusPill>
+                  : <StatusPill muted>Нет</StatusPill>}
               </div>
 
-              <div className="pu-row" style={{ padding: '6px 0' }}>
-                <span className="pu-label">Статус аккаунта</span>
-                <span
-                  className="status-pill"
-                  style={
-                    data.isBanned
-                      ? { background: T.dangerSoft, color: T.danger, border: `1px solid ${T.danger}40` }
-                      : { background: T.successSoft, color: T.success, border: `1px solid ${T.success}30` }
-                  }
-                >
-                  {data.isBanned ? 'Заблокирован' : 'Активен'}
-                </span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[12px] font-semibold text-white/45">Статус аккаунта</span>
+                {data.isBanned
+                  ? <StatusPill accent="226,99,95">Заблокирован</StatusPill>
+                  : <StatusPill accent="63,183,135">Активен</StatusPill>}
               </div>
 
               {(isLeader(account) || isChief(account) || isDeputy(account)) && (
-                <div style={{ fontSize: '11.5px', color: T.muted, lineHeight: 1.5, paddingTop: '4px' }}>
-                  Изменение роли, выдача выговора и снятие с должности доступны в разделе "Пользователи" - в зависимости от ваших прав доступа.
+                <div className="text-[11.5px] text-white/40 leading-relaxed pt-1 border-t border-white/[0.05] mt-1">
+                  Изменение роли, выдача выговора и снятие с должности доступны в разделе «Пользователи» — в зависимости от ваших прав доступа.
                 </div>
               )}
             </div>
           </div>
-
-        </div>
+        )}
       </div>
     </div>
   )
