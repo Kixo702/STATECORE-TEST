@@ -189,7 +189,7 @@ export default function Organizations({ user }) {
   
   //02 Флорида, таблицы для редакт.
   const FLORIDA_MAFIA_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTW7Q7m29fHn6u9D-GYSHWe4NiXuK2ld2K8MOGEWQitE7jUzrTWi1aBl_ud6FbX2Vtl5ERZm9V-MvtC/pub?gid=0&single=true&output=csv'
-  const FLORIDA_MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyuz0pz9AXN7m1r7NkyqfrpPhM3wiTB8W3zqp_V_VznloYRAQ-EwQ8x2LldxuGsi5YI/exec'
+  const FLORIDA_MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNPvmhQSL7b7oJd5GL1jT77e9VOfEETuBEuOfGgkSGv2Kp5GavI7a6Odr5Q5tbtWo/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
