@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import banner from '../assets/banner.png'
 import { canRemoveLeader, SERVERS } from '../lib/roles'
 
 // ── Org icons ────────────────────────────────────────────────
@@ -438,14 +437,6 @@ export default function Organizations({ user }) {
       </div>
 
       {/* ── BANNER ── */}
-      <div className="w-full">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 pt-5">
-          <div className="relative w-full max-h-[140px] overflow-hidden rounded-2xl">
-            <img src={banner} alt="banner" className="w-full object-contain block" />
-            <div className="absolute bottom-0 left-0 w-full h-20 pointer-events-none" style={{ background: 'linear-gradient(to top, #0a0e18, transparent)' }} />
-          </div>
-        </div>
-      </div>
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 py-8 sm:py-10">
 
