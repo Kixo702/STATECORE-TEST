@@ -214,13 +214,13 @@ function Counter({ to, duration = 1800 }) {
 
 // ── SURVEILLANCE.LOG ──────────────────────────────────────────
 const LOG_FEED = [
-  { tag:'OK',   color:T.green,  text:'LSPD — смена лидера подтверждена' },
-  { tag:'WARN', color:T.red,    text:'FBI — выдан строгий выговор' },
-  { tag:'INFO', color:T.blue,   text:'GOV — запрос на вступление обработан' },
-  { tag:'OK',   color:T.green,  text:'MCLS — состав синхронизирован' },
+  { tag:'OK',   color:T.green,  text:'Nevada / GOV — смена руководства подтверждена' },
+  { tag:'WARN', color:T.red,    text:'Texas / SND — выдан строгий выговор' },
+  { tag:'INFO', color:T.blue,   text:'Florida / BIZ — запрос на вступление обработан' },
+  { tag:'OK',   color:T.green,  text:'Hawaii / MC — состав синхронизирован' },
   { tag:'INFO', color:T.primary,text:'Реестр запретов — запись обновлена' },
-  { tag:'OK',   color:T.green,  text:'LVmPD — проверка структуры завершена' },
-  { tag:'WARN', color:T.red,    text:'SFPD — устный выговор зафиксирован' },
+  { tag:'OK',   color:T.green,  text:'Indiana / STR — проверка структуры завершена' },
+  { tag:'WARN', color:T.red,    text:'Texas / GOV — устный выговор зафиксирован' },
   { tag:'INFO', color:T.blue,   text:'Следящая Администрация — снапшот сохранён' },
 ]
 
@@ -563,33 +563,34 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
   }
 
   const features = [
-    { icon: IC.eye(22), color:T.blue, title:'Мониторинг структур', desc:'Отслеживание всех государственных организаций в режиме реального времени. Полная история изменений и событий.' },
-    { icon: IC.crown(22), color:T.primary, title:'Назначение лидеров', desc:'Управление должностями лидеров и заместителей. Быстрое назначение и снятие с должности одним действием.' },
+    { icon: IC.eye(22), color:T.blue, title:'Мониторинг сфер', desc:'Государственные, бизнес, байкерские, уличные структуры и синдикаты — под наблюдением на каждом сервере в реальном времени.' },
+    { icon: IC.crown(22), color:T.primary, title:'Назначение руководства', desc:'Управление должностями ГС и ЗГС по каждой сфере и серверу. Назначение и снятие с должности в один клик.' },
     { icon: IC.warning(22), color:T.red, title:'Система выговоров', desc:'Ведение реестра устных и строгих выговоров. Автоматическая история санкций для каждой структуры.' },
-    { icon: IC.list(22), color:T.purple, title:'Реестр запретов', desc:'Чёрный список лиц с запретом на вступление в государственные организации. Полная актуальность данных.' },
-    { icon: IC.chart(22), color:T.blue, title:'Статистика и отчёты', desc:'Сводная аналитика по всем структурам. Графики, тренды и сводки в удобном формате для руководства.' },
+    { icon: IC.list(22), color:T.purple, title:'Реестр запретов', desc:'Единый чёрный список лиц с запретом на вступление в организации — актуален для всех серверов сразу.' },
+    { icon: IC.chart(22), color:T.blue, title:'Статистика и отчёты', desc:'Сводная аналитика по организациям, вакансиям и лидерам. Графики и сводки в удобном формате для руководства.' },
     { icon: IC.clock(22), color:T.primary, title:'Логи действий', desc:'Полная история всех административных действий с временными метками. Прозрачность и подотчётность.' },
   ]
 
   const orgs = [
-    { name:'LSPD', label:'Полиция Лос-Сантоса', color:T.blue, active:true },
-    { name:'MCLS', label:'Больница Лос-Сантоса', color:T.green, active:true },
-    { name:'FBI', label:'Федеральное бюро', color:T.purple, active:true },
-    { name:'GOV', label:'Правительство', color:T.yellow, active:true },
-    { name:'LVmPD', label:'Полиция Лас-Вентурас', color:T.teal, active:false },
-    { name:'SFPD', label:'Полиция Сан-Фиерро', color:T.gray, active:false },
-    { name:'MCLV', label:'Больница Лас-Вентурас', color:T.pink, active:false },
+    { name:'GOV', label:'Государственные организации', color:T.yellow, active:true },
+    { name:'BIZ', label:'Бизнес организации', color:T.green, active:true },
+    { name:'SND', label:'Преступные синдикаты', color:T.purple, active:true },
+    { name:'MC', label:'Байкерские клубы', color:T.orange, active:true },
+    { name:'STR', label:'Уличные группировки', color:T.blue, active:true },
   ]
 
+  const servers = ['Texas', 'Florida', 'Nevada', 'Hawaii', 'Indiana']
+
   const stats = [
-    { val:12, suffix:'', label:'Организаций под контролем' },
-    { val:9, suffix:'', label:'Активных лидеров' },
-    { val:247, suffix:'+', label:'Обработано запросов' },
+    { val:5, suffix:'', label:'Серверов под контролем' },
+    { val:5, suffix:'', label:'Сфер деятельности' },
+    { val:28, suffix:'+', label:'Записей в реестре запретов' },
     { val:24, suffix:'/7', label:'Мониторинг системы' },
   ]
 
   const faq = [
     { q:'Как получить доступ к системе?', a:'Учётные данные выдаются исключительно Главным Следящим. Обратитесь к вышестоящему руководству для получения логина и пароля.' },
+    { q:'Какие сферы охватывает система?', a:'Государственные организации, бизнес, преступные синдикаты, байкерские клубы и уличные группировки — на каждом из пяти серверов: Texas, Florida, Nevada, Hawaii и Indiana.' },
     { q:'Какие роли предусмотрены в системе?', a:'На данный момент полный доступ имеет Следящая Администрация. В разработке находятся роли Лидера организации и Заместителя с ограниченным функционалом.' },
     { q:'Как подать запрос на внесение в реестр запретов?', a:'Запрос подаётся через Следящую Администрацию. После проверки и согласования запись вносится в реестр с указанием причины и даты.' },
     { q:'Можно ли оспорить выговор или запрет?', a:'Да, любое решение может быть оспорено через вышестоящее руководство Следящей Администрации. Все апелляции рассматриваются в установленные сроки.' },
@@ -902,7 +903,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
         <div className="land-ticker-inner">
           {[...Array(2)].map((_, ri) => (
             <div key={ri} style={{ display:'flex', gap:0 }}>
-              {['LSPD','FBI','LSFD','GOV','LSMC','FIB','ARMY','COURT','LSPD','FBI','LSFD','GOV'].map((t, i) => (
+              {['TEXAS','FLORIDA','NEVADA','HAWAII','INDIANA','GOV','BIZ','SND','MC','STR'].map((t, i) => (
                 <div key={`${ri}-${i}`} style={{ display:'flex', alignItems:'center', gap:14, padding:'0 36px', whiteSpace:'nowrap' }}>
                   <span style={{ fontFamily:FONT_MONO, fontSize:12, fontWeight:600, letterSpacing:'1.5px', color:T.ink3, textTransform:'uppercase' }}>{t}</span>
                   <span style={{ width:4, height:4, borderRadius:'50%', background:hexToRgba(T.primary,.35) }}/>
@@ -990,14 +991,23 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
               </div>
               <h2 style={{ fontFamily:FONT_DISPLAY, fontSize:'clamp(26px, 3.1vw, 36px)', fontWeight:900, letterSpacing:'-1px', lineHeight:1.18, marginBottom:14 }}>
                 Под контролем<br/>
-                <span style={{ color:T.orange }}>12 структур</span>
+                <span style={{ color:T.orange }}>5 сфер на 5 серверах</span>
               </h2>
-              <p style={{ fontSize:14.5, color:T.ink2, lineHeight:1.65, marginBottom:28, maxWidth:420 }}>
-                Система охватывает все государственные организации города. Каждая структура имеет своего лидера, состав и историю действий.
+              <p style={{ fontSize:14.5, color:T.ink2, lineHeight:1.65, marginBottom:20, maxWidth:420 }}>
+                Система охватывает государственные, бизнес и криминальные структуры на серверах Texas, Florida, Nevada, Hawaii и Indiana. Каждая сфера имеет своё руководство, состав и историю действий.
               </p>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:24 }}>
+                {servers.map(s => (
+                  <span key={s} style={{
+                    fontFamily:FONT_MONO, fontSize:11.5, fontWeight:600, letterSpacing:'.4px',
+                    color:T.ink2, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`,
+                    borderRadius:999, padding:'6px 13px',
+                  }}>{s}</span>
+                ))}
+              </div>
               <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                 {[
-                  'Полный реестр лидеров и заместителей',
+                  'Полный реестр лидеров и заместителей по каждой сфере',
                   'История выговоров и санкций',
                   'Вакантные должности под контролем',
                   'Запреты на вступление в реестре',
@@ -1010,7 +1020,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
               </div>
             </div>
 
-            <div className="land-org-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            <div className="land-org-grid" style={{ display:'grid', gridTemplateColumns:'1fr', gap:10 }}>
               {orgs.map(org => (
                 <div
                   key={org.name}
