@@ -12,6 +12,7 @@ import {
   DEPUTY_ROLES_BY_DIRECTION,
   CHIEF_ROLES_BY_DIRECTION_SERVER,
   DEPUTY_ROLES_BY_DIRECTION_SERVER,
+  WATCHER_ROLES_BY_DIRECTION_SERVER,
   SERVERS,
 } from '../lib/roles'
 import { getNickRequests, reviewNickRequest } from '../lib/requests'
@@ -42,47 +43,73 @@ const DIRECTION_META = {
   bikers: { color: '#eab308' },
 }
 
-const LEADER_ROLES = getAllLeaderRoles().map((f) => ({
-  value: f.roleName,
-  color: FACTION_CATEGORY_META[f.category]?.color || '#06b6d4',
-  group: FACTION_CATEGORY_META[f.category]?.group || 'Лидеры',
-}))
+// Русские подписи направлений — используются для подписи групп в выпадающем списке
+const DIRECTION_RU_LABEL = {
+  gov: 'Гос.',
+  mafia: 'Мафия',
+  ghetto: 'Гетто',
+  bo: 'БО',
+  bikers: 'Байкеры',
+}
 
+// Лидеры фракций — теперь у каждой фракции роль своя на каждый сервер
+// ("Лидер LSPD Техаса" и т.д.), поэтому группируем не только по категории
+// фракции, но и по серверу, чтобы список не превращался в кашу.
+const LEADER_ROLES = getAllLeaderRoles().map((f) => {
+  const server = SERVERS.find((s) => s.id === f.server)
+  const categoryLabel = FACTION_CATEGORY_META[f.category]?.group || 'Лидеры'
+  return {
+    value: f.roleName,
+    color: FACTION_CATEGORY_META[f.category]?.color || '#06b6d4',
+    group: server ? `${categoryLabel} — ${server.label}` : categoryLabel,
+  }
+})
+
+// Старые безсерверные роли ГС/ЗГС (по одному на направление, без привязки
+// к серверу) — оставлены только для совместимости с уже назначенными
+// пользователями, для новых назначений использовать серверные роли ниже.
 const LEADERSHIP_ROLES = [
   ...Object.entries(CHIEF_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({
     value: roleName,
     color: DIRECTION_META[direction]?.color || '#f59e0b',
-    group: 'Руководство',
+    group: 'Роли (устаревшие)',
   })),
   ...Object.entries(DEPUTY_ROLES_BY_DIRECTION).map(([direction, roleName]) => ({
     value: roleName,
     color: DIRECTION_META[direction]?.color || '#f59e0b',
-    group: 'Руководство',
+    group: 'Роли (устаревшие)',
   })),
 ]
 
-// Серверные роли ГС/ЗГС (пока только направление "Гос.", остальные
-// направления подключаются по мере готовности) — сгруппированы по серверу,
-// чтобы в выпадающем списке было видно, к какому штату относится роль.
-const SERVER_LEADERSHIP_ROLES = SERVERS.flatMap((server) => [
-  {
-    value: CHIEF_ROLES_BY_DIRECTION_SERVER.gov[server.id],
-    color: DIRECTION_META.gov.color,
-    group: `Гос. — ${server.label}`,
-  },
-  {
-    value: DEPUTY_ROLES_BY_DIRECTION_SERVER.gov[server.id],
-    color: DIRECTION_META.gov.color,
-    group: `Гос. — ${server.label}`,
-  },
-])
+// Серверные роли ГС/ЗГС/Следящего по всем направлениям — сгруппированы по
+// направлению и серверу, чтобы в выпадающем списке было видно, к какой
+// сфере и штату относится роль.
+const SERVER_LEADERSHIP_ROLES = Object.keys(DIRECTION_META).flatMap((direction) =>
+  SERVERS.flatMap((server) => [
+    {
+      value: CHIEF_ROLES_BY_DIRECTION_SERVER[direction][server.id],
+      color: DIRECTION_META[direction].color,
+      group: `${DIRECTION_RU_LABEL[direction]} — ${server.label}`,
+    },
+    {
+      value: DEPUTY_ROLES_BY_DIRECTION_SERVER[direction][server.id],
+      color: DIRECTION_META[direction].color,
+      group: `${DIRECTION_RU_LABEL[direction]} — ${server.label}`,
+    },
+    {
+      value: WATCHER_ROLES_BY_DIRECTION_SERVER[direction][server.id],
+      color: '#8b5cf6',
+      group: `${DIRECTION_RU_LABEL[direction]} — ${server.label}`,
+    },
+  ])
+)
 
 const ROLES = [
   { value: 'Игрок', color: '#6b7280', group: 'Роли' },
   ...LEADER_ROLES,
   { value: 'Следящий', color: '#8b5cf6', group: 'Роли' },
-  ...LEADERSHIP_ROLES,
   ...SERVER_LEADERSHIP_ROLES,
+  ...LEADERSHIP_ROLES,
   { value: 'Заместитель Главного Следящего', color: '#f59e0b', group: 'Роли (устаревшие)' },
   { value: 'Главный Следящий', color: '#f59e0b', group: 'Роли (устаревшие)' },
   { value: 'Разработчик', color: '#22c55e', group: 'Роли' },
