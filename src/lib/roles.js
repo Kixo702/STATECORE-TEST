@@ -445,22 +445,10 @@ export function canViewMenu(user, menuId) {
       ].includes(id)
     }
 
-  // ГС/ЗГС любого направления, кроме "Гос." — пока что видят только
-  // мониторинг и анти-блат (faq и база знаний и так всегда видны в сайдбаре).
-  // Исключения: ГС/ЗГС БО, ГС/ЗГС мафий, ГС/ЗГС Гетто и ГС/ЗГС Байкеров
-  // дополнительно видят свой раздел ЧС (chsgos) — остальные направления
-  // подключаются по мере готовности.
-  if (isRestrictedLeadership(user)) {
-    const direction = getLeadershipDirection(user)
-    if (direction === 'bo' || direction === 'mafia' || direction === 'ghetto' || direction === 'bikers') {
-      return id === 'dashboard' || id === 'cadreaudit' || id === 'chsgos'
-    }
-    return id === 'dashboard' || id === 'cadreaudit'
-  }
-
-  // ГС Гос. / ЗГС Гос. (и старые докатегорийные ГС/ЗГС) — видят всё, что
-  // видно и сейчас, кроме анти-блата
-  if (isGovLeadership(user)) {
+  // ГС/ЗГС любой сферы и любого сервера — видят все разделы сайдбара,
+  // кроме анти-блата (cadreaudit — это инструмент контроля именно над
+  // руководством, поэтому доступ к нему у самого руководства не открываем).
+  if (isChief(user) || isDeputy(user)) {
     return id !== 'cadreaudit'
   }
 
