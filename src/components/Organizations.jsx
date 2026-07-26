@@ -149,7 +149,7 @@ export default function Organizations({ user }) {
   const FLORIDA_MAFIA_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTW7Q7m29fHn6u9D-GYSHWe4NiXuK2ld2K8MOGEWQitE7jUzrTWi1aBl_ud6FbX2Vtl5ERZm9V-MvtC/pub?gid=0&single=true&output=csv'
   const FLORIDA_MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyqWwbrvdN4NWjebG-3NolDdrrRJd0ohBP2M620ZWG1lcibYVa6pYRB2cI_4T2XBYSu/exec'
   const FLORIDA_BIKERS_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS0DhHN9TtdXH3xeRm_0Wec4P55UmQhAbLBOuLPLAGulKMMNnTFh3M8ORmmxwPxNeiPD60ba6cb0qr2/pub?gid=0&single=true&output=csv'
-  const FLORIDA_BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7k-RlEzuzfHLQtanbbLdhGuweFeOkO5bi_USNDAlJpAdFjTqCVnw_RxTr2klJN0DCjA/exec'
+  const FLORIDA_BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx11_GUytgircqNS04s0VpUzT__WCqlHuzNci8eGov0uS7y8-6vSWCUyxTJLFQ064HkEg/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
@@ -308,8 +308,8 @@ export default function Organizations({ user }) {
         vk: c(row[3]) || '—',                                            // D
         penalty: c(row[6]) || '—',                                       // G — штрафные баллы
         points: c(row[7]) || '—',                                         // H — баллы
-        strict: Number((c(row[4]) || '0/3').split('/')[0]) || 0,           // E
-        oral:   Number((c(row[5]) || '0/3').split('/')[0]) || 0,           // F
+        strict: Number((c(row[4]) || '0/5').split('/')[0]) || 0,           // E
+        oral:   Number((c(row[5]) || '0/5').split('/')[0]) || 0,           // F
         appointDate: c(row[8]) || '-',                                     // I
         expiryDate:  c(row[9]) || '-',                                     // J
       }
@@ -855,8 +855,8 @@ export default function Organizations({ user }) {
                     <div className="text-[10px] font-extrabold tracking-[3px] uppercase text-white/30 mb-3">Взыскания</div>
                     <div className="flex flex-col gap-2.5 mb-5">
                       {[
-                        { label: sphereId === 'bikers' || sphereId === 'ghetto' ? 'Выговор' : 'Строгий выговор', icon: IC.warning, type: 'CHANGE_STRICT', accent: '239,68,68', textColor: '#f87171' },
-                        { label: sphereId === 'bikers' || sphereId === 'ghetto' ? 'Предупреждение' : 'Устный выговор', icon: IC.speech, type: 'CHANGE_ORAL', accent: '245,158,11', textColor: '#fbbf24' },
+                        { label: sphereId === 'ghetto' || (sphereId === 'bikers' && serverId !== 'florida') ? 'Выговор' : 'Строгий выговор', icon: IC.warning, type: 'CHANGE_STRICT', accent: '239,68,68', textColor: '#f87171' },
+                        { label: sphereId === 'ghetto' || (sphereId === 'bikers' && serverId !== 'florida') ? 'Предупреждение' : 'Устный выговор', icon: IC.speech, type: 'CHANGE_ORAL', accent: '245,158,11', textColor: '#fbbf24' },
                       ].map(btn => (
                         <button
                           key={btn.type}
