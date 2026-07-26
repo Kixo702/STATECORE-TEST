@@ -127,7 +127,7 @@ const LEADERSHIP_BY_SERVER_AND_SPHERE = {
   },
   Florida: {
     gov: {
-      gs:  { nickname: 'Kimberly Qwenty', vk: 'https://vk.ru/ygol_antihype', forum: 'https://forum.gta-mobile.ru/v_moey_krovi_ledokain/' },
+      gs:  { nickname: 'Kimberly_Qwenty', vk: 'https://vk.ru/ygol_antihype', forum: 'https://forum.gta-mobile.ru/v_moey_krovi_ledokain/' },
       zgs: null,
     },
   },
@@ -142,7 +142,7 @@ const LEADERSHIP_BY_SERVER_AND_SPHERE = {
       gs:  null,
       zgs: null,
       // Врио ГС — временно исполняет обязанности, показывается отдельной карточкой со статусом «ВРИО»
-      actingGs: { nickname: 'Austin Collins', vk: 'https://vk.com/id852509629', forum: 'https://forum.gta-mobile.ru/legendary134/' },
+      actingGs: { nickname: 'Austin_Collins', vk: 'https://vk.com/id852509629', forum: 'https://forum.gta-mobile.ru/legendary134/' },
     },
   },
   Indiana: {

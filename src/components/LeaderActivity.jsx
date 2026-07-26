@@ -40,6 +40,11 @@ const READY_COMBOS = [
   { server: 'texas', sphere: 'ghetto' },
   { server: 'texas', sphere: 'bo' },
   { server: 'texas', sphere: 'bikers' },
+  // ВАЖНО: 'florida' — предполагаемый id сервера из ../lib/roles (SERVERS),
+  // по аналогии с 'texas'. Если в SERVERS сервер называется иначе
+  // (например 'miami' или другой slug), замените здесь и в getSphereConfig/
+  // fetchWeek ниже на реальный id.
+  { server: 'florida', sphere: 'mafia' },
 ]
 
 // ── Google Sheets API v4 (вместо «Публикации в интернет» — без кеша Google,
@@ -70,6 +75,15 @@ const BIKERS_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE'
 const BIKERS_DEFAULT_GID = '1194412241'
 const BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0Q-vii_0uVqdNgwBtdRV9h8xP_46JvQInus5mQkz3yHcEihkBI1cBKZ4K7GA3SHU-/exec' // TODO: заменить на реальный /exec URL после деплоя обновлённого скрипта
 
+// Мафии, сервер Florida.
+// Лист активности — "Активность лидеров Mafia" (см. fetchMafiaWeek).
+// Лист карточек лидеров (выговоры/штрафы/баллы) — "Лидер/следящие Mafia".
+const MAFIA_SPREADSHEET_ID = '1Kt08Zzp2NEZYwF491QRCnJpRD_-FLFLRbOn9E7GahuE'
+const MAFIA_SHEETS_API_KEY = 'AIzaSyCVGbcNXOGpKm0lQnHKRNdJ9kIIV26FqZE' // TODO: проверить, что этот ключ имеет доступ к таблице Mafia
+const MAFIA_DEFAULT_GID = '1546522192'
+const MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyqWwbrvdN4NWjebG-3NolDdrrRJd0ohBP2M620ZWG1lcibYVa6pYRB2cI_4T2XBYSu/exec' // TODO: заменить на реальный /exec URL после деплоя MafiaFlorida_doPost.gs
+const MAFIA_CARDS_SHEET_TITLE = 'Лидер/следящие Mafia' // лист карточек лидеров (не активности) — читается напрямую по имени
+
 // Настройки текущей выбранной сферы — резолвятся по sphereId в компоненте
 function getSphereConfig(sphereId) {
   if (sphereId === 'ghetto') {
@@ -94,6 +108,14 @@ function getSphereConfig(sphereId) {
       apiKey: BIKERS_SHEETS_API_KEY,
       defaultGid: BIKERS_DEFAULT_GID,
       scriptUrl: BIKERS_SCRIPT_URL,
+    }
+  }
+  if (sphereId === 'mafia') {
+    return {
+      spreadsheetId: MAFIA_SPREADSHEET_ID,
+      apiKey: MAFIA_SHEETS_API_KEY,
+      defaultGid: MAFIA_DEFAULT_GID,
+      scriptUrl: MAFIA_SCRIPT_URL,
     }
   }
   return {
@@ -584,11 +606,149 @@ async function fetchBoWeek(gid) {
   }
 }
 
+/* ───────── Парсинг одной недели — Мафии (Florida) ─────────
+   Лист "Активность лидеров Mafia". Разметка (в отличие от Гетто/Байкеров —
+   без строки названий дней недели, блок компактнее):
+     строки 2-3 (объединены) — заголовок "Недельная активность лидеров Mafia"
+     строка 4                — 7 дат недели, колонки D,E,F,G,H,I,J
+     строки 5,6,7            — лидеры: B — ник, C — фракция, D..J — время,
+                                K — итого (формула в таблице, не используется)
+   Следующий блок (после «Создать новую неделю») сдвинут вниз на то же
+   число строк (6), что и текущий, точно как в Гетто/Байкерах. */
+const MAFIA_NICK_COL = 1        // B (0-based)
+const MAFIA_FRACTION_COL = 2    // C (0-based)
+const MAFIA_DAY_COLS = [3, 4, 5, 6, 7, 8, 9] // D,E,F,G,H,I,J (0-based)
+const MAFIA_LEADER_ROW_OFFSETS = [1, 2, 3]   // строки 5,6,7 относительно строки дат (4)
+const MAFIA_HEADER_ROWS_ABOVE = 2            // строки 2-3 (заголовок) идут перед строкой дат
+
+async function fetchMafiaWeek(gid) {
+  const sheetTitle = await resolveSheetTitle(MAFIA_SPREADSHEET_ID, MAFIA_SHEETS_API_KEY, gid)
+  const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:K2000`
+  const data = await sheetsApiGet(MAFIA_SPREADSHEET_ID, MAFIA_SHEETS_API_KEY, `/values/${encodeURIComponent(range)}`, {
+    valueRenderOption: 'FORMATTED_VALUE',
+  })
+  const rows = data.values || []
+  if (rows.length === 0) throw new Error('Таблица пуста')
+
+  const dateRe = /\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}/
+  const currentWeekRange = getCurrentWeekRangeStr()
+  const [currentMondayStr] = currentWeekRange.split(' - ')
+
+  // 1) Сначала ищем блок текущей недели (дата понедельника совпадает).
+  // 2) Иначе — самый верхний блок с датами вообще (новые недели создаются сверху).
+  let dateRowIdx = -1
+  let fallbackDateRowIdx = -1
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const hasDate = MAFIA_DAY_COLS.some((c) => dateRe.test(clean(row[c])))
+    if (!hasDate) continue
+    if (fallbackDateRowIdx === -1) fallbackDateRowIdx = i
+    if (clean(row[MAFIA_DAY_COLS[0]]) === currentMondayStr) {
+      dateRowIdx = i
+      break
+    }
+  }
+  if (dateRowIdx === -1) dateRowIdx = fallbackDateRowIdx
+  if (dateRowIdx === -1) throw new Error('Не удалось найти строку с датами недели (колонки D..J)')
+
+  const dateRow = rows[dateRowIdx] || []
+  const dayDates = MAFIA_DAY_COLS.map((c) => clean(dateRow[c]) || '')
+  // Названий дней недели в таблице нет — используем короткие подписи пн..вс
+  const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+
+  const title = dayDates[0] && dayDates[6] ? `${dayDates[0]} - ${dayDates[6]}` : 'Неделя'
+
+  const leaders = []
+  for (const offset of MAFIA_LEADER_ROW_OFFSETS) {
+    const r = dateRowIdx + offset
+    const row = rows[r]
+    if (!row) continue
+    const nickname = clean(row[MAFIA_NICK_COL])
+    if (!nickname) continue // вакантная строка — не показываем в списке активности
+
+    const fraction = clean(row[MAFIA_FRACTION_COL])
+    const days = MAFIA_DAY_COLS.map((c) => classifyCell(row[c]))
+
+    const okCount = days.filter((d) => d.type === 'ok').length
+    const failCount = days.filter((d) => d.type === 'fail').length
+    const inactiveCount = days.filter((d) => d.type === 'inactive').length
+    const noneCount = days.filter((d) => d.type === 'none').length
+    const excludedCount = days.filter((d) => d.type === 'excluded').length
+    const totalSeconds = days.reduce((s, d) => s + ((d.type === 'ok' || d.type === 'fail') ? d.seconds : 0), 0)
+
+    leaders.push({
+      rowId: r + 1, // 1-based строка листа — уходит в SET_DAY_TIME как rowId
+      nickname, fraction, days,
+      okCount, failCount, inactiveCount, noneCount, excludedCount,
+      totalSeconds,
+      warnings: computeWarnings(failCount),
+    })
+  }
+
+  // Границы блока для CREATE_WEEK: от строки заголовка (2 строки над датами)
+  // до последней строки лидеров — Apps Script ждёт data.startRow как первую
+  // строку заголовка (обычно 2), чтобы корректно сдвинуть весь блок целиком.
+  const blockStartRow = dateRowIdx + 1 - MAFIA_HEADER_ROWS_ABOVE
+  const blockEndRow = dateRowIdx + MAFIA_LEADER_ROW_OFFSETS[MAFIA_LEADER_ROW_OFFSETS.length - 1] + 1
+
+  const totals = leaders.reduce((acc, l) => {
+    acc.ok += l.okCount
+    acc.fail += l.failCount
+    acc.inactive += l.inactiveCount
+    acc.none += l.noneCount
+    acc.seconds += l.totalSeconds
+    return acc
+  }, { ok: 0, fail: 0, inactive: 0, none: 0, seconds: 0 })
+
+  const activeCells = totals.ok + totals.fail
+  const avgSeconds = activeCells > 0 ? totals.seconds / activeCells : 0
+  const topLeaders = [...leaders].sort((a, b) => b.totalSeconds - a.totalSeconds).slice(0, 3)
+
+  // ── Карточки лидеров (выговоры/штрафы/баллы) — отдельный лист ──
+  // Читаем "Лидер/следящие Mafia" и сопоставляем по нику (колонка C там),
+  // чтобы вывести рядом со временем строгие/устные выговоры (F/G, лимит /3)
+  // и штрафные баллы (H). Если лист/данные не найдутся — просто не покажем
+  // эти карточки, активность при этом всё равно отрисуется.
+  try {
+    const cardsRange = `'${MAFIA_CARDS_SHEET_TITLE.replace(/'/g, "''")}'!A1:K30`
+    const cardsData = await sheetsApiGet(MAFIA_SPREADSHEET_ID, MAFIA_SHEETS_API_KEY, `/values/${encodeURIComponent(cardsRange)}`, {
+      valueRenderOption: 'FORMATTED_VALUE',
+    })
+    const cardsRows = cardsData.values || []
+    // COLS в Apps Script (1-based): nick=C(3), org=D(4), vk=E(5), strict=F(6),
+    // oral=G(7), penalty=H(8), points=I(9) → 0-based: 2,3,4,5,6,7,8
+    const byNick = new Map()
+    cardsRows.forEach((row, idx) => {
+      const nick = clean(row[2])
+      if (!nick) return
+      byNick.set(normalizeNickForMatch(nick), {
+        rowId: idx + 1, // 1-based строка на листе карточек — для CHANGE_STRICT/CHANGE_ORAL/CHANGE_PENALTY
+        strict: clean(row[5]) || '0/3',
+        oral: clean(row[6]) || '0/3',
+        penalty: Number(row[7]) || 0,
+        points: Number(row[8]) || 0,
+      })
+    })
+    leaders.forEach((l) => {
+      const card = byNick.get(normalizeNickForMatch(l.nickname))
+      if (card) l.card = card
+    })
+  } catch {
+    // Лист карточек недоступен/переименован — активность всё равно показываем
+  }
+
+  return {
+    title, dayDates, dayNames, leaders, totals, avgSeconds, topLeaders,
+    blockStartRow, blockEndRow,
+  }
+}
+
 // Единая точка входа — выбирает парсер в зависимости от выбранной сферы
 async function fetchWeek(sphereId, gid) {
   if (sphereId === 'ghetto') return fetchGhettoWeek(gid)
   if (sphereId === 'bo') return fetchBoWeek(gid)
   if (sphereId === 'bikers') return fetchBikersWeek(gid)
+  if (sphereId === 'mafia') return fetchMafiaWeek(gid)
   return fetchGovWeek(gid)
 }
 
@@ -940,6 +1100,8 @@ export default function LeaderActivity({ user, onOpenProfile }) {
             <p className="text-slate-400 max-w-lg">
               {sphereId === 'ghetto'
                 ? 'Автоматический подсчёт дневной нормы (2:30:00) и выговоров по активности лидеров гетто'
+                : sphereId === 'mafia'
+                ? 'Активность лидеров мафий (Florida) + строгие/устные выговоры и штрафы из карточек лидеров'
                 : 'Автоматический подсчёт дневной нормы (2:30:00) и выговоров по данным таблицы'}
             </p>
           </div>
@@ -981,7 +1143,7 @@ export default function LeaderActivity({ user, onOpenProfile }) {
             <div className="text-base font-black text-slate-100 mb-2">Раздел в разработке</div>
             <div className="text-sm text-white/40 max-w-md mx-auto">
               «{SPHERES.find((s) => s.id === sphereId)?.label}» на сервере «{SERVERS.find((s) => s.id === serverId)?.label}»
-              {' '}пока не подключены к активности лидеров. Сейчас доступны «Государственные структуры» и «Гетто» на сервере «Texas».
+              {' '}пока не подключены к активности лидеров. Сейчас доступны «Государственные структуры», «Гетто», «Бизнес-организации» и «Байкеры» на сервере «Texas», а также «Мафии» на сервере «Florida».
             </div>
           </div>
         )}
@@ -1159,11 +1321,14 @@ export default function LeaderActivity({ user, onOpenProfile }) {
                       ))}
                       <th style={{ padding: '0 8px 6px' }}>Всего</th>
                       <th style={{ padding: '0 8px 6px' }}>Выговоры</th>
+                      {sphereId === 'mafia' && (
+                        <th style={{ padding: '0 8px 6px' }}>Карточка (СВ/УВ/Штраф)</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredLeaders.length === 0 && (
-                      <tr><td colSpan={11} className="text-center py-8 text-white/20 text-sm">Ничего не найдено</td></tr>
+                      <tr><td colSpan={sphereId === 'mafia' ? 12 : 11} className="text-center py-8 text-white/20 text-sm">Ничего не найдено</td></tr>
                     )}
                     {filteredLeaders.map((l) => {
                       const w = l.warnings
@@ -1226,6 +1391,27 @@ export default function LeaderActivity({ user, onOpenProfile }) {
                               )}
                             </div>
                           </td>
+                          {sphereId === 'mafia' && (
+                            <td style={{ padding: '10px 8px', borderRadius: '0 12px 12px 0' }}>
+                              {l.card ? (
+                                <div className="flex gap-1.5 justify-center flex-wrap">
+                                  <span className="text-[10.5px] font-extrabold px-2 py-1 rounded-lg bg-red-400/10 border border-red-400/30 text-red-400">
+                                    СВ {l.card.strict}
+                                  </span>
+                                  <span className="text-[10.5px] font-extrabold px-2 py-1 rounded-lg bg-amber-400/10 border border-amber-400/25 text-amber-400">
+                                    УВ {l.card.oral}
+                                  </span>
+                                  {l.card.penalty > 0 && (
+                                    <span className="text-[10.5px] font-extrabold px-2 py-1 rounded-lg bg-purple-400/10 border border-purple-400/25 text-purple-300">
+                                      Штраф {l.card.penalty}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-white/20 block text-center">—</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       )
                     })}
