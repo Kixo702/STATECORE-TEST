@@ -76,17 +76,21 @@ function buildServerRoleName(prefix, direction, serverId) {
 // CHIEF_ROLES_BY_DIRECTION_SERVER.gov.texas -> "ГС Гос. Техаса"
 export const CHIEF_ROLES_BY_DIRECTION_SERVER = {}
 export const DEPUTY_ROLES_BY_DIRECTION_SERVER = {}
+// WATCHER_ROLES_BY_DIRECTION_SERVER.gov.texas -> "Следящий Гос. Техаса"
+export const WATCHER_ROLES_BY_DIRECTION_SERVER = {}
 
 for (const direction of Object.keys(DIRECTION_LABEL)) {
   CHIEF_ROLES_BY_DIRECTION_SERVER[direction] = {}
   DEPUTY_ROLES_BY_DIRECTION_SERVER[direction] = {}
+  WATCHER_ROLES_BY_DIRECTION_SERVER[direction] = {}
   for (const server of SERVERS) {
     CHIEF_ROLES_BY_DIRECTION_SERVER[direction][server.id] = buildServerRoleName('ГС', direction, server.id)
     DEPUTY_ROLES_BY_DIRECTION_SERVER[direction][server.id] = buildServerRoleName('ЗГС', direction, server.id)
+    WATCHER_ROLES_BY_DIRECTION_SERVER[direction][server.id] = buildServerRoleName(ROLE_WATCHER, direction, server.id)
   }
 }
 
-// Плоский список всех ГС/ЗГС ролей (с серверами) — удобно для выпадающих списков в UI
+// Плоский список всех ГС/ЗГС/Следящий ролей (с серверами) — удобно для выпадающих списков в UI
 export const STAFF_LEADERSHIP_ROLES = Object.keys(DIRECTION_LABEL).flatMap((direction) => [
   ...SERVERS.map((server) => ({
     kind: 'chief',
@@ -99,6 +103,12 @@ export const STAFF_LEADERSHIP_ROLES = Object.keys(DIRECTION_LABEL).flatMap((dire
     direction,
     server: server.id,
     roleName: DEPUTY_ROLES_BY_DIRECTION_SERVER[direction][server.id],
+  })),
+  ...SERVERS.map((server) => ({
+    kind: 'watcher',
+    direction,
+    server: server.id,
+    roleName: WATCHER_ROLES_BY_DIRECTION_SERVER[direction][server.id],
   })),
 ])
 
@@ -145,28 +155,69 @@ export function getAllFactions() {
   )
 }
 
-// Имя роли лидера конкретной фракции, например "Лидер LSPD"
-export function leaderRoleName(faction) {
+// Имя роли лидера конкретной фракции и сервера, например "Лидер LSPD Техаса".
+// Если serverId не передан — старый безсерверный формат ("Лидер LSPD"),
+// который также поддерживается при разборе роли (см. parseLeaderRole) —
+// это переходный период для пользователей, ещё не переведённых на серверные роли.
+export function leaderRoleName(faction, serverId) {
   const label = typeof faction === 'string' ? faction : faction?.label
   if (!label) return LEADER_PREFIX
-  return `${LEADER_PREFIX} ${label}`
+  if (!serverId) return `${LEADER_PREFIX} ${label}`
+  const server = getServerById(serverId)
+  if (!server) return `${LEADER_PREFIX} ${label}`
+  return `${LEADER_PREFIX} ${label} ${server.genitive}`
 }
 
-// Полный список ролей-лидеров по всем фракциям — удобно для выпадающих списков в UI
-export function getAllLeaderRoles() {
-  return getAllFactions().map((f) => ({
-    ...f,
-    roleName: leaderRoleName(f),
-  }))
+// Полный список ролей-лидеров по всем фракциям и серверам — удобно для
+// выпадающих списков в UI. Если передан serverId — список только для этого сервера.
+export function getAllLeaderRoles(serverId) {
+  const factions = getAllFactions()
+  if (serverId) {
+    return factions.map((f) => ({ ...f, server: serverId, roleName: leaderRoleName(f, serverId) }))
+  }
+  return SERVERS.flatMap((server) =>
+    factions.map((f) => ({ ...f, server: server.id, roleName: leaderRoleName(f, server.id) }))
+  )
 }
 
-// Найти фракцию по имени роли пользователя (например "Лидер LSPD" -> объект LSPD)
-export function getFactionByRoleName(roleName) {
+// Разобрать roleName лидера на { faction, server }.
+// server === null для legacy безсерверных ролей ("Лидер LSPD").
+// Понимает новый серверный формат ("Лидер LSPD Техаса"), перебирая известные
+// сервера и сверяя genitive-суффикс, а также старый безсерверный формат.
+export function parseLeaderRole(roleName) {
   if (typeof roleName !== 'string') return null
-  const rn = roleName.trim()
-  if (!rn.startsWith(LEADER_PREFIX)) return null
-  const label = rn.slice(LEADER_PREFIX.length).trim()
-  return getAllFactions().find((f) => f.label === label) || null
+  const trimmed = roleName.trim()
+  if (!trimmed.startsWith(LEADER_PREFIX)) return null
+  const rest = trimmed.slice(LEADER_PREFIX.length).trim()
+  if (!rest) return null
+
+  for (const server of SERVERS) {
+    const suffix = ` ${server.genitive}`
+    if (rest.endsWith(suffix)) {
+      const label = rest.slice(0, rest.length - suffix.length).trim()
+      const faction = getAllFactions().find((f) => f.label === label)
+      if (faction) return { faction, server: server.id }
+    }
+  }
+
+  // Legacy: без сервера — вся оставшаяся строка целиком является label
+  const faction = getAllFactions().find((f) => f.label === rest)
+  if (faction) return { faction, server: null }
+
+  return null
+}
+
+// Найти фракцию по имени роли пользователя (например "Лидер LSPD Техаса" -> объект LSPD)
+export function getFactionByRoleName(roleName) {
+  const parsed = parseLeaderRole(roleName)
+  return parsed ? parsed.faction : null
+}
+
+// Сервер конкретного лидера ('texas' | ... ), либо null — если роль
+// безсерверная (legacy) или пользователь вообще не лидер.
+export function getLeaderServer(user) {
+  const parsed = parseLeaderRole(_roleName(user))
+  return parsed ? parsed.server : null
 }
 
 // helper: безопасно получить и нормализовать roleName
@@ -198,6 +249,20 @@ function parseLeadershipRole(rn) {
   for (const [direction, byServer] of Object.entries(DEPUTY_ROLES_BY_DIRECTION_SERVER)) {
     for (const [serverId, roleName] of Object.entries(byServer)) {
       if (roleName === rn) return { kind: 'deputy', direction, server: serverId }
+    }
+  }
+
+  return null
+}
+
+// Разобрать roleName Следящего на { direction, server } либо null.
+// Понимает и старую безсерверную роль ('Следящий'), и новую "Следящий Сфера Сервер".
+function parseWatcherRole(rn) {
+  if (rn === ROLE_WATCHER) return { direction: null, server: null }
+
+  for (const [direction, byServer] of Object.entries(WATCHER_ROLES_BY_DIRECTION_SERVER)) {
+    for (const [serverId, roleName] of Object.entries(byServer)) {
+      if (roleName === rn) return { direction, server: serverId }
     }
   }
 
@@ -245,8 +310,23 @@ export function isRestrictedLeadership(user) {
   return (isChief(user) || isDeputy(user)) && getLeadershipDirection(user) !== 'gov'
 }
 
+// true для любого Следящего — серверного (Следящий Сфера Сервер) и старого безсерверного
 export function isWatcher(user) {
-  return _roleName(user) === ROLE_WATCHER
+  return parseWatcherRole(_roleName(user)) !== null
+}
+
+// Сфера конкретного Следящего ('gov' | 'mafia' | 'ghetto' | 'bo' | 'bikers'),
+// либо null, если это не Следящий или роль безсерверная (legacy).
+export function getWatcherDirection(user) {
+  const parsed = parseWatcherRole(_roleName(user))
+  return parsed ? parsed.direction : null
+}
+
+// Сервер конкретного Следящего, либо null — если роль безсерверная (legacy)
+// или пользователь вообще не Следящий.
+export function getWatcherServer(user) {
+  const parsed = parseWatcherRole(_roleName(user))
+  return parsed ? parsed.server : null
 }
 
 export function isLeader(user) {
@@ -256,17 +336,21 @@ export function isLeader(user) {
 
 // Проверка, что пользователь — лидер конкретной фракции.
 // faction — id ('lspd'), label ('LSPD') или сам объект фракции.
-export function isLeaderOfFaction(user, faction) {
-  const rn = _roleName(user)
-  if (!rn.startsWith(LEADER_PREFIX)) return false
+// serverId — опционально: если передан, дополнительно проверяем сервер
+// (legacy безсерверные роли лидера при этом считаются лидером на любом сервере).
+export function isLeaderOfFaction(user, faction, serverId) {
+  const parsed = parseLeaderRole(_roleName(user))
+  if (!parsed) return false
 
   let target = faction
   if (typeof faction === 'string') {
     target = getAllFactions().find((f) => f.id === faction || f.label === faction)
   }
   if (!target) return false
+  if (parsed.faction.id !== target.id) return false
 
-  return rn === leaderRoleName(target)
+  if (serverId && parsed.server && parsed.server !== serverId) return false
+  return true
 }
 
 export function isPlayer(user) {
@@ -278,19 +362,33 @@ export function isYoutuber(user) {
   return _roleName(user) === ROLE_YOUTUBER
 }
 
-// Может ли user1 (ГС/ЗГС) работать с данными, относящимися к серверу targetServerId.
+// Может ли user работать с данными, относящимися к серверу targetServerId.
 // - Полный доступ / докатегорийные / безсерверные (legacy) роли — видят все сервера.
-// - Серверная роль — только свой сервер.
+// - Серверная роль (ГС/ЗГС/Следящий/Лидер) — только свой сервер.
 // - Если targetServerId не передан (данные без привязки к серверу) — доступ разрешён.
 export function canAccessServer(user, targetServerId) {
   if (isFullAccess(user)) return true
   if (!targetServerId) return true
 
-  const userServer = getLeadershipServer(user)
-  if (!(isChief(user) || isDeputy(user))) return true // ограничение по серверу касается только ГС/ЗГС
-  if (!userServer) return true // legacy безсерверная роль — доступ ко всем серверам
+  if (isChief(user) || isDeputy(user)) {
+    const userServer = getLeadershipServer(user)
+    if (!userServer) return true // legacy безсерверная роль — доступ ко всем серверам
+    return userServer === targetServerId
+  }
 
-  return userServer === targetServerId
+  if (isWatcher(user)) {
+    const userServer = getWatcherServer(user)
+    if (!userServer) return true // legacy безсерверная роль — доступ ко всем серверам
+    return userServer === targetServerId
+  }
+
+  if (isLeader(user)) {
+    const userServer = getLeaderServer(user)
+    if (!userServer) return true // legacy безсерверная роль — доступ ко всем серверам
+    return userServer === targetServerId
+  }
+
+  return true
 }
 
 // action checks
@@ -399,25 +497,34 @@ export function canViewMenu(user, menuId) {
 export function getDefaultOrgFilters(user) {
   const DEFAULT = { server: 'texas', sphere: 'gov' }
 
-  if (!(isChief(user) || isDeputy(user))) return DEFAULT
+  if (isChief(user) || isDeputy(user)) {
+    const direction = getLeadershipDirection(user)
+    const server = getLeadershipServer(user)
+    if (!direction || !server) return DEFAULT // legacy безсерверная роль
+    return { server, sphere: direction }
+  }
 
-  const direction = getLeadershipDirection(user)
-  const server = getLeadershipServer(user)
-  if (!direction || !server) return DEFAULT // legacy безсерверная роль
+  if (isWatcher(user)) {
+    const direction = getWatcherDirection(user)
+    const server = getWatcherServer(user)
+    if (!direction || !server) return DEFAULT // legacy безсерверная роль
+    return { server, sphere: direction }
+  }
 
-  return { server, sphere: direction }
+  return DEFAULT
 }
 
 export default {
   ROLE_FULL, ROLE_CHIEF, ROLE_DEPUTY, ROLE_WATCHER, ROLE_PLAYER, ROLE_YOUTUBER, LEADER_PREFIX,
   CHIEF_ROLES_BY_DIRECTION, DEPUTY_ROLES_BY_DIRECTION,
-  CHIEF_ROLES_BY_DIRECTION_SERVER, DEPUTY_ROLES_BY_DIRECTION_SERVER,
+  CHIEF_ROLES_BY_DIRECTION_SERVER, DEPUTY_ROLES_BY_DIRECTION_SERVER, WATCHER_ROLES_BY_DIRECTION_SERVER,
   SERVERS, getServerById,
   STAFF_LEADERSHIP_ROLES,
   FACTIONS,
-  getAllFactions, leaderRoleName, getAllLeaderRoles, getFactionByRoleName,
+  getAllFactions, leaderRoleName, getAllLeaderRoles, getFactionByRoleName, parseLeaderRole, getLeaderServer,
   isFullAccess, isChief, isDeputy, isWatcher, isLeader, isLeaderOfFaction, isPlayer, isYoutuber,
-  getLeadershipDirection, getLeadershipServer, isGovLeadership, isRestrictedLeadership,
+  getLeadershipDirection, getLeadershipServer, getWatcherDirection, getWatcherServer,
+  isGovLeadership, isRestrictedLeadership,
   canAccessServer,
   canViewAll, canIssueReprimand, canRemoveLeader, canEditRoles, canReviewNickRequests, canViewMenu,
   getDefaultOrgFilters,
