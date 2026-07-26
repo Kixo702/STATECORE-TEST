@@ -390,6 +390,24 @@ export function canViewMenu(user, menuId) {
   return false
 }
 
+// Дефолтные фильтры для раздела "Организации", подобранные по роли пользователя.
+// - ГС/ЗГС конкретного направления+сервера (напр. "ЗГС Байкеров Флориды") —
+//   сразу открываем его сервер и его сферу (в примере: Florida + bikers).
+// - Докатегорийные/безсерверные ГС/ЗГС (legacy, server === null) и все
+//   остальные роли (Следящий, Игрок, Лидер, Ютубер, полный доступ и т.д.) —
+//   дефолт: Texas + Государственные структуры.
+export function getDefaultOrgFilters(user) {
+  const DEFAULT = { server: 'texas', sphere: 'gov' }
+
+  if (!(isChief(user) || isDeputy(user))) return DEFAULT
+
+  const direction = getLeadershipDirection(user)
+  const server = getLeadershipServer(user)
+  if (!direction || !server) return DEFAULT // legacy безсерверная роль
+
+  return { server, sphere: direction }
+}
+
 export default {
   ROLE_FULL, ROLE_CHIEF, ROLE_DEPUTY, ROLE_WATCHER, ROLE_PLAYER, ROLE_YOUTUBER, LEADER_PREFIX,
   CHIEF_ROLES_BY_DIRECTION, DEPUTY_ROLES_BY_DIRECTION,
@@ -402,4 +420,5 @@ export default {
   getLeadershipDirection, getLeadershipServer, isGovLeadership, isRestrictedLeadership,
   canAccessServer,
   canViewAll, canIssueReprimand, canRemoveLeader, canEditRoles, canReviewNickRequests, canViewMenu,
+  getDefaultOrgFilters,
 }

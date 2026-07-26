@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { canRemoveLeader, SERVERS } from '../lib/roles'
+import { canRemoveLeader, SERVERS, getDefaultOrgFilters } from '../lib/roles'
 
 // ── Org icons ────────────────────────────────────────────────
 import icPolice  from '../assets/org-icons/police.png'
@@ -151,8 +151,13 @@ export default function Organizations({ user }) {
   const FLORIDA_BIKERS_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS0DhHN9TtdXH3xeRm_0Wec4P55UmQhAbLBOuLPLAGulKMMNnTFh3M8ORmmxwPxNeiPD60ba6cb0qr2/pub?gid=0&single=true&output=csv'
   const FLORIDA_BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzgAO03GU5LPX7cdZcnhZILpdM3iYbO_kOoRNBOWAqkRBr4xx4Q28bGXRol2l258VDPFg/exec'
 
-  const [serverId, setServerId] = useState(READY_SERVER_ID)
-  const [sphereId, setSphereId] = useState('gov')
+  // Дефолтные фильтры подбираются по роли: ГС/ЗГС конкретного направления+сервера
+  // (напр. "ЗГС Байкеров Флориды") сразу попадает на свой сервер и свою сферу.
+  // Остальные (докатегорийные ГС/ЗГС, Следящие, Игроки, Лидеры, полный доступ и т.д.)
+  // получают дефолт Texas + Государственные структуры.
+  const defaultOrgFilters = getDefaultOrgFilters(user)
+  const [serverId, setServerId] = useState(defaultOrgFilters.server)
+  const [sphereId, setSphereId] = useState(defaultOrgFilters.sphere)
   const isReady = READY_COMBOS.some(c => c.server === serverId && c.sphere === sphereId)
   const [orgs, setOrgs] = useState([])
   const [loading, setLoading] = useState(true)
