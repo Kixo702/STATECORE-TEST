@@ -392,6 +392,11 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const openModal = (initial = 'hero') => { 
     setStep(initial); 
     setShowModal(true); 
@@ -915,7 +920,7 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
       </div>
 
       {/* ── LIVE MONITORING ── */}
-      <section className="land-section-pad" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'88px 24px 0' }}>
+      <section id="мониторинг" className="land-section-pad" style={{ position:'relative', zIndex:1, maxWidth:1280, margin:'0 auto', padding:'88px 24px 0' }}>
         <div className="land-hero-grid" style={{ display:'grid', gridTemplateColumns:'0.95fr 1.05fr', gap:56, alignItems:'center' }}>
           <div style={{ position:'relative' }}>
             <div style={{ position:'absolute', inset:-2, borderRadius:24, background:`linear-gradient(120deg, ${hexToRgba(T.primary,.18)}, transparent 45%, transparent 55%, ${hexToRgba(T.blue,.12)})`, filter:'blur(20px)', opacity:.5, zIndex:-1 }}/>
@@ -1128,7 +1133,9 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
               </p>
               <div style={{ display:'flex', gap:9 }}>
                 {[IC.discord(15), IC.mail(15)].map((icon, i) => (
-                  <div key={i} style={{
+                  <div key={i}
+                  onClick={() => alert('Поддержка: обратитесь к Главному Следящему или в Discord-сервер администрации.')}
+                  style={{
                     width:32, height:32, borderRadius:9, background:'rgba(255,255,255,.05)', border:`1px solid ${T.glassBorder}`,
                     display:'flex', alignItems:'center', justifyContent:'center', color:T.ink3, cursor:'pointer', transition:'all .2s',
                   }}
@@ -1142,19 +1149,32 @@ export default function Landing({ onLogin, currentUser, onLogout, onOpenApp }) {
             </div>
 
             {[
-              { title:'Навигация', links:['Возможности','Организации','FAQ'] },
-              { title:'Система', links:['Мониторинг','Лидеры','Реестр запретов'] },
-              { title:'Доступ', links:['Войти','Регистрация','Поддержка'] },
+              { title:'Навигация', links:[
+                { label:'Возможности', action:() => scrollToSection('возможности') },
+                { label:'Организации', action:() => scrollToSection('организации') },
+                { label:'FAQ', action:() => scrollToSection('faq') },
+              ]},
+              { title:'Система', links:[
+                { label:'Мониторинг', action:() => scrollToSection('мониторинг') },
+                { label:'Лидеры', action:() => (currentUser ? (onOpenApp && onOpenApp()) : openModal('login')) },
+                { label:'Реестр запретов', action:() => (currentUser ? (onOpenApp && onOpenApp()) : openModal('login')) },
+              ]},
+              { title:'Доступ', links:[
+                { label:'Войти', action:() => openModal('login') },
+                { label:'Регистрация', action:() => openModal('register') },
+                { label:'Поддержка', action:() => alert('Поддержка: обратитесь к Главному Следящему или в Discord-сервер администрации.') },
+              ]},
             ].map(col => (
               <div key={col.title}>
                 <div style={{ fontSize:11.5, fontWeight:600, textTransform:'uppercase', letterSpacing:'.4px', color:T.ink3, marginBottom:16 }}>{col.title}</div>
                 {col.links.map(l => (
                   <div
-                    key={l}
+                    key={l.label}
+                    onClick={l.action}
                     style={{ fontSize:13.5, color:T.ink2, marginBottom:12, cursor:'pointer', transition:'color .15s' }}
                     onMouseEnter={e => e.currentTarget.style.color=T.ink}
                     onMouseLeave={e => e.currentTarget.style.color=T.ink2}
-                  >{l}</div>
+                  >{l.label}</div>
                 ))}
               </div>
             ))}
