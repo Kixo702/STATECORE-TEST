@@ -149,7 +149,7 @@ export default function Organizations({ user }) {
   const FLORIDA_MAFIA_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTW7Q7m29fHn6u9D-GYSHWe4NiXuK2ld2K8MOGEWQitE7jUzrTWi1aBl_ud6FbX2Vtl5ERZm9V-MvtC/pub?gid=0&single=true&output=csv'
   const FLORIDA_MAFIA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyqWwbrvdN4NWjebG-3NolDdrrRJd0ohBP2M620ZWG1lcibYVa6pYRB2cI_4T2XBYSu/exec'
   const FLORIDA_BIKERS_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS0DhHN9TtdXH3xeRm_0Wec4P55UmQhAbLBOuLPLAGulKMMNnTFh3M8ORmmxwPxNeiPD60ba6cb0qr2/pub?gid=0&single=true&output=csv'
-  const FLORIDA_BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYt22ObEnvk01Qxh0vcgO4C3XfTVsRjeLmEjT8MSiiQCgJ1tYozkEpvgh_UDqXROR_lQ/exec'
+  const FLORIDA_BIKERS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7k-RlEzuzfHLQtanbbLdhGuweFeOkO5bi_USNDAlJpAdFjTqCVnw_RxTr2klJN0DCjA/exec'
 
   const [serverId, setServerId] = useState(READY_SERVER_ID)
   const [sphereId, setSphereId] = useState('gov')
@@ -290,11 +290,10 @@ export default function Organizations({ user }) {
       }
     })
   }
-  // Florida — байкеры: 3 организации, строки 7/8/9. Колонки (та же
-  // раскладка, что и у Florida-мафий): C-ник, D-организация (название
-  // байкерского клуба), E-вк, F-строгие выговоры, G-устные выговоры,
-  // H-штрафные баллы, I-баллы, J-дата назначения, K-дата снятия.
-  // L ("Стоит уже") — справочная формула, в парсинге не участвует.
+  // Florida — байкеры: 3 организации, строки 7/8/9. Колонки: B-ник,
+  // C-организация (название байкерского клуба), D-вк, E-строгие выговоры,
+  // F-устные выговоры, G-штрафные баллы, H-баллы, I-дата назначения,
+  // J-дата снятия. "Стоит уже" — справочная формула, в парсинге не участвует.
   const loadFloridaBikers = async () => {
     const res = await fetch(`${FLORIDA_BIKERS_SHEETS_URL}&cacheBust=${Date.now()}`)
     const csv = await res.text()
@@ -304,15 +303,15 @@ export default function Organizations({ user }) {
       const row = rows[rowNum - 1] || []
       return {
         id: rowNum,
-        name: c(row[3]) || `Байкеры (стр. ${rowNum})`,                 // D
-        leader: c(row[2]) || 'Вакантно',                                // C
-        vk: c(row[4]) || '—',                                            // E
-        penalty: c(row[7]) || '—',                                       // H — штрафные баллы
-        points: c(row[8]) || '—',                                         // I — баллы
-        strict: Number((c(row[5]) || '0/3').split('/')[0]) || 0,           // F
-        oral:   Number((c(row[6]) || '0/3').split('/')[0]) || 0,           // G
-        appointDate: c(row[9])  || '-',                                     // J
-        expiryDate:  c(row[10]) || '-',                                     // K
+        name: c(row[2]) || `Байкеры (стр. ${rowNum})`,                 // C
+        leader: c(row[1]) || 'Вакантно',                                // B
+        vk: c(row[3]) || '—',                                            // D
+        penalty: c(row[6]) || '—',                                       // G — штрафные баллы
+        points: c(row[7]) || '—',                                         // H — баллы
+        strict: Number((c(row[4]) || '0/3').split('/')[0]) || 0,           // E
+        oral:   Number((c(row[5]) || '0/3').split('/')[0]) || 0,           // F
+        appointDate: c(row[8]) || '-',                                     // I
+        expiryDate:  c(row[9]) || '-',                                     // J
       }
     })
   }
