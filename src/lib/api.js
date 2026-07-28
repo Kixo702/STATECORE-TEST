@@ -1,6 +1,6 @@
 // src/lib/api.js
 
-const API_BASE = (import.meta.env.VITE_API_BASE || 'https://statecore-api.onrender.com/api').replace(/\/$/, '')
+const API_BASE = (import.meta.env.VITE_API_BASE || 'https://statecore-proxy.kaitolawliet52.workers.dev/api').replace(/\/$/, '')
 
 export async function api(path, options = {}) {
   const token = localStorage.getItem('statecore_token')

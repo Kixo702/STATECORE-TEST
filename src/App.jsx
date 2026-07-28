@@ -43,7 +43,7 @@ import CadreAudit from './components/CadreAudit'
 import Maintenance from './components/Maintenance'
 import WelcomeToast from './components/WelcomeToast'
 
-const MAINTENANCE_MODE = false
+const MAINTENANCE_MODE = true
 const MAINTENANCE_MESSAGE = null
 const MAINTENANCE_ETA = null
 
